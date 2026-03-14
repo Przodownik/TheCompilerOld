@@ -9,6 +9,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
+set(CMAKE_COLOR_DIAGNOSTICS ON)
+
 option(COMPILE_COMMANDS "Generate compile_commands.json" OFF)
 
 # -----------------------------------------------------------------------------
@@ -60,6 +62,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
         -Wstrict-prototypes
         -Wmissing-prototypes
         -fcolor-diagnostics
+        -fansi-escape-codes
     )
 
     add_compile_options(
@@ -72,6 +75,46 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
         $<$<CONFIG:Release>:-flto>
     )
 
+    add_link_options(
+        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+        $<$<CONFIG:Release>:-flto>
+    )
+elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(
+        -Wall
+        -Wextra
+        -Wpedantic
+        # -Werror
+        -Wshadow
+        -Wcast-align
+        -Wunused
+        -Wconversion
+        -Wsign-conversion
+        -Wnull-dereference
+        -Wdouble-promotion
+        -Wformat=2
+        -Wimplicit-fallthrough
+        -Wmisleading-indentation
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wextra-semi
+        -Wstrict-prototypes
+        -Wmissing-prototypes
+        -Wjump-misses-init
+        -Wstringop-overflow=4
+        -fdiagnostics-color=always
+    )
+    add_compile_options(
+        $<$<CONFIG:Debug>:-g3>
+        $<$<CONFIG:Debug>:-O0>
+        $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-DNDEBUG>
+        $<$<CONFIG:Release>:-flto>
+        $<$<CONFIG:Release>:-march=native>
+    )
     add_link_options(
         $<$<CONFIG:Debug>:-fsanitize=address,undefined>
         $<$<CONFIG:Release>:-flto>
