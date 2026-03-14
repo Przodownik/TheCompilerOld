@@ -11,7 +11,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
-option(COMPILE_COMMANDS "Generate compile_commands.json" OFF)
+option(COMPILE_COMMANDS "Generate compile_commands.json" ON)
 
 # -----------------------------------------------------------------------------
 
@@ -63,20 +63,23 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
         -Wmissing-prototypes
         -fcolor-diagnostics
         -fansi-escape-codes
+
+        -Wno-keyword-macro
+        -Wno-unused-function
     )
 
     add_compile_options(
         $<$<CONFIG:Debug>:-g>
         $<$<CONFIG:Debug>:-O0>
         $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
-        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+        # $<$<CONFIG:Debug>:-fsanitize=address,undefined>
         $<$<CONFIG:Release>:-O3>
         $<$<CONFIG:Release>:-DNDEBUG>
         $<$<CONFIG:Release>:-flto>
     )
 
     add_link_options(
-        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+        # $<$<CONFIG:Debug>:-fsanitize=address,undefined>
         $<$<CONFIG:Release>:-flto>
     )
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -130,7 +133,7 @@ add_compile_definitions(
     $<$<CONFIG:MinSizeRel>:BUILD_MINSIZEREL>
 )
 
-set(DEMO_PATH ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/demo/)
+set(DEMO_PATH ${CMAKE_CURRENT_SOURCE_DIR}/demo/)
 add_compile_definitions(DEMO_PATH="${DEMO_PATH}")
 message(STATUS "Demos path: ${DEMO_PATH}")
 
