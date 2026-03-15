@@ -41,3 +41,7 @@ static_assert(sizeof(f32) == 4, "f32 is not 4 bytes");
 static_assert(sizeof(f64) == 8, "f64 is not 8 bytes");
 
 #define nullptr NULL
+
+#define KB(x) ((x) * 1024)
+#define MB(x) (KB(x) * 1024)
+#define GB(x) (MB(x) * 1024)

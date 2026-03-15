@@ -30,3 +30,8 @@ StringView string_view_from_cstr(const char* str)
 {
 	return (StringView){.data = str, .len = strlen(str)};
 }
+
+StringView string_view_from_cstr_part(const char* str, u64 len)
+{
+	return (StringView){.data = str, .len = len};
+}

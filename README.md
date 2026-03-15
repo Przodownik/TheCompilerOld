@@ -9,6 +9,7 @@ cmake --build build --config Debug
 
 cmake -G "Unix Makefiles" -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug
 
+cls; if ($?) { cmake --build build --config Debug }; if ($?) { .\bin\Debug\Wandelt.exe }
 ```
 
 ```

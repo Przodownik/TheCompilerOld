@@ -29,3 +29,4 @@ typedef struct StringView
 } StringView;
 
 StringView string_view_from_cstr(const char* str);
+StringView string_view_from_cstr_part(const char* str, u64 len);

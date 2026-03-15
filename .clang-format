@@ -20,4 +20,4 @@ IndentPPDirectives: BeforeHash
 Standard: c++20
 AllowShortFunctionsOnASingleLine: InlineOnly
 InsertNewlineAtEOF: true
-ColumnLimit: 150
+ColumnLimit: 120
