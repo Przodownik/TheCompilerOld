@@ -26,6 +26,8 @@ typedef enum TokenType
 	TOKEN_TYPE_COUNT
 } TokenType;
 
+const char* token_type_to_cstr(TokenType type);
+
 typedef struct Span
 {
 	u32 begin;

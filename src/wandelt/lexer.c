@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include "wandelt/string.h"
+#include <stdio.h>
 
 #define lexer_get_current_char(lexer)  (*(lexer)->current_char)
 #define lexer_get_previous_char(lexer) (*((lexer)->current_char - 1))
@@ -42,8 +43,8 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 
 	Token result = invalid_token;
 
-	const char* saved_current_char  = lexer->current_char;
-	u32 saved_lexing_start_offset   = lexer->lexing_start_offset;
+	const char* saved_current_char = lexer->current_char;
+	u32 saved_lexing_start_offset  = lexer->lexing_start_offset;
 
 	for (i32 i = 0; i < offset; i++)
 	{
@@ -60,11 +61,15 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 void lexer_debug_print_token(Lexer* lexer, Token token)
 {
 	FileLocation loc = file_resolve_location(lexer->file_to_lex, token.span.begin);
-	u32 tok_length    = token.span.end - token.span.begin;
+	u32 tok_length   = token.span.end - token.span.begin;
 
-	printf("<Parsed token: \"%.*s\" at %.*s:%u:%u />\n",
-	       FMT_STR_ARG(file_get_part_of_content(lexer->file_to_lex, token.span.begin, tok_length)),
-	       FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
+	char loc_buf[64];
+	_snprintf_s(loc_buf, sizeof(loc_buf), _TRUNCATE, "%.*s:%u:%u",
+	           FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
+
+	printf("| %-22s | %-20s | %.*s\n",
+	       token_type_to_cstr(token.type), loc_buf,
+	       FMT_STR_ARG(file_get_part_of_content(lexer->file_to_lex, token.span.begin, tok_length)));
 }
 
 void _lexer_advance(Lexer* lexer)
@@ -96,7 +101,7 @@ void _lexer_skip_whitespace(Lexer* lexer)
 Token _lexer_create_new_token(Lexer* lexer, TokenType type)
 {
 	Span span = (Span){.begin = lexer->lexing_start_offset,
-	                    .end   = (u32)(lexer->current_char - lexer->file_to_lex->content.data)};
+	                   .end   = (u32)(lexer->current_char - lexer->file_to_lex->content.data)};
 
 	return (Token){.type = type, .span = span};
 }
@@ -174,7 +179,7 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 
 	if (token.type == TOKEN_TYPE_INVALID)
 	{
-		Token tok          = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+		Token tok        = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
 		FileLocation loc = file_resolve_location(lexer->file_to_lex, tok.span.begin);
 
 		printf("Invalid character '%c' at %.*s:%u:%u\n", c, FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
@@ -183,4 +188,31 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 	}
 
 	return token;
+}
+
+const char* token_type_to_cstr(TokenType type)
+{
+	switch (type)
+	{
+	case TOKEN_TYPE_INVALID:
+		return "TOKEN_TYPE_INVALID";
+	case TOKEN_TYPE_OPEN_PAREN:
+		return "TOKEN_TYPE_OPEN_PAREN";
+	case TOKEN_TYPE_CLOSE_PAREN:
+		return "TOKEN_TYPE_CLOSE_PAREN";
+	case TOKEN_TYPE_OPEN_BRACE:
+		return "TOKEN_TYPE_OPEN_BRACE";
+	case TOKEN_TYPE_CLOSE_BRACE:
+		return "TOKEN_TYPE_CLOSE_BRACE";
+	case TOKEN_TYPE_SEMICOLON:
+		return "TOKEN_TYPE_SEMICOLON";
+	case TOKEN_TYPE_IDENTIFIER:
+		return "TOKEN_TYPE_IDENTIFIER";
+	case TOKEN_TYPE_INTEGER:
+		return "TOKEN_TYPE_INTEGER";
+	case TOKEN_TYPE_EOF:
+		return "TOKEN_TYPE_EOF";
+	default:
+		return "UNKNOWN_TOKEN_TYPE";
+	}
 }
