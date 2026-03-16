@@ -5,7 +5,7 @@
 
 int main(void)
 {
-	Allocator heap  = allocator_get_heap_allocator();
+	Allocator heap         = allocator_get_heap_allocator();
 	Allocator string_arena = allocator_get_arena_allocator(&heap, MB(12));
 
 	String demo_filepath = string_from_cstr(&string_arena, DEMO_PATH "main.wdt");
@@ -19,8 +19,7 @@ int main(void)
 		const Token tok = lexer_peek_token(&lexer);
 		lexer_eat_token(&lexer);
 
-		printf("<Parsed token: \"%.*s\" at %.*s:%u:%u />\n", FMT_STR_ARG(tok.lexeme),
-		       FMT_STR_ARG(tok.source_location.filename), tok.source_location.start_row, tok.source_location.start_col);
+		lexer_debug_print_token(&lexer, tok);
 	}
 
 	printf("Lexing finished successfully!\n");

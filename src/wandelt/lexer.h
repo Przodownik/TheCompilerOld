@@ -6,7 +6,6 @@
 #pragma once
 
 #include "wandelt/file.h"
-#include "wandelt/string.h"
 
 typedef enum TokenType
 {
@@ -27,20 +26,16 @@ typedef enum TokenType
 	TOKEN_TYPE_COUNT
 } TokenType;
 
-typedef struct SourceLocation
+typedef struct Span
 {
-	u32 start_row;
-	u32 start_col;
-	u32 end_row;
-	u32 end_col;
-	String filename;
-} SourceLocation;
+	u32 begin;
+	u32 end;
+} Span;
 
 typedef struct Token
 {
 	TokenType type;
-	SourceLocation source_location;
-	StringView lexeme;
+	Span span;
 } Token;
 
 typedef struct Lexer
@@ -49,22 +44,19 @@ typedef struct Lexer
 
 	Token cached_token;
 
-	const char* current_char;    // The current character being lexed
-	const char* lexing_start;    // The start of the current token being lexed
-	const char* line_start_char; // The start of the current line being lexed
-
-	u32 current_row;
-	u32 lexing_start_row;
+	const char* current_char; // The current character being lexed
+	u32 lexing_start_offset;
 } Lexer;
 
 Lexer lexer_create(File* file_to_lex);
 void lexer_eat_token(Lexer* lexer);
 Token lexer_peek_token(Lexer* lexer);
 Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset);
+void lexer_debug_print_token(Lexer* lexer, Token token);
 
 void _lexer_advance(Lexer* lexer);
 void _lexer_skip_whitespace(Lexer* lexer);
-Token _lexer_create_new_token(Lexer* lexer, TokenType type, StringView lexeme);
+Token _lexer_create_new_token(Lexer* lexer, TokenType type);
 Token _lexer_lex_identifier_or_keyword(Lexer* lexer);
 Token _lexer_lex_digit(Lexer* lexer);
 Token _lexer_lex_token(Lexer* lexer);

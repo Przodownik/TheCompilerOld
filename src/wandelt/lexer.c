@@ -15,12 +15,9 @@ static Token invalid_token = {.type = TOKEN_TYPE_INVALID};
 Lexer lexer_create(File* file_to_lex)
 {
 	return (Lexer){
-	    .file_to_lex     = file_to_lex,
-	    .cached_token    = invalid_token,
-	    .current_char    = file_to_lex->content.data,
-	    .lexing_start    = file_to_lex->content.data,
-	    .line_start_char = file_to_lex->content.data,
-	    .current_row     = 1u,
+	    .file_to_lex  = file_to_lex,
+	    .cached_token = invalid_token,
+	    .current_char = file_to_lex->content.data,
 	};
 }
 
@@ -45,10 +42,8 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 
 	Token result = invalid_token;
 
-	const char* saved_current_char    = lexer->current_char;
-	const char* saved_lexing_start    = lexer->lexing_start;
-	const char* saved_line_start_char = lexer->line_start_char;
-	u32 saved_current_row             = lexer->current_row;
+	const char* saved_current_char  = lexer->current_char;
+	u32 saved_lexing_start_offset   = lexer->lexing_start_offset;
 
 	for (i32 i = 0; i < offset; i++)
 	{
@@ -56,24 +51,26 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 		result = lexer_peek_token(lexer);
 	}
 
-	lexer->current_char    = saved_current_char;
-	lexer->lexing_start    = saved_lexing_start;
-	lexer->line_start_char = saved_line_start_char;
-	lexer->current_row     = saved_current_row;
+	lexer->current_char        = saved_current_char;
+	lexer->lexing_start_offset = saved_lexing_start_offset;
 
 	return result;
+}
+
+void lexer_debug_print_token(Lexer* lexer, Token token)
+{
+	FileLocation loc = file_resolve_location(lexer->file_to_lex, token.span.begin);
+	u32 tok_length    = token.span.end - token.span.begin;
+
+	printf("<Parsed token: \"%.*s\" at %.*s:%u:%u />\n",
+	       FMT_STR_ARG(file_get_part_of_content(lexer->file_to_lex, token.span.begin, tok_length)),
+	       FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
 }
 
 void _lexer_advance(Lexer* lexer)
 {
 	if (lexer_is_eof(lexer))
 		return;
-
-	if (lexer_is_at_newline(lexer))
-	{
-		lexer->line_start_char = lexer->current_char + 1;
-		lexer->current_row++;
-	}
 
 	lexer->current_char++;
 }
@@ -96,15 +93,12 @@ void _lexer_skip_whitespace(Lexer* lexer)
 	}
 }
 
-Token _lexer_create_new_token(Lexer* lexer, TokenType type, StringView lexeme)
+Token _lexer_create_new_token(Lexer* lexer, TokenType type)
 {
-	SourceLocation location = (SourceLocation){.start_row = lexer->lexing_start_row,
-	                                           .start_col = (u32)(lexer->lexing_start - lexer->line_start_char) + 1,
-	                                           .end_row   = lexer->current_row,
-	                                           .end_col   = (u32)(lexer->current_char - lexer->line_start_char) + 1,
-	                                           .filename  = lexer->file_to_lex->name};
+	Span span = (Span){.begin = lexer->lexing_start_offset,
+	                    .end   = (u32)(lexer->current_char - lexer->file_to_lex->content.data)};
 
-	return (Token){.type = type, .lexeme = lexeme, .source_location = location};
+	return (Token){.type = type, .span = span};
 }
 
 Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
@@ -115,10 +109,7 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 		_lexer_advance(lexer);
 	}
 
-	u32 lexeme_length = (u32)(lexer->current_char - lexer->lexing_start);
-	StringView lexeme = string_view_from_cstr_part(lexer->lexing_start, lexeme_length);
-
-	return _lexer_create_new_token(lexer, TOKEN_TYPE_IDENTIFIER, lexeme);
+	return _lexer_create_new_token(lexer, TOKEN_TYPE_IDENTIFIER);
 }
 
 Token _lexer_lex_digit(Lexer* lexer)
@@ -128,38 +119,22 @@ Token _lexer_lex_digit(Lexer* lexer)
 		_lexer_advance(lexer);
 	}
 
-	u32 lexeme_length = (u32)(lexer->current_char - lexer->lexing_start);
-	StringView lexeme = string_view_from_cstr_part(lexer->lexing_start, lexeme_length);
-
-	return _lexer_create_new_token(lexer, TOKEN_TYPE_INTEGER, lexeme);
+	return _lexer_create_new_token(lexer, TOKEN_TYPE_INTEGER);
 }
 
 Token _lexer_lex_token(Lexer* lexer)
 {
-	Token token = _lexer_lex_token_internal(lexer);
-	if (token.type != TOKEN_TYPE_INVALID)
-		return token;
-
-	lexer_eat_token(lexer);
-
-	while (token.type != TOKEN_TYPE_EOF)
-	{
-		token = lexer_peek_token(lexer);
-		lexer_eat_token(lexer);
-	}
-
-	exit(-1);
+	return _lexer_lex_token_internal(lexer);
 }
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
 	_lexer_skip_whitespace(lexer);
 
-	lexer->lexing_start     = lexer->current_char;
-	lexer->lexing_start_row = lexer->current_row;
+	lexer->lexing_start_offset = (u32)(lexer->current_char - lexer->file_to_lex->content.data);
 
 	if (lexer_is_eof(lexer))
-		return _lexer_create_new_token(lexer, TOKEN_TYPE_EOF, string_view_from_cstr("EOF"));
+		return _lexer_create_new_token(lexer, TOKEN_TYPE_EOF);
 
 	Token token = invalid_token;
 
@@ -169,19 +144,19 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 	switch (c)
 	{
 	case '(':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_OPEN_PAREN, string_view_from_cstr("("));
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_OPEN_PAREN);
 		break;
 	case ')':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_CLOSE_PAREN, string_view_from_cstr(")"));
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_CLOSE_PAREN);
 		break;
 	case '{':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_OPEN_BRACE, string_view_from_cstr("{"));
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_OPEN_BRACE);
 		break;
 	case '}':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_CLOSE_BRACE, string_view_from_cstr("}"));
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_CLOSE_BRACE);
 		break;
 	case ';':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SEMICOLON, string_view_from_cstr(";"));
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SEMICOLON);
 		break;
 
 	default:
@@ -199,11 +174,10 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 
 	if (token.type == TOKEN_TYPE_INVALID)
 	{
-		Token tok =
-		    _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID, string_view_from_cstr_part(lexer->current_char, 1));
+		Token tok          = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+		FileLocation loc = file_resolve_location(lexer->file_to_lex, tok.span.begin);
 
-		printf("Invalid character '%c' at %.*s:%u:%u\n", c, FMT_STR_ARG(lexer->file_to_lex->name),
-		       tok.source_location.start_row, tok.source_location.start_col);
+		printf("Invalid character '%c' at %.*s:%u:%u\n", c, FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
 
 		return tok;
 	}

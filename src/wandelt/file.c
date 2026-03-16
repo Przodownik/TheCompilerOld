@@ -8,10 +8,9 @@
 File file_create(Allocator* alloc, String path)
 {
 	File result;
-	result.alloc      = alloc;
-	result.name       = string_from_cstr(alloc, strrchr(path.data, '/') ? strrchr(path.data, '/') + 1 : path.data);
-	result.path       = path;
-	result.total_rows = 0;
+	result.alloc = alloc;
+	result.name  = string_from_cstr(alloc, strrchr(path.data, '/') ? strrchr(path.data, '/') + 1 : path.data);
+	result.path  = path;
 
 	FILE* file  = nullptr;
 	errno_t err = fopen_s(&file, path.data, "rb");
@@ -32,17 +31,6 @@ File file_create(Allocator* alloc, String path)
 
 	fclose(file);
 
-	// Count the number of lines in the file
-	u64 i = 0;
-	for (; i + 4 <= file_size; i += 4)
-	{
-		result.total_rows += (result.content.data[i] == '\n') + (result.content.data[i + 1] == '\n') +
-		                     (result.content.data[i + 2] == '\n') + (result.content.data[i + 3] == '\n');
-	}
-	for (; i < file_size; i++)
-		if (result.content.data[i] == '\n')
-			result.total_rows++;
-
 	return result;
 }
 
@@ -51,12 +39,39 @@ void file_print_info(const File* file)
 	printf("File '%s' info:\n", file->name.data);
 	printf("- Path: %s\n", file->path.data);
 	printf("- Size: %llu bytes\n", file->content_size);
-	printf("- Total rows: %u\n", file->total_rows);
 }
 
 void file_destroy(File* file)
 {
 	string_free(&file->content);
+}
+
+StringView file_get_part_of_content(const File* file, u32 start, u32 length)
+{
+	ASSERT(start + length <= file->content_size, "Requested part of content is out of bounds");
+
+	return string_view_from_cstr_part(file->content.data + start, length);
+}
+
+FileLocation file_resolve_location(const File* file, u32 offset)
+{
+	u32 row = 1;
+	u32 col = 1;
+
+	for (u32 i = 0; i < offset && i < file->content_size; i++)
+	{
+		if (file->content.data[i] == '\n')
+		{
+			row++;
+			col = 1;
+		}
+		else
+		{
+			col++;
+		}
+	}
+
+	return (FileLocation){.row = row, .col = col};
 }
 
 bool does_file_exist(String path)
