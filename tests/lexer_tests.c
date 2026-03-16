@@ -32,14 +32,22 @@ static double timespec_diff_ms(struct timespec* start, struct timespec* end)
 	static void run_test_##name(Allocator* alloc)                                                                     \
 	{                                                                                                                 \
 		g_tests_run++;                                                                                                \
+		int _failed_before = g_tests_failed;                                                                          \
 		struct timespec _start, _end;                                                                                 \
 		timespec_get(&_start, TIME_UTC);                                                                              \
 		printf("  %-50s", #name);                                                                                     \
 		test_##name(alloc);                                                                                           \
 		timespec_get(&_end, TIME_UTC);                                                                                \
 		double _ms = timespec_diff_ms(&_start, &_end);                                                                \
-		g_tests_passed++;                                                                                             \
-		printf(ANSI_COLOR_GREEN "PASS" ANSI_COLOR_RESET ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);      \
+		if (g_tests_failed == _failed_before)                                                                         \
+		{                                                                                                             \
+			g_tests_passed++;                                                                                         \
+			printf(ANSI_COLOR_GREEN "PASS" ANSI_COLOR_RESET ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);  \
+		}                                                                                                             \
+		else                                                                                                          \
+		{                                                                                                             \
+			printf(ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);                                           \
+		}                                                                                                             \
 	}                                                                                                                 \
 	static void test_##name(Allocator* alloc)
 
