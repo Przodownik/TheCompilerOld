@@ -1,11 +1,12 @@
 #include "memory.h"
+#include "defines.h"
 
 static void* heap_alloc(void* ctx, u64 size)
 {
 	(void)ctx;
 
 	void* memory = calloc(1, size);
-	assert(memory != nullptr && "Failed to allocate memory!");
+	ASSERT(memory != nullptr, "Failed to allocate memory!");
 
 	return memory;
 }
@@ -16,7 +17,7 @@ static void* heap_realloc(void* ctx, void* ptr, u64 old_size, u64 new_size)
 	(void)old_size;
 
 	void* memory = realloc(ptr, new_size);
-	assert(memory != nullptr && "Failed to reallocate memory!");
+	ASSERT(memory != nullptr, "Failed to reallocate memory!");
 
 	return memory;
 }
@@ -55,14 +56,14 @@ Allocator allocator_get_heap_allocator()
 
 static void* arena_allocate(void* ctx, u64 size)
 {
-	assert(size > 0 && "Cannot allocate <0 bytes");
-	assert(ctx != nullptr && "Context is nullptr");
+	ASSERT(size > 0, "Cannot allocate <0 bytes");
+	ASSERT(ctx != nullptr, "Context is nullptr");
 
 	ArenaAllocator* arena = (ArenaAllocator*)ctx;
 
 	size = (size + 15u) & ~(u64)15; // round up to 16 bytes
 
-	assert(arena->used + size <= arena->size && "Arena allocator' is out of memory");
+	ASSERT(arena->used + size <= arena->size, "Arena allocator' is out of memory");
 
 	void* ptr = (u8*)arena->memory + arena->used;
 
@@ -74,7 +75,7 @@ static void* arena_allocate(void* ctx, u64 size)
 
 static void* arena_realloc(void* ctx, void* ptr, u64 old_size, u64 new_size)
 {
-	assert(ctx != nullptr && "Context is nullptr");
+	ASSERT(ctx != nullptr, "Context is nullptr");
 	ArenaAllocator* arena = (ArenaAllocator*)ctx;
 
 	void* new_ptr = arena_allocate(arena, new_size);
@@ -97,7 +98,7 @@ static void arena_free(void* ctx, void* ptr, u64 size)
 
 static void arena_reset(void* ctx)
 {
-	assert(ctx != nullptr && "Context is nullptr");
+	ASSERT(ctx != nullptr, "Context is nullptr");
 
 	ArenaAllocator* arena = (ArenaAllocator*)ctx;
 
@@ -107,7 +108,7 @@ static void arena_reset(void* ctx)
 
 static void arena_release(void* ctx)
 {
-	assert(ctx != nullptr && "Context is nullptr");
+	ASSERT(ctx != nullptr, "Context is nullptr");
 
 	ArenaAllocator* arena = (ArenaAllocator*)ctx;
 	Allocator* base       = arena->base_allocator;
@@ -118,9 +119,9 @@ static void arena_release(void* ctx)
 
 Allocator allocator_get_arena_allocator(Allocator* base_allocator, u64 size)
 {
-	assert(base_allocator != nullptr && "Allocator is nullptr!");
-	assert(size > 0 && "Cannot create allocator with such size!");
-	assert(size % 16 == 0 && "Allocator size must be a multiple of 16 bytes!");
+	ASSERT(base_allocator != nullptr, "Allocator is nullptr!");
+	ASSERT(size > 0, "Cannot create allocator with %llu size!", size);
+	ASSERT(size % 16 == 0, "Allocator size must be a multiple of 16 bytes!");
 
 	ArenaAllocator* arena = base_allocator->alloc(base_allocator->ctx, sizeof(ArenaAllocator));
 
