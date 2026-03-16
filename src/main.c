@@ -6,10 +6,10 @@
 int main(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
-	Allocator arena = allocator_get_arena_allocator(&heap, MB(12));
+	Allocator string_arena = allocator_get_arena_allocator(&heap, MB(12));
 
-	String demo_filepath = string_from_cstr(&arena, DEMO_PATH "main.wdt");
-	File demo_file       = file_create(&arena, demo_filepath);
+	String demo_filepath = string_from_cstr(&string_arena, DEMO_PATH "main.wdt");
+	File demo_file       = file_create(&string_arena, demo_filepath);
 	file_print_info(&demo_file);
 
 	Lexer lexer = lexer_create(&demo_file);
@@ -23,9 +23,9 @@ int main(void)
 		       FMT_STR_ARG(tok.source_location.filename), tok.source_location.start_row, tok.source_location.start_col);
 	}
 
-	printf("Lexing finished successfully!");
+	printf("Lexing finished successfully!\n");
 
-	arena.release(arena.ctx);
+	string_arena.release(string_arena.ctx);
 	heap.release(heap.ctx);
 
 	return 0;
