@@ -149,3 +149,22 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
+
+# -----------------------------------------------------------------------------
+
+file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/wandelt/*.c
+    ${CMAKE_SOURCE_DIR}/src/wandelt/*.h
+)
+
+add_executable(lexer_tests
+    ${CMAKE_SOURCE_DIR}/tests/lexer_tests.c
+    ${LIB_SOURCES}
+)
+
+target_include_directories(lexer_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+enable_testing()
+add_test(NAME lexer_tests COMMAND lexer_tests)

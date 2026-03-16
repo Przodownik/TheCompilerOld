@@ -64,6 +64,7 @@ static_assert(sizeof(f64) == 8, "f64 is not 8 bytes");
 #define ANSI_BG_COLOR_MAGENTA "\x1b[45m"
 #define ANSI_BG_COLOR_CYAN    "\x1b[46m"
 #define ANSI_BG_COLOR_WHITE   "\x1b[47m"
+#define ANSI_COLOR_DIM        "\x1b[2m"
 #define ANSI_COLOR_RESET      "\x1b[0m"
 
 #define ASSERT_NO_MSG(condition)                                                                             \
