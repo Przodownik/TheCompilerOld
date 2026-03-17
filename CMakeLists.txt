@@ -66,6 +66,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 
         -Wno-keyword-macro
         -Wno-unused-function
+        -Wno-format-nonliteral
     )
 
     add_compile_options(

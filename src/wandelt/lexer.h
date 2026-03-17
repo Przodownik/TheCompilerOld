@@ -11,6 +11,14 @@ typedef enum TokenType
 {
 	TOKEN_TYPE_INVALID = 0,
 
+	// Keywords
+	TOKEN_TYPE_FUNCTION_KEYWORD,  // 'fn'
+	TOKEN_TYPE_RETURN_KEYWORD,    // 'return'
+	TOKEN_TYPE_NAMESPACE_KEYWORD, // 'namespace'
+
+	// Built-in types
+	TOKEN_TYPE_INT_KEYWORD, // 'int'
+
 	// Single-character token
 	TOKEN_TYPE_OPEN_PAREN,  //  (
 	TOKEN_TYPE_CLOSE_PAREN, //  )

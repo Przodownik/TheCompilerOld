@@ -1,5 +1,7 @@
 #include "lexer.h"
+#include "diagnostics.h"
 #include "wandelt/string.h"
+#include <assert.h>
 #include <stdio.h>
 
 #define lexer_get_current_char(lexer)  (*(lexer)->current_char)
@@ -64,11 +66,10 @@ void lexer_debug_print_token(Lexer* lexer, Token token)
 	u32 tok_length   = token.span.end - token.span.begin;
 
 	char loc_buf[64];
-	_snprintf_s(loc_buf, sizeof(loc_buf), _TRUNCATE, "%.*s:%u:%u",
-	           FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
+	_snprintf_s(loc_buf, sizeof(loc_buf), _TRUNCATE, "%.*s:%u:%u", FMT_STR_ARG(lexer->file_to_lex->name), loc.row,
+	            loc.col);
 
-	printf("| %-22s | %-20s | %.*s\n",
-	       token_type_to_cstr(token.type), loc_buf,
+	printf("| %-20s | %-20s | %.*s\n", token_type_to_cstr(token.type) + 11, loc_buf,
 	       FMT_STR_ARG(file_get_part_of_content(lexer->file_to_lex, token.span.begin, tok_length)));
 }
 
@@ -114,6 +115,31 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 		_lexer_advance(lexer);
 	}
 
+	u32 length       = (u32)(lexer->current_char - lexer->file_to_lex->content.data) - lexer->lexing_start_offset;
+	StringView ident = {.data = lexer->file_to_lex->content.data + lexer->lexing_start_offset, .len = length};
+
+	ASSERT(length > 0);
+
+	switch (ident.data[0])
+	{
+	case 'f':
+		if (strncmp(ident.data, "fn", ident.len) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_FUNCTION_KEYWORD);
+		break;
+	case 'r':
+		if (strncmp(ident.data, "return", ident.len) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_RETURN_KEYWORD);
+		break;
+	case 'n':
+		if (strncmp(ident.data, "namespace", ident.len) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_NAMESPACE_KEYWORD);
+		break;
+	case 'i':
+		if (strncmp(ident.data, "int", ident.len) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_INT_KEYWORD);
+		break;
+	}
+
 	return _lexer_create_new_token(lexer, TOKEN_TYPE_IDENTIFIER);
 }
 
@@ -129,11 +155,26 @@ Token _lexer_lex_digit(Lexer* lexer)
 
 Token _lexer_lex_token(Lexer* lexer)
 {
-	return _lexer_lex_token_internal(lexer);
+	Token token = _lexer_lex_token_internal(lexer);
+	if (token.type != TOKEN_TYPE_INVALID)
+		return token;
+
+	lexer_eat_token(lexer);
+
+	Token inv = token;
+	while (inv.type != TOKEN_TYPE_EOF)
+	{
+		inv = lexer_peek_token(lexer);
+		lexer_eat_token(lexer);
+	}
+
+	return token;
 }
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
+	static_assert(TOKEN_TYPE_COUNT == 13, "Update _lexer_lex_token_internal when adding new token types");
+
 	_lexer_skip_whitespace(lexer);
 
 	lexer->lexing_start_offset = (u32)(lexer->current_char - lexer->file_to_lex->content.data);
@@ -179,10 +220,8 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 
 	if (token.type == TOKEN_TYPE_INVALID)
 	{
-		Token tok        = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
-		FileLocation loc = file_resolve_location(lexer->file_to_lex, tok.span.begin);
-
-		printf("Invalid character '%c' at %.*s:%u:%u\n", c, FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
+		Token tok = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+		diagnostics_verror_along_span(tok.span, lexer->file_to_lex, "Invalid character '%c'", c);
 
 		return tok;
 	}
@@ -192,10 +231,23 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 
 const char* token_type_to_cstr(TokenType type)
 {
+	static_assert(TOKEN_TYPE_COUNT == 13, "Update token_type_to_cstr when adding new token types");
+
 	switch (type)
 	{
 	case TOKEN_TYPE_INVALID:
 		return "TOKEN_TYPE_INVALID";
+
+	case TOKEN_TYPE_FUNCTION_KEYWORD:
+		return "TOKEN_TYPE_FUNCTION_KEYWORD";
+	case TOKEN_TYPE_RETURN_KEYWORD:
+		return "TOKEN_TYPE_RETURN_KEYWORD";
+	case TOKEN_TYPE_NAMESPACE_KEYWORD:
+		return "TOKEN_TYPE_NAMESPACE_KEYWORD";
+
+	case TOKEN_TYPE_INT_KEYWORD:
+		return "TOKEN_TYPE_INT_KEYWORD";
+
 	case TOKEN_TYPE_OPEN_PAREN:
 		return "TOKEN_TYPE_OPEN_PAREN";
 	case TOKEN_TYPE_CLOSE_PAREN:
@@ -206,6 +258,7 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_CLOSE_BRACE";
 	case TOKEN_TYPE_SEMICOLON:
 		return "TOKEN_TYPE_SEMICOLON";
+
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
 	case TOKEN_TYPE_INTEGER:

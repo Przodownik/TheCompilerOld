@@ -127,6 +127,8 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
+static_assert(TOKEN_TYPE_COUNT == 13, "Update lexer tests when adding new token types");
+
 // --- Empty / whitespace-only inputs ----------------------------------------
 
 TEST(empty_input)
@@ -245,6 +247,44 @@ TEST(uppercase_identifier)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_IDENTIFIER);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "TOKEN_TYPE_EOF");
+}
+
+// --- Keywords --------------------------------------------------------------
+
+TEST(function_keyword)
+{
+	const char* src = "fn";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FUNCTION_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "fn");
+}
+
+TEST(return_keyword)
+{
+	const char* src = "return";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_RETURN_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "return");
+}
+
+TEST(namespace_keyword)
+{
+	const char* src = "namespace";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_NAMESPACE_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "namespace");
+}
+
+TEST(int_keyword)
+{
+	const char* src = "int";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INT_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "int");
 }
 
 // --- Integers --------------------------------------------------------------
@@ -426,6 +466,13 @@ int main(void)
 	RUN_TEST(single_char_identifier);
 	RUN_TEST(underscore_only_identifier);
 	RUN_TEST(uppercase_identifier);
+
+	print_section("Keywords");
+	RUN_TEST(function_keyword);
+	RUN_TEST(return_keyword);
+	RUN_TEST(namespace_keyword);
+	
+	RUN_TEST(int_keyword);
 
 	print_section("Integers");
 	RUN_TEST(single_digit);
