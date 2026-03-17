@@ -45,8 +45,9 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 
 	Token result = invalid_token;
 
-	const char* saved_current_char = lexer->current_char;
-	u32 saved_lexing_start_offset  = lexer->lexing_start_offset;
+	const char* saved_current_char      = lexer->current_char;
+	const u32 saved_lexing_start_offset = lexer->lexing_start_offset;
+	const Token saved_cached_token      = lexer->cached_token;
 
 	for (i32 i = 0; i < offset; i++)
 	{
@@ -56,6 +57,7 @@ Token lexer_peek_token_at_offset(Lexer* lexer, i32 offset)
 
 	lexer->current_char        = saved_current_char;
 	lexer->lexing_start_offset = saved_lexing_start_offset;
+	lexer->cached_token        = saved_cached_token;
 
 	return result;
 }
@@ -66,7 +68,7 @@ void lexer_debug_print_token(Lexer* lexer, Token token)
 	u32 tok_length   = token.span.end - token.span.begin;
 
 	char loc_buf[64];
-	_snprintf_s(loc_buf, sizeof(loc_buf), _TRUNCATE, "%.*s:%u:%u", FMT_STR_ARG(lexer->file_to_lex->name), loc.row,
+	snprintf(loc_buf, sizeof(loc_buf), "%.*s:%u:%u", FMT_STR_ARG(lexer->file_to_lex->name), loc.row,
 	            loc.col);
 
 	printf("| %-20s | %-20s | %.*s\n", token_type_to_cstr(token.type) + 11, loc_buf,
@@ -123,19 +125,19 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 	switch (ident.data[0])
 	{
 	case 'f':
-		if (strncmp(ident.data, "fn", ident.len) == 0)
+		if (ident.len == 2 && strncmp(ident.data, "fn", 2) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_FUNCTION_KEYWORD);
 		break;
 	case 'r':
-		if (strncmp(ident.data, "return", ident.len) == 0)
+		if (ident.len == 6 && strncmp(ident.data, "return", 6) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_RETURN_KEYWORD);
 		break;
 	case 'n':
-		if (strncmp(ident.data, "namespace", ident.len) == 0)
+		if (ident.len == 9 && strncmp(ident.data, "namespace", 9) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_NAMESPACE_KEYWORD);
 		break;
 	case 'i':
-		if (strncmp(ident.data, "int", ident.len) == 0)
+		if (ident.len == 3 && strncmp(ident.data, "int", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_INT_KEYWORD);
 		break;
 	}
@@ -159,16 +161,7 @@ Token _lexer_lex_token(Lexer* lexer)
 	if (token.type != TOKEN_TYPE_INVALID)
 		return token;
 
-	lexer_eat_token(lexer);
-
-	Token inv = token;
-	while (inv.type != TOKEN_TYPE_EOF)
-	{
-		inv = lexer_peek_token(lexer);
-		lexer_eat_token(lexer);
-	}
-
-	return token;
+	return _lexer_lex_token(lexer);
 }
 
 Token _lexer_lex_token_internal(Lexer* lexer)

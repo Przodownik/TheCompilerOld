@@ -19,14 +19,13 @@ int main(void)
 	Parser parser = parser_create(&stmt_arena, &decl_arena, &expr_arena, &lexer);
 
 	TranslationUnit tu = parser_parse(&parser);
+	ast_dump_statements(tu.statements);
 	if (diagnostics_has_errors())
 	{
 		printf("Compilation failed with %d error(s) and %d warning(s)\n", diagnostics_get_error_count(),
 		       diagnostics_get_warning_count());
 		return 1;
 	}
-
-	ast_dump_statements(tu.statements);
 
 	string_arena.release(string_arena.ctx);
 	stmt_arena.release(stmt_arena.ctx);

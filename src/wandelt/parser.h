@@ -5,11 +5,9 @@
  */
 #pragma once
 
-#include "defines.h"
 #include "wandelt/ast.h"
 #include "wandelt/memory.h"
 #include "wandelt/string.h"
-#include <assert.h>
 
 typedef struct TranslationUnit
 {
@@ -69,13 +67,3 @@ Expression* parser_parse_binary_expression(Parser* parser, Expression* left);
 
 bool parser_parse_token(Parser* parser, TokenType expected_type);
 bool parser_parse_identifier(Parser* parser, StringView* out_identifier);
-
-static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
-    [TOKEN_TYPE_PLUS]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_MINUS]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_STAR]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_SLASH]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_INTEGER] = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
-};
-
-static_assert(TOKEN_TYPE_COUNT == 17, "Update parse_rules when adding new token types");

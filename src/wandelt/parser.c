@@ -11,6 +11,8 @@ static Statement invalid_statement     = {.type = STATEMENT_TYPE_INVALID};
 static Declaration invalid_declaration = {.type = DECLARATION_TYPE_INVALID};
 static Expression invalid_expression   = {.type = EXPRESSION_TYPE_INVALID};
 
+static ParseRule parse_rules[TOKEN_TYPE_COUNT];
+
 #define new_statement(parser)   (parser)->stmt_allocator->alloc((parser)->stmt_allocator->ctx, sizeof(Statement))
 #define new_declaration(parser) (parser)->decl_allocator->alloc((parser)->decl_allocator->ctx, sizeof(Declaration))
 #define new_expression(parser)  (parser)->expr_allocator->alloc((parser)->expr_allocator->ctx, sizeof(Expression))
@@ -81,7 +83,7 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
-		                              "Expected an top-level statement, but found '%s'", token_type_to_cstr(tok.type));
+		                              "Expected a top-level statement, but found '%s'", token_type_to_cstr(tok.type));
 		break;
 	};
 
@@ -90,14 +92,22 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 void parser_recover_from_error(Parser* parser)
 {
-	parser_eat_token(parser);
-
 	while (parser_peek_token(parser).type != TOKEN_TYPE_EOF)
 	{
 		switch (parser_peek_token(parser).type)
 		{
-		case TOKEN_TYPE_FUNCTION_KEYWORD:
+		// Synchronize and skip past them and resume
+		case TOKEN_TYPE_SEMICOLON:
+			parser_eat_token(parser);
 			return;
+
+		// Synchronize and don't consume them
+		case TOKEN_TYPE_FUNCTION_KEYWORD:
+		case TOKEN_TYPE_RETURN_KEYWORD:
+		case TOKEN_TYPE_NAMESPACE_KEYWORD:
+		case TOKEN_TYPE_CLOSE_BRACE:
+			return;
+
 		default:
 			parser_eat_token(parser);
 			break;
@@ -328,3 +338,13 @@ bool parser_parse_identifier(Parser* parser, StringView* out_identifier)
 
 	return true;
 }
+
+static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
+    [TOKEN_TYPE_PLUS]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_MINUS]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_STAR]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_SLASH]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_INTEGER] = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+};
+
+static_assert(TOKEN_TYPE_COUNT == 17, "Update parse_rules when adding new token types");
