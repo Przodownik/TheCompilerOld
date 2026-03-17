@@ -17,6 +17,11 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT];
 #define new_declaration(parser) (parser)->decl_allocator->alloc((parser)->decl_allocator->ctx, sizeof(Declaration))
 #define new_expression(parser)  (parser)->expr_allocator->alloc((parser)->expr_allocator->ctx, sizeof(Expression))
 
+static StringView get_token_lexeme(Parser* parser, Token token)
+{
+	return file_get_part_of_content(parser->lexer->file_to_lex, token.span.begin, token.span.end - token.span.begin);
+}
+
 Parser parser_create(Allocator* stmt_allocator, Allocator* decl_allocator, Allocator* expr_allocator, Lexer* lexer)
 {
 	TranslationUnit tu;
@@ -83,7 +88,8 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
-		                              "Expected a top-level statement, but found '%s'", token_type_to_cstr(tok.type));
+		                              "Expected a top-level statement, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		break;
 	};
 
@@ -188,8 +194,8 @@ Declaration* parser_parse_declaration(Parser* parser)
 		return parser_parse_namespace_declaration(parser);
 
 	default:
-		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a declaration, but found '%s'",
-		                              token_type_to_cstr(tok.type));
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a declaration, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		break;
 	};
 
@@ -232,8 +238,8 @@ Expression* parser_parse_expression_with_precedence(Parser* parser, Precedence m
 	PrefixParseFn prefix_rule = parse_rules[tok.type].prefix;
 	if (prefix_rule == nullptr)
 	{
-		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected an expression, but found '%s'",
-		                              token_type_to_cstr(tok.type));
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected an expression, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		return &invalid_expression;
 	}
 
@@ -308,8 +314,9 @@ bool parser_parse_token(Parser* parser, TokenType expected_type)
 
 	if (tok.type != expected_type)
 	{
-		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected token '%s', but found '%s'",
-		                              token_type_to_cstr(expected_type), token_type_to_cstr(tok.type));
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected '%s', but found '%.*s'",
+		                              token_type_to_lexeme_cstr(expected_type),
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		return false;
 	}
 
@@ -324,8 +331,8 @@ bool parser_parse_identifier(Parser* parser, StringView* out_identifier)
 
 	if (tok.type != TOKEN_TYPE_IDENTIFIER)
 	{
-		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected an identifier, but found '%s'",
-		                              token_type_to_cstr(tok.type));
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected an identifier, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		return false;
 	}
 

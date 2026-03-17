@@ -281,8 +281,61 @@ const char* token_type_to_cstr(TokenType type)
 	case TOKEN_TYPE_EOF:
 		return "TOKEN_TYPE_EOF";
 	default:
-		return "UNKNOWN_TOKEN_TYPE";
+		break;
 	}
+
+	ASSERT(false, "Unknown token type");
+}
+
+const char* token_type_to_lexeme_cstr(TokenType type)
+{
+	static_assert(TOKEN_TYPE_COUNT == 17, "Update token_type_to_lexeme_cstr when adding new token types");
+
+	switch (type)
+	{
+	case TOKEN_TYPE_INVALID:
+		return "invalid";
+
+	case TOKEN_TYPE_FUNCTION_KEYWORD:
+		return "fn";
+	case TOKEN_TYPE_RETURN_KEYWORD:
+		return "return";
+	case TOKEN_TYPE_NAMESPACE_KEYWORD:
+		return "namespace";
+
+	case TOKEN_TYPE_INT_KEYWORD:
+		return "int";
+
+	case TOKEN_TYPE_OPEN_PAREN:
+		return "(";
+	case TOKEN_TYPE_CLOSE_PAREN:
+		return ")";
+	case TOKEN_TYPE_OPEN_BRACE:
+		return "{";
+	case TOKEN_TYPE_CLOSE_BRACE:
+		return "}";
+	case TOKEN_TYPE_SEMICOLON:
+		return ";";
+	case TOKEN_TYPE_PLUS:
+		return "+";
+	case TOKEN_TYPE_MINUS:
+		return "-";
+	case TOKEN_TYPE_STAR:
+		return "*";
+	case TOKEN_TYPE_SLASH:
+		return "/";
+
+	case TOKEN_TYPE_IDENTIFIER:
+		return "identifier";
+	case TOKEN_TYPE_INTEGER:
+		return "integer";
+	case TOKEN_TYPE_EOF:
+		return "EOF";
+	default:
+		break;
+	}
+
+	ASSERT(false, "Unknown token type");
 }
 
 Span span_extend(Span a, Span b)

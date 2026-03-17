@@ -39,6 +39,7 @@ typedef enum TokenType
 } TokenType;
 
 const char* token_type_to_cstr(TokenType type);
+const char* token_type_to_lexeme_cstr(TokenType type);
 
 typedef struct Span
 {
