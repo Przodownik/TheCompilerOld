@@ -22,6 +22,7 @@ typedef struct Parser
 	Allocator* expr_allocator;
 
 	Lexer* lexer;
+	Token previous_token;
 	TranslationUnit translation_unit;
 } Parser;
 

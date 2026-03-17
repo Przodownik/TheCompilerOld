@@ -68,6 +68,7 @@ Token parser_peek_token(Parser* parser)
 
 void parser_eat_token(Parser* parser)
 {
+	parser->previous_token = lexer_peek_token(parser->lexer);
 	lexer_eat_token(parser->lexer);
 }
 
@@ -314,7 +315,8 @@ bool parser_parse_token(Parser* parser, TokenType expected_type)
 
 	if (tok.type != expected_type)
 	{
-		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected '%s', but found '%.*s'",
+		Span after_prev = {.begin = parser->previous_token.span.end, .end = parser->previous_token.span.end};
+		diagnostics_verror_along_span(after_prev, parser->lexer->file_to_lex, "Expected '%s', but found '%.*s'",
 		                              token_type_to_lexeme_cstr(expected_type),
 		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		return false;
