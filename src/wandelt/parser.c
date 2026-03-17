@@ -90,16 +90,14 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 void parser_recover_from_error(Parser* parser)
 {
-	diagnostics_vnote_along_span(parser_peek_token(parser).span, parser->lexer->file_to_lex,
-	                             "Skipping token '%s' to recover from error",
-	                             token_type_to_cstr(parser_peek_token(parser).type));
 	parser_eat_token(parser);
 
 	while (parser_peek_token(parser).type != TOKEN_TYPE_EOF)
 	{
 		switch (parser_peek_token(parser).type)
 		{
-			// todo functions etc..
+		case TOKEN_TYPE_FUNCTION_KEYWORD:
+			return;
 		default:
 			parser_eat_token(parser);
 			break;
@@ -114,31 +112,57 @@ Statement* parser_parse_statement(Parser* parser)
 
 Statement* parser_parse_declaration_statement(Parser* parser)
 {
-	Statement* stmt             = new_statement(parser);
-	stmt->type                  = STATEMENT_TYPE_DECLARATION;
-	stmt->decl_stmt.declaration = parser_parse_declaration(parser);
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_DECLARATION;
 
+	stmt->decl_stmt.declaration = parser_parse_declaration(parser);
 	if (stmt->decl_stmt.declaration->type == DECLARATION_TYPE_INVALID)
 		return &invalid_statement;
+
+	stmt->span = stmt->decl_stmt.declaration->span;
 
 	return stmt;
 }
 
 Statement* parser_parse_expression_statement(Parser* parser)
 {
-	Statement* stmt            = new_statement(parser);
-	stmt->type                 = STATEMENT_TYPE_EXPRESSION;
-	stmt->expr_stmt.expression = parser_parse_expression(parser);
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_EXPRESSION;
 
+	stmt->expr_stmt.expression = parser_parse_expression(parser);
 	if (stmt->expr_stmt.expression->type == EXPRESSION_TYPE_INVALID)
 		return &invalid_statement;
+
+	const Token semicolonToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
+		return &invalid_statement;
+
+	stmt->span = span_extend(stmt->expr_stmt.expression->span, semicolonToken.span);
 
 	return stmt;
 }
 
 Statement* parser_parse_return_statement(Parser* parser)
 {
-	return &invalid_statement;
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_RETURN;
+
+	const Token returnToken = parser_peek_token(parser);
+	ASSERT(returnToken.type == TOKEN_TYPE_RETURN_KEYWORD);
+
+	parser_eat_token(parser); // eat 'return' keyword
+
+	stmt->return_stmt.expression = parser_parse_expression(parser);
+	if (stmt->return_stmt.expression->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	const Token semicolonToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
+		return &invalid_statement;
+
+	stmt->span = span_extend(returnToken.span, semicolonToken.span);
+
+	return stmt;
 }
 
 Declaration* parser_parse_declaration(Parser* parser)
@@ -164,8 +188,8 @@ Declaration* parser_parse_declaration(Parser* parser)
 
 Declaration* parser_parse_namespace_declaration(Parser* parser)
 {
-	Token tok = parser_peek_token(parser);
-	ASSERT(tok.type == TOKEN_TYPE_NAMESPACE_KEYWORD);
+	const Token namespaceToken = parser_peek_token(parser);
+	ASSERT(namespaceToken.type == TOKEN_TYPE_NAMESPACE_KEYWORD);
 
 	parser_eat_token(parser); // eat 'namespace' keyword
 
@@ -175,15 +199,97 @@ Declaration* parser_parse_namespace_declaration(Parser* parser)
 	if (!parser_parse_identifier(parser, &decl->namespace.name))
 		return &invalid_declaration;
 
+	const Token semicolonToken = parser_peek_token(parser);
 	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
 		return &invalid_declaration;
+
+	decl->span = span_extend(namespaceToken.span, semicolonToken.span);
 
 	return decl;
 }
 
 Expression* parser_parse_expression(Parser* parser)
 {
-	return &invalid_expression;
+	return parser_parse_expression_with_precedence(parser, PRECEDENCE_NONE);
+}
+
+Expression* parser_parse_expression_with_precedence(Parser* parser, Precedence min_precedence)
+{
+	Token tok = parser_peek_token(parser);
+	if (tok.type == TOKEN_TYPE_INVALID)
+		return &invalid_expression;
+
+	PrefixParseFn prefix_rule = parse_rules[tok.type].prefix;
+	if (prefix_rule == nullptr)
+	{
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected an expression, but found '%s'",
+		                              token_type_to_cstr(tok.type));
+		return &invalid_expression;
+	}
+
+	Expression* left = prefix_rule(parser);
+
+	// If the left expression is invalid, we can skip parsing the rest of the expression
+	if (parser_peek_token(parser).type == TOKEN_TYPE_INVALID)
+		return &invalid_expression;
+
+	while (min_precedence <= parse_rules[parser_peek_token(parser).type].precedence)
+	{
+		Token infixToken = parser_peek_token(parser);
+
+		InfixParseFn infix_rule = parse_rules[infixToken.type].infix;
+		if (infix_rule == nullptr)
+			break;
+
+		left = infix_rule(parser, left);
+	}
+
+	return left;
+}
+
+Expression* parser_parse_constant_expression(Parser* parser)
+{
+	Token tok = parser_peek_token(parser);
+	ASSERT(tok.type == TOKEN_TYPE_INTEGER);
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_CONSTANT;
+
+	expr->constant.kind    = CONSTANT_KIND_INTEGER;
+	expr->constant.integer = (u64)strtoll(
+	    file_get_part_of_content(parser->lexer->file_to_lex, tok.span.begin, tok.span.end - tok.span.begin).data,
+	    nullptr, 10);
+	expr->span = tok.span;
+
+	parser_eat_token(parser); // eat the integer token
+
+	return expr;
+}
+
+Expression* parser_parse_binary_expression(Parser* parser, Expression* left)
+{
+	Token infixToken = parser_peek_token(parser);
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_BINARY;
+
+	expr->binary.operator = token_type_to_binary_operator(infixToken.type);
+	expr->binary.left     = left;
+
+	Precedence precedence = parse_rules[infixToken.type].precedence;
+	parser_eat_token(parser); // eat the operator token
+
+	// When precedence + 1
+	// for 1 + 2 + 3 gets parsed as (1 + 2) + 3
+	// When precedence
+	// for 1 + 2 + 3 gets parsed as 1 + (2 + 3)
+	expr->binary.right = parser_parse_expression_with_precedence(parser, precedence + 1);
+	if (expr->binary.right->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_expression;
+
+	expr->span = span_extend(left->span, expr->binary.right->span);
+
+	return expr;
 }
 
 bool parser_parse_token(Parser* parser, TokenType expected_type)

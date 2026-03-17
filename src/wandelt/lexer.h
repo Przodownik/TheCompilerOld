@@ -25,6 +25,10 @@ typedef enum TokenType
 	TOKEN_TYPE_OPEN_BRACE,  //  {
 	TOKEN_TYPE_CLOSE_BRACE, //  }
 	TOKEN_TYPE_SEMICOLON,   //  ;
+	TOKEN_TYPE_PLUS,        //  +
+	TOKEN_TYPE_MINUS,       //  -
+	TOKEN_TYPE_STAR,        //  *
+	TOKEN_TYPE_SLASH,       //  /
 
 	// Other
 	TOKEN_TYPE_IDENTIFIER, //  ident
@@ -41,6 +45,8 @@ typedef struct Span
 	u32 begin;
 	u32 end;
 } Span;
+
+Span span_extend(Span a, Span b);
 
 typedef struct Token
 {

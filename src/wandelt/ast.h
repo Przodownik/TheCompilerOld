@@ -12,6 +12,7 @@ typedef enum ExpressionType
 {
 	EXPRESSION_TYPE_INVALID = 0,
 	EXPRESSION_TYPE_CONSTANT,
+	EXPRESSION_TYPE_BINARY,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
 
@@ -36,6 +37,26 @@ typedef struct
 	};
 } ConstantExpression;
 
+typedef enum BinaryOperator
+{
+	BINARY_OPERATOR_INVALID = 0,
+	BINARY_OPERATOR_ADD, // +
+	BINARY_OPERATOR_SUB, // -
+	BINARY_OPERATOR_MUL, // *
+	BINARY_OPERATOR_DIV, // /
+	BINARY_OPERATOR_COUNT,
+} BinaryOperator;
+
+const char* binary_operator_to_cstr(BinaryOperator op);
+BinaryOperator token_type_to_binary_operator(TokenType type);
+
+typedef struct BinaryExpression
+{
+	BinaryOperator operator;
+	struct Expression* left;
+	struct Expression* right;
+} BinaryExpression;
+
 typedef struct Expression
 {
 	ExpressionType type;
@@ -43,6 +64,7 @@ typedef struct Expression
 
 	union {
 		ConstantExpression constant;
+		BinaryExpression binary;
 	};
 } Expression;
 

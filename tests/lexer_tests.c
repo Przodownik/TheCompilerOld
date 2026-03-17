@@ -127,7 +127,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 13, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 17, "Update lexer tests when adding new token types");
 
 // --- Empty / whitespace-only inputs ----------------------------------------
 
@@ -191,6 +191,42 @@ TEST(semicolon)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_SEMICOLON);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ";");
+}
+
+TEST(plus)
+{
+	const char* src = "+";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_PLUS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "+");
+}
+
+TEST(minus)
+{
+	const char* src = "-";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_MINUS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "-");
+}
+
+TEST(star)
+{
+	const char* src = "*";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_STAR);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "*");
+}
+
+TEST(slash)
+{
+	const char* src = "/";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_SLASH);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "/");
 }
 
 // --- Identifiers -----------------------------------------------------------
@@ -458,6 +494,10 @@ int main(void)
 	RUN_TEST(open_brace);
 	RUN_TEST(close_brace);
 	RUN_TEST(semicolon);
+	RUN_TEST(plus);
+	RUN_TEST(minus);
+	RUN_TEST(star);
+	RUN_TEST(slash);
 
 	print_section("Identifiers");
 	RUN_TEST(simple_identifier);

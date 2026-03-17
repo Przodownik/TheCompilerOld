@@ -173,7 +173,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 13, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 17, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -204,6 +204,18 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 	case ';':
 		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SEMICOLON);
 		break;
+	case '+':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_PLUS);
+		break;
+	case '-':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_MINUS);
+		break;
+	case '*':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_STAR);
+		break;
+	case '/':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH);
+		break;
 
 	default:
 		if (is_character_a_digit(c))
@@ -221,7 +233,9 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 	if (token.type == TOKEN_TYPE_INVALID)
 	{
 		Token tok = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
-		diagnostics_verror_along_span(tok.span, lexer->file_to_lex, "Invalid character '%c'", c);
+		diagnostics_verror_along_span(
+		    tok.span, lexer->file_to_lex,
+		    "Unexpected character '%c', this character is not recognized as valid in the language.", c);
 
 		return tok;
 	}
@@ -231,7 +245,7 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 13, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 17, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -258,6 +272,14 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_CLOSE_BRACE";
 	case TOKEN_TYPE_SEMICOLON:
 		return "TOKEN_TYPE_SEMICOLON";
+	case TOKEN_TYPE_PLUS:
+		return "TOKEN_TYPE_PLUS";
+	case TOKEN_TYPE_MINUS:
+		return "TOKEN_TYPE_MINUS";
+	case TOKEN_TYPE_STAR:
+		return "TOKEN_TYPE_STAR";
+	case TOKEN_TYPE_SLASH:
+		return "TOKEN_TYPE_SLASH";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
@@ -268,4 +290,12 @@ const char* token_type_to_cstr(TokenType type)
 	default:
 		return "UNKNOWN_TOKEN_TYPE";
 	}
+}
+
+Span span_extend(Span a, Span b)
+{
+	return (Span){
+	    .begin = a.begin,
+	    .end   = b.end,
+	};
 }
