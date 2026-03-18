@@ -7,6 +7,7 @@
 
 #include "wandelt/ast.h"
 #include "wandelt/defines.h"
+#include "wandelt/file.h"
 #include "wandelt/memory.h"
 
 // Each instruction is a 32-bit word. Three encoding formats:
@@ -66,6 +67,8 @@ typedef struct Chunk
 {
 	Instruction* instructions;
 	Value* constants;
+	u32* lines;           // parallel to instructions: source line number
+	u32 current_line;     // set by compiler before emitting
 	u32 registers_needed;
 } Chunk;
 
@@ -76,9 +79,11 @@ u32 chunk_add_constant(Chunk* chunk, Value val);
 typedef struct BytecodeCompiler
 {
 	Allocator* alloc;
+	const File* source;
 	Chunk chunk;
 	u8 next_reg; // next free register (max 255)
+	u8 max_reg;  // high-water mark of registers used
 } BytecodeCompiler;
 
-BytecodeCompiler bytecode_compiler_create(Allocator* alloc);
+BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);
 Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_statements);

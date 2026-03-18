@@ -9,3 +9,4 @@ build
 *.ll
 *.asm
 *.json
+*.wdtbc

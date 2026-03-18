@@ -11,8 +11,17 @@
 #include "wandelt/vector.h"
 #include "wandelt/vm.h"
 
-int main(void)
+int main(int argc, char* argv[])
 {
+	bool debug = false;
+	for (int i = 1; i < argc; i++)
+	{
+		if (strcmp(argv[i], "-debug") == 0)
+		{
+			debug = true;
+		}
+	}
+
 	Allocator heap         = allocator_get_heap_allocator();
 	Allocator stmt_arena   = allocator_get_arena_allocator(&heap, MB(2));
 	Allocator decl_arena   = allocator_get_arena_allocator(&heap, MB(2));
@@ -26,7 +35,8 @@ int main(void)
 	Parser parser = parser_create(&stmt_arena, &decl_arena, &expr_arena, &lexer);
 
 	TranslationUnit tu = parser_parse(&parser);
-	ast_dump_statements(tu.statements);
+	if (debug)
+		ast_dump_statements(tu.statements);
 	if (diagnostics_has_errors())
 	{
 		printf("Compilation failed with %d error(s) and %d warning(s)\n", diagnostics_get_error_count(),
@@ -40,9 +50,11 @@ int main(void)
 
 	Allocator bytecode_arena = allocator_get_arena_allocator(&heap, MB(4));
 
-	BytecodeCompiler compiler = bytecode_compiler_create(&bytecode_arena);
+	BytecodeCompiler compiler = bytecode_compiler_create(&bytecode_arena, &demo_file);
 	Chunk chunk               = bytecode_compiler_compile(&compiler, tu.statements);
-	disassemble_chunk(&chunk, "main");
+	if (debug)
+		disassemble_chunk(&chunk, "main", &demo_file);
+	disassemble_chunk_to_file(&chunk, "main", &demo_file, "demo/main.wdtbc");
 	VM vm           = vm_create(&chunk);
 	VmResult result = vm_execute(&vm);
 	if (result == VM_OK)
