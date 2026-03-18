@@ -10,8 +10,6 @@
 // Minimal test framework
 // ---------------------------------------------------------------------------
 
-#include <time.h>
-
 static int g_tests_run    = 0;
 static int g_tests_passed = 0;
 static int g_tests_failed = 0;
@@ -19,12 +17,6 @@ static int g_tests_failed = 0;
 static void print_section(const char* name)
 {
 	printf("\n  " ANSI_COLOR_CYAN ANSI_COLOR_BOLD "%s" ANSI_COLOR_RESET "\n", name);
-}
-
-static double timespec_diff_ms(struct timespec* start, struct timespec* end)
-{
-	return (double)(end->tv_sec - start->tv_sec) * 1000.0 +
-	       (double)(end->tv_nsec - start->tv_nsec) / 1000000.0;
 }
 
 #define TEST(name)                                                                                                    \
