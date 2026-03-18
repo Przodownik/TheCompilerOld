@@ -124,6 +124,7 @@ void parser_recover_from_error(Parser* parser)
 
 Statement* parser_parse_statement(Parser* parser)
 {
+	(void)parser;
 	return &invalid_statement;
 }
 

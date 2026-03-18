@@ -1,8 +1,15 @@
+#include "wandelt/ast.h"
+#include "wandelt/bytecode.h"
+#include "wandelt/defines.h"
 #include "wandelt/diagnostics.h"
+#include "wandelt/disassembler.h"
+#include "wandelt/file.h"
+#include "wandelt/lexer.h"
 #include "wandelt/memory.h"
 #include "wandelt/parser.h"
 #include "wandelt/string.h"
 #include "wandelt/vector.h"
+#include "wandelt/vm.h"
 
 int main(void)
 {
@@ -26,6 +33,28 @@ int main(void)
 		       diagnostics_get_warning_count());
 		return 1;
 	}
+
+	// for now remove the namespace decl stmt;
+	Statement* stmt = nullptr;
+	vector_remove_at(tu.statements, 0, &stmt);
+
+	Allocator bytecode_arena = allocator_get_arena_allocator(&heap, MB(4));
+
+	BytecodeCompiler compiler = bytecode_compiler_create(&bytecode_arena);
+	Chunk chunk               = bytecode_compiler_compile(&compiler, tu.statements);
+	disassemble_chunk(&chunk, "main");
+	VM vm           = vm_create(&chunk);
+	VmResult result = vm_execute(&vm);
+	if (result == VM_OK)
+	{
+		printf("Program returned: %lld\n", vm.return_value.integer);
+	}
+	else
+	{
+		printf("Runtime error occurred!\n");
+	}
+
+	bytecode_arena.release(bytecode_arena.ctx);
 
 	string_arena.release(string_arena.ctx);
 	stmt_arena.release(stmt_arena.ctx);
