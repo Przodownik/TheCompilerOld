@@ -1,14 +1,14 @@
 #include "disassembler.h"
 
 #include "bytecode.h"
+#include "defines.h"
 #include "wandelt/vector.h"
 
 #define DISASM_LINE_WIDTH 68
 
 static void print_separator(FILE* out, char ch)
 {
-	for (int i = 0; i < DISASM_LINE_WIDTH; i++)
-		fputc(ch, out);
+	for (int i = 0; i < DISASM_LINE_WIDTH; i++) fputc(ch, out);
 	fputc('\n', out);
 }
 
@@ -16,7 +16,8 @@ static void print_separator(FILE* out, char ch)
 static void get_source_line(const File* source, u32 line, char* buf, u64 buf_size)
 {
 	buf[0] = '\0';
-	if (!source || line == 0) return;
+	if (!source || line == 0)
+		return;
 
 	const char* content = source->content.data;
 	u64 len             = source->content.len;
@@ -26,27 +27,26 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 	u64 pos          = 0;
 	while (pos < len && current_line < line)
 	{
-		if (content[pos] == '\n') current_line++;
+		if (content[pos] == '\n')
+			current_line++;
 		pos++;
 	}
 
 	// Skip leading whitespace
-	while (pos < len && (content[pos] == ' ' || content[pos] == '\t'))
-		pos++;
+	while (pos < len && (content[pos] == ' ' || content[pos] == '\t')) pos++;
 
 	// Copy until end of line
 	u64 start = pos;
-	while (pos < len && content[pos] != '\n' && content[pos] != '\r')
-		pos++;
+	while (pos < len && content[pos] != '\n' && content[pos] != '\r') pos++;
 
 	u64 line_len = pos - start;
-	if (line_len >= buf_size) line_len = buf_size - 1;
+	if (line_len >= buf_size)
+		line_len = buf_size - 1;
 	memcpy(buf, content + start, line_len);
 	buf[line_len] = '\0';
 }
 
-static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment,
-                               u64 cm_size)
+static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -135,8 +135,7 @@ static void disassemble_instruction_stream(Chunk* chunk, u32 offset, FILE* out)
 	format_instruction(chunk, offset, operands, sizeof(operands), comment, sizeof(comment));
 
 	if (comment[0])
-		fprintf(out, "    %04u  %08X  %-14s%-16s; %s\n", offset, inst, op_code_to_cstr(op), operands,
-		        comment);
+		fprintf(out, "    %04u  %08X  %-14s%-16s; %s\n", offset, inst, op_code_to_cstr(op), operands, comment);
 	else
 		fprintf(out, "    %04u  %08X  %-14s%s\n", offset, inst, op_code_to_cstr(op), operands);
 }
@@ -149,8 +148,7 @@ static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File*
 	// Header
 	fprintf(out, "=== %s ", name);
 	int name_len = (int)strlen(name);
-	for (int i = 0; i < DISASM_LINE_WIDTH - 5 - name_len; i++)
-		fputc('=', out);
+	for (int i = 0; i < DISASM_LINE_WIDTH - 5 - name_len; i++) fputc('=', out);
 	fputc('\n', out);
 
 	fprintf(out, "  Registers    : %u\n", chunk->registers_needed);
@@ -197,7 +195,8 @@ static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File*
 			get_source_line(source, line, src_line, sizeof(src_line));
 			if (src_line[0])
 			{
-				if (last_line > 0) fprintf(out, "\n");
+				if (last_line > 0)
+					fprintf(out, "\n");
 				fprintf(out, "    -- L%u: %s\n", line, src_line);
 			}
 			last_line = line;
@@ -259,7 +258,8 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 			get_source_line(source, line, src_line, sizeof(src_line));
 			if (src_line[0])
 			{
-				if (last_line > 0) fprintf(out, "\n");
+				if (last_line > 0)
+					fprintf(out, "\n");
 				fprintf(out, "; -- L%u: %s\n", line, src_line);
 			}
 			last_line = line;
@@ -273,8 +273,7 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 		format_instruction(chunk, i, operands, sizeof(operands), comment, sizeof(comment));
 
 		if (comment[0])
-			fprintf(out, "%04u  %08X  %-14s%-16s; %s\n", i, inst, op_code_to_cstr(op), operands,
-			        comment);
+			fprintf(out, "%04u  %08X  %-14s%-16s; %s\n", i, inst, op_code_to_cstr(op), operands, comment);
 		else
 			fprintf(out, "%04u  %08X  %-14s%s\n", i, inst, op_code_to_cstr(op), operands);
 	}
@@ -292,8 +291,11 @@ void disassemble_instruction(Chunk* chunk, u32 offset)
 
 bool disassemble_chunk_to_file(Chunk* chunk, const char* name, const File* source, const char* filepath)
 {
-	FILE* f = fopen(filepath, "w");
-	if (!f) return false;
+	FILE* f     = nullptr;
+	errno_t err = fopen_s(&f, filepath, "w");
+	ASSERT(err == 0, "Failed to open file for writing: %s", filepath);
+	if (!f)
+		return false;
 	disassemble_chunk_readable(chunk, name, source, f);
 	fclose(f);
 	return true;

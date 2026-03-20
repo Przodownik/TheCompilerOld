@@ -75,6 +75,7 @@ Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimi
 
 Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer, Expression* expr)
 {
+	(void)optimizer;
 	static_assert(BINARY_OPERATOR_COUNT == 5, "Update this function when adding new binary operators");
 
 	if (expr->type != EXPRESSION_TYPE_BINARY)
