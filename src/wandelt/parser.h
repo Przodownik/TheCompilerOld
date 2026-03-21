@@ -60,11 +60,14 @@ Statement* parser_parse_return_statement(Parser* parser);
 
 Declaration* parser_parse_declaration(Parser* parser);
 Declaration* parser_parse_namespace_declaration(Parser* parser);
+Declaration* parser_parse_variable_declaration(Parser* parser);
 
 Expression* parser_parse_expression(Parser* parser);
 Expression* parser_parse_expression_with_precedence(Parser* parser, Precedence min_precedence);
 Expression* parser_parse_constant_expression(Parser* parser);
 Expression* parser_parse_binary_expression(Parser* parser, Expression* left);
+Expression* parser_parse_identifier_expression(Parser* parser);
 
 bool parser_parse_token(Parser* parser, TokenType expected_type);
 bool parser_parse_identifier(Parser* parser, StringView* out_identifier);
+bool parser_parse_type(Parser* parser, Type** out_type);

@@ -4,6 +4,7 @@
 #include "diagnostics.h"
 #include "lexer.h"
 #include "wandelt/string.h"
+#include "wandelt/token.h"
 #include "wandelt/vector.h"
 #include <assert.h>
 
@@ -86,6 +87,9 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 	case TOKEN_TYPE_RETURN_KEYWORD:
 		return parser_parse_return_statement(parser);
+
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return parser_parse_declaration_statement(parser);
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
@@ -185,7 +189,7 @@ Statement* parser_parse_return_statement(Parser* parser)
 
 Declaration* parser_parse_declaration(Parser* parser)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 2,
+	static_assert(DECLARATION_TYPE_COUNT == 3,
 	              "parser_parse_declaration needs to be updated to handle new declaration types");
 
 	Token tok = parser_peek_token(parser);
@@ -194,6 +198,9 @@ Declaration* parser_parse_declaration(Parser* parser)
 	{
 	case TOKEN_TYPE_NAMESPACE_KEYWORD:
 		return parser_parse_namespace_declaration(parser);
+
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return parser_parse_variable_declaration(parser);
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a declaration, but found '%.*s'",
@@ -222,6 +229,38 @@ Declaration* parser_parse_namespace_declaration(Parser* parser)
 		return &invalid_declaration;
 
 	decl->span = span_extend(namespaceToken.span, semicolonToken.span);
+
+	return decl;
+}
+
+Declaration* parser_parse_variable_declaration(Parser* parser)
+{
+	const Token varToken = parser_peek_token(parser);
+	ASSERT(varToken.type == TOKEN_TYPE_VAR_KEYWORD);
+
+	parser_eat_token(parser); // eat 'var' keyword
+
+	Declaration* decl = new_declaration(parser);
+	decl->type        = DECLARATION_TYPE_VARIABLE;
+
+	if (!parser_parse_type(parser, &decl->variable.type))
+		return &invalid_declaration;
+
+	if (!parser_parse_identifier(parser, &decl->variable.name))
+		return &invalid_declaration;
+
+	if (!parser_parse_token(parser, TOKEN_TYPE_EQUALS))
+		return &invalid_declaration;
+
+	decl->variable.initializer = parser_parse_expression(parser);
+	if (decl->variable.initializer->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_declaration;
+
+	const Token semicolonToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
+		return &invalid_declaration;
+
+	decl->span = span_extend(varToken.span, semicolonToken.span);
 
 	return decl;
 }
@@ -310,6 +349,23 @@ Expression* parser_parse_binary_expression(Parser* parser, Expression* left)
 	return expr;
 }
 
+Expression* parser_parse_identifier_expression(Parser* parser)
+{
+	Token tok = parser_peek_token(parser);
+	ASSERT(tok.type == TOKEN_TYPE_IDENTIFIER);
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_IDENTIFIER;
+
+	expr->identifier.name =
+	    file_get_part_of_content(parser->lexer->file_to_lex, tok.span.begin, tok.span.end - tok.span.begin);
+	expr->span = tok.span;
+
+	parser_eat_token(parser); // eat the identifier token
+
+	return expr;
+}
+
 bool parser_parse_token(Parser* parser, TokenType expected_type)
 {
 	Token tok = parser_peek_token(parser);
@@ -349,12 +405,31 @@ bool parser_parse_identifier(Parser* parser, StringView* out_identifier)
 	return true;
 }
 
+bool parser_parse_type(Parser* parser, Type** out_type)
+{
+	Token tok = parser_peek_token(parser);
+
+	if (tok.type != TOKEN_TYPE_INT_KEYWORD)
+	{
+		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a type, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
+		return false;
+	}
+
+	*out_type = type_get_builtin_int();
+
+	parser_eat_token(parser); // eat the type token
+
+	return true;
+}
+
 static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
-    [TOKEN_TYPE_PLUS]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_MINUS]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_STAR]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_SLASH]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_INTEGER] = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_PLUS]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_MINUS]      = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_STAR]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_SLASH]      = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_INTEGER]    = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_IDENTIFIER] = {parser_parse_identifier_expression, nullptr, PRECEDENCE_NONE},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 17, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 19, "Update parse_rules when adding new token types");

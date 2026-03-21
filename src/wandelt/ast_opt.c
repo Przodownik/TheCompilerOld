@@ -47,7 +47,7 @@ void ast_optimizer_run_pass(AstOptimizer* optimizer, AstOptimizationPass pass, T
 
 Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 3, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update this function when adding new expression types");
 	ASSERT(expr->type != EXPRESSION_TYPE_INVALID);
 
 	switch (expr->type)
@@ -58,6 +58,7 @@ Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimi
 		break;
 
 	case EXPRESSION_TYPE_CONSTANT:
+	case EXPRESSION_TYPE_IDENTIFIER:
 	case EXPRESSION_TYPE_COUNT:
 	default:
 		break;

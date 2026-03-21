@@ -15,6 +15,7 @@ typedef enum TokenType
 	TOKEN_TYPE_FUNCTION_KEYWORD,  // 'fn'
 	TOKEN_TYPE_RETURN_KEYWORD,    // 'return'
 	TOKEN_TYPE_NAMESPACE_KEYWORD, // 'namespace'
+	TOKEN_TYPE_VAR_KEYWORD,       // 'var'
 
 	// Built-in types
 	TOKEN_TYPE_INT_KEYWORD, // 'int'
@@ -29,6 +30,7 @@ typedef enum TokenType
 	TOKEN_TYPE_MINUS,       //  -
 	TOKEN_TYPE_STAR,        //  *
 	TOKEN_TYPE_SLASH,       //  /
+	TOKEN_TYPE_EQUALS,      //  =
 
 	// Other
 	TOKEN_TYPE_IDENTIFIER, //  ident

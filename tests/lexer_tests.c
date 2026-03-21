@@ -119,7 +119,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 17, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 19, "Update lexer tests when adding new token types");
 
 // --- Empty / whitespace-only inputs ----------------------------------------
 
@@ -221,6 +221,15 @@ TEST(slash)
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "/");
 }
 
+TEST(equals)
+{
+	const char* src = "=";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EQUALS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "=");
+}
+
 // --- Identifiers -----------------------------------------------------------
 
 TEST(simple_identifier)
@@ -304,6 +313,15 @@ TEST(namespace_keyword)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_NAMESPACE_KEYWORD);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "namespace");
+}
+
+TEST(var_keyword)
+{
+	const char* src = "var";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_VAR_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "var");
 }
 
 TEST(int_keyword)
@@ -490,6 +508,7 @@ int main(void)
 	RUN_TEST(minus);
 	RUN_TEST(star);
 	RUN_TEST(slash);
+	RUN_TEST(equals);
 
 	print_section("Identifiers");
 	RUN_TEST(simple_identifier);
@@ -503,6 +522,7 @@ int main(void)
 	RUN_TEST(function_keyword);
 	RUN_TEST(return_keyword);
 	RUN_TEST(namespace_keyword);
+	RUN_TEST(var_keyword);
 	
 	RUN_TEST(int_keyword);
 

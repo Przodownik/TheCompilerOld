@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 17, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 19, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -15,6 +15,8 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_RETURN_KEYWORD";
 	case TOKEN_TYPE_NAMESPACE_KEYWORD:
 		return "TOKEN_TYPE_NAMESPACE_KEYWORD";
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return "TOKEN_TYPE_VAR_KEYWORD";
 
 	case TOKEN_TYPE_INT_KEYWORD:
 		return "TOKEN_TYPE_INT_KEYWORD";
@@ -37,6 +39,8 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_STAR";
 	case TOKEN_TYPE_SLASH:
 		return "TOKEN_TYPE_SLASH";
+	case TOKEN_TYPE_EQUALS:
+		return "TOKEN_TYPE_EQUALS";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
@@ -53,7 +57,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 17, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 19, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -66,6 +70,8 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "return";
 	case TOKEN_TYPE_NAMESPACE_KEYWORD:
 		return "namespace";
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return "var";
 
 	case TOKEN_TYPE_INT_KEYWORD:
 		return "int";
@@ -88,6 +94,8 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "*";
 	case TOKEN_TYPE_SLASH:
 		return "/";
+	case TOKEN_TYPE_EQUALS:
+		return "=";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "identifier";

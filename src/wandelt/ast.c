@@ -5,7 +5,7 @@
 
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 3, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
@@ -15,6 +15,8 @@ const char* expression_type_to_cstr(ExpressionType type)
 		return "ConstantExpression";
 	case EXPRESSION_TYPE_BINARY:
 		return "BinaryExpression";
+	case EXPRESSION_TYPE_IDENTIFIER:
+		return "IdentifierExpression";
 	default:
 		break;
 	}
@@ -85,7 +87,7 @@ BinaryOperator token_type_to_binary_operator(TokenType type)
 
 const char* declaration_type_to_cstr(DeclarationType type)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 2, "Update declaration_type_to_cstr when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 3, "Update declaration_type_to_cstr when adding new declaration types");
 
 	switch (type)
 	{
@@ -93,6 +95,8 @@ const char* declaration_type_to_cstr(DeclarationType type)
 		return "InvalidDeclaration";
 	case DECLARATION_TYPE_NAMESPACE:
 		return "NamespaceDeclaration";
+	case DECLARATION_TYPE_VARIABLE:
+		return "VariableDeclaration";
 	default:
 		break;
 	}
@@ -123,7 +127,7 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 3, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
@@ -144,11 +148,15 @@ static void dump_expression(Expression* expr, int indent)
 		printf("%*sRight:\n", indent + 2, "");
 		dump_expression(expr->binary.right, indent + 4);
 	}
+	else if (expr->type == EXPRESSION_TYPE_IDENTIFIER)
+	{
+		printf("%*sIdentifier: %.*s\n", indent + 2, "", FMT_STR_ARG(expr->identifier.name));
+	}
 }
 
 static void dump_declaration(Declaration* decl, int indent)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 2, "Update dump_declaration when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 3, "Update dump_declaration when adding new declaration types");
 
 	if (!decl)
 		return;
@@ -157,6 +165,13 @@ static void dump_declaration(Declaration* decl, int indent)
 
 	if (decl->type == DECLARATION_TYPE_NAMESPACE)
 		printf("%*sName: %.*s\n", indent + 2, "", FMT_STR_ARG(decl->namespace.name));
+	else if (decl->type == DECLARATION_TYPE_VARIABLE)
+	{
+		printf("%*sName: %.*s\n", indent + 2, "", FMT_STR_ARG(decl->variable.name));
+		printf("%*sType: %s\n", indent + 2, "", type_kind_to_cstr(decl->variable.type->kind));
+		printf("%*sInitializer:\n", indent + 2, "");
+		dump_expression(decl->variable.initializer, indent + 4);
+	}
 }
 
 static void dump_statement(Statement* stmt, int indent)

@@ -68,8 +68,7 @@ void lexer_debug_print_token(Lexer* lexer, Token token)
 	u32 tok_length   = token.span.end - token.span.begin;
 
 	char loc_buf[64];
-	snprintf(loc_buf, sizeof(loc_buf), "%.*s:%u:%u", FMT_STR_ARG(lexer->file_to_lex->name), loc.row,
-	            loc.col);
+	snprintf(loc_buf, sizeof(loc_buf), "%.*s:%u:%u", FMT_STR_ARG(lexer->file_to_lex->name), loc.row, loc.col);
 
 	printf("| %-20s | %-20s | %.*s\n", token_type_to_cstr(token.type) + 11, loc_buf,
 	       FMT_STR_ARG(file_get_part_of_content(lexer->file_to_lex, token.span.begin, tok_length)));
@@ -140,6 +139,9 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 		if (ident.len == 3 && strncmp(ident.data, "int", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_INT_KEYWORD);
 		break;
+	case 'v':
+		if (ident.len == 3 && strncmp(ident.data, "var", 3) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_VAR_KEYWORD);
 	}
 
 	return _lexer_create_new_token(lexer, TOKEN_TYPE_IDENTIFIER);
@@ -166,7 +168,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 17, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 19, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -208,6 +210,9 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 		break;
 	case '/':
 		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH);
+		break;
+	case '=':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_EQUALS);
 		break;
 
 	default:

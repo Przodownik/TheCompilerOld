@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "type.h"
 #include "wandelt/defines.h"
 #include "wandelt/lexer.h"
 
@@ -13,6 +14,7 @@ typedef enum ExpressionType
 	EXPRESSION_TYPE_INVALID = 0,
 	EXPRESSION_TYPE_CONSTANT,
 	EXPRESSION_TYPE_BINARY,
+	EXPRESSION_TYPE_IDENTIFIER,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
 
@@ -57,6 +59,12 @@ typedef struct BinaryExpression
 	struct Expression* right;
 } BinaryExpression;
 
+typedef struct IdentifierExpression
+{
+	StringView name;
+	struct Declaration* declaration_ref; // might be null
+} IdentifierExpression;
+
 typedef struct Expression
 {
 	ExpressionType type;
@@ -65,6 +73,7 @@ typedef struct Expression
 	union {
 		ConstantExpression constant;
 		BinaryExpression binary;
+		IdentifierExpression identifier;
 	};
 } Expression;
 
@@ -72,6 +81,7 @@ typedef enum DeclarationType
 {
 	DECLARATION_TYPE_INVALID = 0,
 	DECLARATION_TYPE_NAMESPACE,
+	DECLARATION_TYPE_VARIABLE,
 	DECLARATION_TYPE_COUNT,
 } DeclarationType;
 
@@ -82,6 +92,13 @@ typedef struct NamespaceDeclaration
 	StringView name;
 } NamespaceDeclaration;
 
+typedef struct VariableDeclaration
+{
+	StringView name;
+	Type* type;
+	Expression* initializer;
+} VariableDeclaration;
+
 typedef struct Declaration
 {
 	DeclarationType type;
@@ -89,6 +106,7 @@ typedef struct Declaration
 
 	union {
 		NamespaceDeclaration namespace;
+		VariableDeclaration variable;
 	};
 } Declaration;
 
