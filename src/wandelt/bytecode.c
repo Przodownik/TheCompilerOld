@@ -131,6 +131,8 @@ static u8 bytecode_compiler_compile_node(BytecodeCompiler* c, Statement* stateme
 
 static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expression)
 {
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
+
 	set_line_from_span(c, expression->span);
 
 	switch (expression->type)
@@ -175,6 +177,9 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 
 		return dest;
 	}
+
+	case EXPRESSION_TYPE_GROUP:
+		return bytecode_compiler_compile_expr(c, expression->group.inner);
 
 	case EXPRESSION_TYPE_IDENTIFIER: {
 		for (i64 i = c->local_count - 1; i >= 0; i--)

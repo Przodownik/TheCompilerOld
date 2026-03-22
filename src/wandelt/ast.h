@@ -5,10 +5,11 @@
  */
 #pragma once
 
-#include "wandelt/type.h"
 #include "wandelt/defines.h"
 #include "wandelt/string.h"
 #include "wandelt/token.h"
+#include "wandelt/type.h"
+
 
 typedef enum ResolveStatus
 {
@@ -22,6 +23,7 @@ typedef enum ExpressionType
 	EXPRESSION_TYPE_INVALID = 0,
 	EXPRESSION_TYPE_CONSTANT,
 	EXPRESSION_TYPE_BINARY,
+	EXPRESSION_TYPE_GROUP,
 	EXPRESSION_TYPE_IDENTIFIER,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
@@ -67,6 +69,11 @@ typedef struct BinaryExpression
 	struct Expression* right;
 } BinaryExpression;
 
+typedef struct GroupExpression
+{
+	struct Expression* inner;
+} GroupExpression;
+
 typedef struct IdentifierExpression
 {
 	StringView name;
@@ -84,6 +91,7 @@ typedef struct Expression
 	union {
 		ConstantExpression constant;
 		BinaryExpression binary;
+		GroupExpression group;
 		IdentifierExpression identifier;
 	};
 } Expression;

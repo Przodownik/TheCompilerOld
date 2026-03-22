@@ -1,8 +1,18 @@
 namespace Demo;
 
+// fn int fib(int n)
+// {
+//     if (n <= 1)
+//         return n;
+//     else
+//         return fib(n - 1) + fib(n - 2);
+// }
+
+// var int res = inline fib(10); 
+
 var int x = 10;
 var int y = 11 + x;
 var int z = 12 + y;
 var int zz = 12 + z;
 
-return x + y + z; // 64
+return (x + y + z) / 64; // 64

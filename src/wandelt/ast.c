@@ -5,7 +5,7 @@
 
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
@@ -15,6 +15,8 @@ const char* expression_type_to_cstr(ExpressionType type)
 		return "ConstantExpression";
 	case EXPRESSION_TYPE_BINARY:
 		return "BinaryExpression";
+	case EXPRESSION_TYPE_GROUP:
+		return "GroupExpression";
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return "IdentifierExpression";
 	default:
@@ -127,7 +129,7 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
@@ -147,6 +149,11 @@ static void dump_expression(Expression* expr, int indent)
 		dump_expression(expr->binary.left, indent + 4);
 		printf("%*sRight:\n", indent + 2, "");
 		dump_expression(expr->binary.right, indent + 4);
+	}
+	else if (expr->type == EXPRESSION_TYPE_GROUP)
+	{
+		printf("%*sInner expression:\n", indent + 2, "");
+		dump_expression(expr->group.inner, indent + 4);
 	}
 	else if (expr->type == EXPRESSION_TYPE_IDENTIFIER)
 	{

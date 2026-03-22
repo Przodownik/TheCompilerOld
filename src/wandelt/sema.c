@@ -250,12 +250,17 @@ bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hin
 {
 	(void)type_hint;
 
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update sema_check_expression_internal when adding new expression types");
+
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_CONSTANT:
 		return sema_check_constant_expression(sema, expr);
 	case EXPRESSION_TYPE_BINARY:
 		return sema_check_binary_expression(sema, expr);
+	case EXPRESSION_TYPE_GROUP:
+		return sema_check_group_expression(sema, expr);
+		break;
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return sema_check_identifier_expression(sema, expr);
 		break;
@@ -289,6 +294,16 @@ bool sema_check_binary_expression(Sema* sema, Expression* expr)
 	return true;
 }
 
+bool sema_check_group_expression(Sema* sema, Expression* expr)
+{
+	if (!sema_check_expression(sema, expr->group.inner, nullptr))
+		return false;
+
+	expr->resolved_type = expr->group.inner->resolved_type;
+
+	return true;
+}
+
 bool sema_check_identifier_expression(Sema* sema, Expression* expr)
 {
 	Symbol* sym = symtab_lookup(&sema->symbol_table, expr->identifier.name, true);
@@ -299,7 +314,7 @@ bool sema_check_identifier_expression(Sema* sema, Expression* expr)
 		return false;
 	}
 
-	expr->resolved_type            = sym->type;
+	expr->resolved_type              = sym->type;
 	expr->identifier.declaration_ref = sym->declaration_ref;
 
 	return true;

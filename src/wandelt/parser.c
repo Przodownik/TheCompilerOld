@@ -349,6 +349,29 @@ Expression* parser_parse_binary_expression(Parser* parser, Expression* left)
 	return expr;
 }
 
+Expression* parser_parse_group_expression(Parser* parser)
+{
+	const Token openParenToken = parser_peek_token(parser);
+	ASSERT(openParenToken.type == TOKEN_TYPE_OPEN_PAREN);
+
+	parser_eat_token(parser); // eat '('
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_GROUP;
+
+	expr->group.inner = parser_parse_expression(parser);
+	if (expr->group.inner->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_expression;
+
+	const Token closeParenToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_CLOSE_PAREN))
+		return &invalid_expression;
+
+	expr->span = span_extend(openParenToken.span, closeParenToken.span);
+
+	return expr;
+}
+
 Expression* parser_parse_identifier_expression(Parser* parser)
 {
 	Token tok = parser_peek_token(parser);
@@ -424,6 +447,7 @@ bool parser_parse_type(Parser* parser, Type** out_type)
 }
 
 static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
+    [TOKEN_TYPE_OPEN_PAREN] = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_PLUS]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_MINUS]      = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_STAR]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},

@@ -31,8 +31,7 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 	for (size_t i = 0; i < vector_get_length(tu->statements);)
 	{
 		Statement* stmt = tu->statements[i];
-		if (stmt->type != STATEMENT_TYPE_DECLARATION ||
-		    stmt->decl_stmt.declaration->type != DECLARATION_TYPE_VARIABLE)
+		if (stmt->type != STATEMENT_TYPE_DECLARATION || stmt->decl_stmt.declaration->type != DECLARATION_TYPE_VARIABLE)
 		{
 			i++;
 			continue;
@@ -86,6 +85,7 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 // Recursively check if any identifier in the expression tree references the given declaration.
 static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* decl)
 {
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
@@ -93,6 +93,8 @@ static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* de
 	case EXPRESSION_TYPE_BINARY:
 		return ast_optimizer_expr_references_decl(expr->binary.left, decl) ||
 		       ast_optimizer_expr_references_decl(expr->binary.right, decl);
+	case EXPRESSION_TYPE_GROUP:
+		return ast_optimizer_expr_references_decl(expr->group.inner, decl);
 	default:
 		return false;
 	}
@@ -109,15 +111,13 @@ void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPa
 		stmt->expr_stmt.expression = ast_optimizer_optimize_expression(optimizer, pass, stmt->expr_stmt.expression);
 		break;
 	case STATEMENT_TYPE_RETURN:
-		stmt->return_stmt.expression =
-		    ast_optimizer_optimize_expression(optimizer, pass, stmt->return_stmt.expression);
+		stmt->return_stmt.expression = ast_optimizer_optimize_expression(optimizer, pass, stmt->return_stmt.expression);
 		break;
 	case STATEMENT_TYPE_DECLARATION: {
 		Declaration* decl = stmt->decl_stmt.declaration;
 		if (decl->type == DECLARATION_TYPE_VARIABLE && decl->variable.initializer)
 		{
-			decl->variable.initializer =
-			    ast_optimizer_optimize_expression(optimizer, pass, decl->variable.initializer);
+			decl->variable.initializer = ast_optimizer_optimize_expression(optimizer, pass, decl->variable.initializer);
 		}
 		break;
 	}
@@ -129,7 +129,7 @@ void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPa
 
 Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 4, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
 	ASSERT(expr->type != EXPRESSION_TYPE_INVALID);
 
 	switch (expr->type)
@@ -138,6 +138,9 @@ Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimi
 		expr->binary.left  = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.left);
 		expr->binary.right = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.right);
 		break;
+
+	case EXPRESSION_TYPE_GROUP:
+		return ast_optimizer_optimize_expression(optimizer, pass, expr->group.inner);
 
 	case EXPRESSION_TYPE_CONSTANT:
 	case EXPRESSION_TYPE_COUNT:

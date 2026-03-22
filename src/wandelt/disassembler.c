@@ -138,9 +138,9 @@ static void disassemble_instruction_stream(Chunk* chunk, u32 offset, FILE* out)
 	format_instruction(chunk, offset, operands, sizeof(operands), comment, sizeof(comment));
 
 	if (comment[0])
-		fprintf(out, "    %04u  %08X  %-14s%-16s; %s\n", offset, inst, op_code_to_cstr(op), operands, comment);
+		fprintf(out, "    %04u  %08X  %-14s%-16s; %s\n", offset + 1, inst, op_code_to_cstr(op), operands, comment);
 	else
-		fprintf(out, "    %04u  %08X  %-14s%s\n", offset, inst, op_code_to_cstr(op), operands);
+		fprintf(out, "    %04u  %08X  %-14s%s\n", offset + 1, inst, op_code_to_cstr(op), operands);
 }
 
 static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File* source, FILE* out)
@@ -174,10 +174,10 @@ static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File*
 			switch (v.kind)
 			{
 			case VALUE_KIND_INTEGER:
-				fprintf(out, "    K%-4u= %-20lld (long)\n", i, v.integer);
+				fprintf(out, "    K%-4u= %-20lld (long)\n", i + 1, v.integer);
 				break;
 			default:
-				fprintf(out, "    K%-4u= ???                  (unknown)\n", i);
+				fprintf(out, "    K%-4u= ???                  (unknown)\n", i + 1);
 				break;
 			}
 		}
@@ -238,10 +238,10 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 			switch (v.kind)
 			{
 			case VALUE_KIND_INTEGER:
-				fprintf(out, ".const long  K%u = %lld\n", i, v.integer);
+				fprintf(out, ".const long  K%u = %lld\n", i + 1, v.integer);
 				break;
 			default:
-				fprintf(out, ".const ???   K%u = ???\n", i);
+				fprintf(out, ".const ???   K%u = ???\n", i + 1);
 				break;
 			}
 		}
@@ -276,9 +276,9 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 		format_instruction(chunk, i, operands, sizeof(operands), comment, sizeof(comment));
 
 		if (comment[0])
-			fprintf(out, "%04u  %08X  %-14s%-16s; %s\n", i, inst, op_code_to_cstr(op), operands, comment);
+			fprintf(out, "%04u  %08X  %-14s%-16s; %s\n", i + 1, inst, op_code_to_cstr(op), operands, comment);
 		else
-			fprintf(out, "%04u  %08X  %-14s%s\n", i, inst, op_code_to_cstr(op), operands);
+			fprintf(out, "%04u  %08X  %-14s%s\n", i + 1, inst, op_code_to_cstr(op), operands);
 	}
 }
 
