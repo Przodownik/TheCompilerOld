@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 19, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 35, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -17,9 +17,35 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_NAMESPACE_KEYWORD";
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return "TOKEN_TYPE_VAR_KEYWORD";
+	case TOKEN_TYPE_AS_KEYWORD:
+		return "TOKEN_TYPE_AS_KEYWORD";
 
+	case TOKEN_TYPE_BOOL_KEYWORD:
+		return "TOKEN_TYPE_BOOL_KEYWORD";
+	case TOKEN_TYPE_CHAR_KEYWORD:
+		return "TOKEN_TYPE_CHAR_KEYWORD";
+	case TOKEN_TYPE_UCHAR_KEYWORD:
+		return "TOKEN_TYPE_UCHAR_KEYWORD";
+	case TOKEN_TYPE_SHORT_KEYWORD:
+		return "TOKEN_TYPE_SHORT_KEYWORD";
+	case TOKEN_TYPE_USHORT_KEYWORD:
+		return "TOKEN_TYPE_USHORT_KEYWORD";
 	case TOKEN_TYPE_INT_KEYWORD:
 		return "TOKEN_TYPE_INT_KEYWORD";
+	case TOKEN_TYPE_UINT_KEYWORD:
+		return "TOKEN_TYPE_UINT_KEYWORD";
+	case TOKEN_TYPE_LONG_KEYWORD:
+		return "TOKEN_TYPE_LONG_KEYWORD";
+	case TOKEN_TYPE_ULONG_KEYWORD:
+		return "TOKEN_TYPE_ULONG_KEYWORD";
+	case TOKEN_TYPE_FLOAT_KEYWORD:
+		return "TOKEN_TYPE_FLOAT_KEYWORD";
+	case TOKEN_TYPE_DOUBLE_KEYWORD:
+		return "TOKEN_TYPE_DOUBLE_KEYWORD";
+	case TOKEN_TYPE_TRUE_KEYWORD:
+		return "TOKEN_TYPE_TRUE_KEYWORD";
+	case TOKEN_TYPE_FALSE_KEYWORD:
+		return "TOKEN_TYPE_FALSE_KEYWORD";
 
 	case TOKEN_TYPE_OPEN_PAREN:
 		return "TOKEN_TYPE_OPEN_PAREN";
@@ -41,11 +67,18 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_SLASH";
 	case TOKEN_TYPE_EQUALS:
 		return "TOKEN_TYPE_EQUALS";
+	case TOKEN_TYPE_DOT:
+		return "TOKEN_TYPE_DOT";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
 	case TOKEN_TYPE_INTEGER:
 		return "TOKEN_TYPE_INTEGER";
+	case TOKEN_TYPE_FLOAT:
+		return "TOKEN_TYPE_FLOAT";
+	case TOKEN_TYPE_DOUBLE:
+		return "TOKEN_TYPE_DOUBLE";
+
 	case TOKEN_TYPE_EOF:
 		return "TOKEN_TYPE_EOF";
 	default:
@@ -57,7 +90,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 19, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 35, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -72,9 +105,35 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "namespace";
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return "var";
+	case TOKEN_TYPE_AS_KEYWORD:
+		return "as";
 
+	case TOKEN_TYPE_BOOL_KEYWORD:
+		return "bool";
+	case TOKEN_TYPE_CHAR_KEYWORD:
+		return "char";
+	case TOKEN_TYPE_UCHAR_KEYWORD:
+		return "uchar";
+	case TOKEN_TYPE_SHORT_KEYWORD:
+		return "short";
+	case TOKEN_TYPE_USHORT_KEYWORD:
+		return "ushort";
 	case TOKEN_TYPE_INT_KEYWORD:
 		return "int";
+	case TOKEN_TYPE_UINT_KEYWORD:
+		return "uint";
+	case TOKEN_TYPE_LONG_KEYWORD:
+		return "long";
+	case TOKEN_TYPE_ULONG_KEYWORD:
+		return "ulong";
+	case TOKEN_TYPE_FLOAT_KEYWORD:
+		return "float";
+	case TOKEN_TYPE_DOUBLE_KEYWORD:
+		return "double";
+	case TOKEN_TYPE_TRUE_KEYWORD:
+		return "true";
+	case TOKEN_TYPE_FALSE_KEYWORD:
+		return "false";
 
 	case TOKEN_TYPE_OPEN_PAREN:
 		return "(";
@@ -96,11 +155,18 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "/";
 	case TOKEN_TYPE_EQUALS:
 		return "=";
+	case TOKEN_TYPE_DOT:
+		return ".";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "identifier";
 	case TOKEN_TYPE_INTEGER:
 		return "integer";
+	case TOKEN_TYPE_FLOAT:
+		return "float";
+	case TOKEN_TYPE_DOUBLE:
+		return "double";
+
 	case TOKEN_TYPE_EOF:
 		return "EOF";
 	default:

@@ -85,7 +85,7 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 // Recursively check if any identifier in the expression tree references the given declaration.
 static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* decl)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
@@ -95,6 +95,8 @@ static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* de
 		       ast_optimizer_expr_references_decl(expr->binary.right, decl);
 	case EXPRESSION_TYPE_GROUP:
 		return ast_optimizer_expr_references_decl(expr->group.inner, decl);
+	case EXPRESSION_TYPE_CAST:
+		return ast_optimizer_expr_references_decl(expr->cast.expression, decl);
 	default:
 		return false;
 	}
@@ -129,7 +131,7 @@ void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPa
 
 Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
 	ASSERT(expr->type != EXPRESSION_TYPE_INVALID);
 
 	switch (expr->type)
@@ -157,11 +159,15 @@ Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimi
 			    decl->variable.initializer->type == EXPRESSION_TYPE_CONSTANT &&
 			    decl->variable.initializer->constant.kind == CONSTANT_KIND_INTEGER)
 			{
-				expr->type             = EXPRESSION_TYPE_CONSTANT;
-				expr->constant.kind    = CONSTANT_KIND_INTEGER;
-				expr->constant.integer = decl->variable.initializer->constant.integer;
+				expr->type                   = EXPRESSION_TYPE_CONSTANT;
+				expr->constant.kind          = CONSTANT_KIND_INTEGER;
+				expr->constant.integer_value = decl->variable.initializer->constant.integer_value;
 			}
 		}
+		break;
+
+	case EXPRESSION_TYPE_CAST:
+		expr->cast.expression = ast_optimizer_optimize_expression(optimizer, pass, expr->cast.expression);
 		break;
 	}
 
@@ -196,8 +202,8 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 	if (left->constant.kind != CONSTANT_KIND_INTEGER || right->constant.kind != CONSTANT_KIND_INTEGER)
 		return expr;
 
-	u64 lval = left->constant.integer;
-	u64 rval = right->constant.integer;
+	u64 lval = left->constant.integer_value;
+	u64 rval = right->constant.integer_value;
 	u64 result;
 
 	switch (expr->binary.operator)
@@ -220,9 +226,9 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 	}
 
 	// Rewrite this node in-place as a constant
-	expr->type             = EXPRESSION_TYPE_CONSTANT;
-	expr->constant.kind    = CONSTANT_KIND_INTEGER;
-	expr->constant.integer = result;
+	expr->type                   = EXPRESSION_TYPE_CONSTANT;
+	expr->constant.kind          = CONSTANT_KIND_INTEGER;
+	expr->constant.integer_value = result;
 
 	return expr;
 }

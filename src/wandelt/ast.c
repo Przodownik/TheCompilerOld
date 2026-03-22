@@ -3,9 +3,26 @@
 
 #include <stdio.h>
 
+const char* resolve_status_to_cstr(ResolveStatus status)
+{
+	switch (status)
+	{
+	case RESOLVE_STATUS_UNRESOLVED:
+		return "Unresolved";
+	case RESOLVE_STATUS_RESOLVING:
+		return "Resolving";
+	case RESOLVE_STATUS_RESOLVED:
+		return "Resolved";
+	default:
+		break;
+	}
+
+	ASSERT(false, "Unknown resolve status");
+}
+
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
@@ -19,6 +36,8 @@ const char* expression_type_to_cstr(ExpressionType type)
 		return "GroupExpression";
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return "IdentifierExpression";
+	case EXPRESSION_TYPE_CAST:
+		return "CastExpression";
 	default:
 		break;
 	}
@@ -28,7 +47,7 @@ const char* expression_type_to_cstr(ExpressionType type)
 
 const char* constant_kind_to_cstr(ConstantKind kind)
 {
-	static_assert(CONSTANT_KIND_COUNT == 2, "Update constant_kind_to_cstr when adding new constant kinds");
+	static_assert(CONSTANT_KIND_COUNT == 5, "Update constant_kind_to_cstr when adding new constant kinds");
 
 	switch (kind)
 	{
@@ -36,6 +55,12 @@ const char* constant_kind_to_cstr(ConstantKind kind)
 		return "InvalidConstant";
 	case CONSTANT_KIND_INTEGER:
 		return "IntegerConstant";
+	case CONSTANT_KIND_FLOAT:
+		return "FloatConstant";
+	case CONSTANT_KIND_DOUBLE:
+		return "DoubleConstant";
+	case CONSTANT_KIND_BOOLEAN:
+		return "BooleanConstant";
 	default:
 		break;
 	}
@@ -129,18 +154,27 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
 
 	printf("%*sExpression: %s\n", indent, "", expression_type_to_cstr(expr->type));
+	printf("%*sResolve status: %s\n", indent + 2, "", resolve_status_to_cstr(expr->resolve_status));
+	printf("%*sType: %s\n", indent + 2, "",
+	       expr->resolved_type ? type_kind_to_cstr(expr->resolved_type->kind) : "Unresolved");
 
 	if (expr->type == EXPRESSION_TYPE_CONSTANT)
 	{
 		printf("%*sConstant kind: %s\n", indent + 2, "", constant_kind_to_cstr(expr->constant.kind));
 		if (expr->constant.kind == CONSTANT_KIND_INTEGER)
-			printf("%*sValue: %llu\n", indent + 2, "", expr->constant.integer);
+			printf("%*sValue: %llu\n", indent + 2, "", expr->constant.integer_value);
+		else if (expr->constant.kind == CONSTANT_KIND_FLOAT)
+			printf("%*sValue: %f\n", indent + 2, "", (double)expr->constant.float_value);
+		else if (expr->constant.kind == CONSTANT_KIND_DOUBLE)
+			printf("%*sValue: %lf\n", indent + 2, "", expr->constant.double_value);
+		else if (expr->constant.kind == CONSTANT_KIND_BOOLEAN)
+			printf("%*sValue: %s\n", indent + 2, "", expr->constant.boolean_value ? "true" : "false");
 	}
 	else if (expr->type == EXPRESSION_TYPE_BINARY)
 	{
@@ -158,6 +192,12 @@ static void dump_expression(Expression* expr, int indent)
 	else if (expr->type == EXPRESSION_TYPE_IDENTIFIER)
 	{
 		printf("%*sIdentifier: %.*s\n", indent + 2, "", FMT_STR_ARG(expr->identifier.name));
+	}
+	else if (expr->type == EXPRESSION_TYPE_CAST)
+	{
+		printf("%*sCast to type: %s\n", indent + 2, "", type_kind_to_cstr(expr->cast.target_type->kind));
+		printf("%*sExpression:\n", indent + 2, "");
+		dump_expression(expr->cast.expression, indent + 4);
 	}
 }
 

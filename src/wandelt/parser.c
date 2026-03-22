@@ -1,12 +1,12 @@
 #include "parser.h"
-#include "ast.h"
-#include "defines.h"
-#include "diagnostics.h"
-#include "lexer.h"
+
+#include "wandelt/ast.h"
+#include "wandelt/defines.h"
+#include "wandelt/diagnostics.h"
+#include "wandelt/lexer.h"
 #include "wandelt/string.h"
 #include "wandelt/token.h"
 #include "wandelt/vector.h"
-#include <assert.h>
 
 static Statement invalid_statement     = {.type = STATEMENT_TYPE_INVALID};
 static Declaration invalid_declaration = {.type = DECLARATION_TYPE_INVALID};
@@ -307,18 +307,93 @@ Expression* parser_parse_expression_with_precedence(Parser* parser, Precedence m
 Expression* parser_parse_constant_expression(Parser* parser)
 {
 	Token tok = parser_peek_token(parser);
-	ASSERT(tok.type == TOKEN_TYPE_INTEGER);
+	ASSERT(tok.type == TOKEN_TYPE_INTEGER || tok.type == TOKEN_TYPE_FLOAT || tok.type == TOKEN_TYPE_DOUBLE ||
+	       tok.type == TOKEN_TYPE_TRUE_KEYWORD || tok.type == TOKEN_TYPE_FALSE_KEYWORD);
 
-	Expression* expr = new_expression(parser);
-	expr->type       = EXPRESSION_TYPE_CONSTANT;
+	switch (tok.type)
+	{
+	case TOKEN_TYPE_INTEGER:
+		return parser_parse_integer_constant_expression(parser);
 
-	expr->constant.kind    = CONSTANT_KIND_INTEGER;
-	expr->constant.integer = (u64)strtoll(
-	    file_get_part_of_content(parser->lexer->file_to_lex, tok.span.begin, tok.span.end - tok.span.begin).data,
-	    nullptr, 10);
-	expr->span = tok.span;
+	case TOKEN_TYPE_FLOAT:
+		return parser_parse_float_constant_expression(parser);
+
+	case TOKEN_TYPE_DOUBLE:
+		return parser_parse_double_constant_expression(parser);
+
+	case TOKEN_TYPE_TRUE_KEYWORD:
+	case TOKEN_TYPE_FALSE_KEYWORD:
+		return parser_parse_boolean_constant_expression(parser);
+
+	default:
+		ASSERT(false, "unhandled constant token type");
+		return &invalid_expression;
+	};
+}
+
+Expression* parser_parse_integer_constant_expression(Parser* parser)
+{
+	Expression* expr    = new_expression(parser);
+	expr->type          = EXPRESSION_TYPE_CONSTANT;
+	expr->constant.kind = CONSTANT_KIND_INTEGER;
+	expr->constant.integer_value =
+	    (u64)strtoll(file_get_part_of_content(parser->lexer->file_to_lex, parser_peek_token(parser).span.begin,
+	                                          parser_peek_token(parser).span.end - parser_peek_token(parser).span.begin)
+	                     .data,
+	                 nullptr, 10);
+	expr->span = parser_peek_token(parser).span;
 
 	parser_eat_token(parser); // eat the integer token
+
+	return expr;
+}
+
+Expression* parser_parse_float_constant_expression(Parser* parser)
+{
+	Expression* expr    = new_expression(parser);
+	expr->type          = EXPRESSION_TYPE_CONSTANT;
+	expr->constant.kind = CONSTANT_KIND_FLOAT;
+	expr->constant.float_value =
+	    strtof(file_get_part_of_content(parser->lexer->file_to_lex, parser_peek_token(parser).span.begin,
+	                                    parser_peek_token(parser).span.end - parser_peek_token(parser).span.begin)
+	               .data,
+	           nullptr);
+	expr->span = parser_peek_token(parser).span;
+
+	parser_eat_token(parser); // eat the float token
+
+	return expr;
+}
+
+Expression* parser_parse_double_constant_expression(Parser* parser)
+{
+	Expression* expr    = new_expression(parser);
+	expr->type          = EXPRESSION_TYPE_CONSTANT;
+	expr->constant.kind = CONSTANT_KIND_DOUBLE;
+	expr->constant.double_value =
+	    strtod(file_get_part_of_content(parser->lexer->file_to_lex, parser_peek_token(parser).span.begin,
+	                                    parser_peek_token(parser).span.end - parser_peek_token(parser).span.begin)
+	               .data,
+	           nullptr);
+	expr->span = parser_peek_token(parser).span;
+
+	parser_eat_token(parser); // eat the double token
+
+	return expr;
+}
+
+Expression* parser_parse_boolean_constant_expression(Parser* parser)
+{
+	Token tok = parser_peek_token(parser);
+	ASSERT(tok.type == TOKEN_TYPE_TRUE_KEYWORD || tok.type == TOKEN_TYPE_FALSE_KEYWORD);
+
+	Expression* expr             = new_expression(parser);
+	expr->type                   = EXPRESSION_TYPE_CONSTANT;
+	expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
+	expr->constant.boolean_value = (tok.type == TOKEN_TYPE_TRUE_KEYWORD);
+	expr->span                   = tok.span;
+
+	parser_eat_token(parser); // eat the boolean token
 
 	return expr;
 }
@@ -389,6 +464,25 @@ Expression* parser_parse_identifier_expression(Parser* parser)
 	return expr;
 }
 
+Expression* parser_parse_cast_expression(Parser* parser, Expression* left)
+{
+	const Token asToken = parser_peek_token(parser);
+	ASSERT(asToken.type == TOKEN_TYPE_AS_KEYWORD);
+
+	parser_eat_token(parser); // eat 'as' keyword
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_CAST;
+
+	if (!parser_parse_type(parser, &expr->cast.target_type))
+		return &invalid_expression;
+
+	expr->cast.expression = left;
+	expr->span            = span_extend(left->span, parser_peek_token(parser).span);
+
+	return expr;
+}
+
 bool parser_parse_token(Parser* parser, TokenType expected_type)
 {
 	Token tok = parser_peek_token(parser);
@@ -430,16 +524,50 @@ bool parser_parse_identifier(Parser* parser, StringView* out_identifier)
 
 bool parser_parse_type(Parser* parser, Type** out_type)
 {
+	static_assert(TYPE_KIND_COUNT == 12, "parser_parse_type needs to be updated to handle new types");
+
 	Token tok = parser_peek_token(parser);
 
-	if (tok.type != TOKEN_TYPE_INT_KEYWORD)
+	switch (tok.type)
 	{
+	case TOKEN_TYPE_BOOL_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_BOOL);
+		break;
+	case TOKEN_TYPE_CHAR_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_CHAR);
+		break;
+	case TOKEN_TYPE_UCHAR_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_UCHAR);
+		break;
+	case TOKEN_TYPE_SHORT_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_SHORT);
+		break;
+	case TOKEN_TYPE_USHORT_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_USHORT);
+		break;
+	case TOKEN_TYPE_INT_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_INT);
+		break;
+	case TOKEN_TYPE_UINT_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_UINT);
+		break;
+	case TOKEN_TYPE_LONG_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_LONG);
+		break;
+	case TOKEN_TYPE_ULONG_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_ULONG);
+		break;
+	case TOKEN_TYPE_FLOAT_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_FLOAT);
+		break;
+	case TOKEN_TYPE_DOUBLE_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_DOUBLE);
+		break;
+	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a type, but found '%.*s'",
 		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		return false;
 	}
-
-	*out_type = type_get_builtin_int();
 
 	parser_eat_token(parser); // eat the type token
 
@@ -447,13 +575,18 @@ bool parser_parse_type(Parser* parser, Type** out_type)
 }
 
 static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
-    [TOKEN_TYPE_OPEN_PAREN] = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
-    [TOKEN_TYPE_PLUS]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_MINUS]      = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_STAR]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_SLASH]      = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
-    [TOKEN_TYPE_INTEGER]    = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
-    [TOKEN_TYPE_IDENTIFIER] = {parser_parse_identifier_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_AS_KEYWORD]    = {nullptr, parser_parse_cast_expression, PRECEDENCE_CAST},
+    [TOKEN_TYPE_OPEN_PAREN]    = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_PLUS]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_MINUS]         = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_STAR]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_SLASH]         = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_INTEGER]       = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_FLOAT]         = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_DOUBLE]        = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_TRUE_KEYWORD]  = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_FALSE_KEYWORD] = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_IDENTIFIER]    = {parser_parse_identifier_expression, nullptr, PRECEDENCE_NONE},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 19, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 35, "Update parse_rules when adding new token types");

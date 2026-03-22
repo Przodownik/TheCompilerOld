@@ -16,9 +16,22 @@ typedef enum TokenType
 	TOKEN_TYPE_RETURN_KEYWORD,    // 'return'
 	TOKEN_TYPE_NAMESPACE_KEYWORD, // 'namespace'
 	TOKEN_TYPE_VAR_KEYWORD,       // 'var'
+	TOKEN_TYPE_AS_KEYWORD,        // 'as'
 
 	// Built-in types
-	TOKEN_TYPE_INT_KEYWORD, // 'int'
+	TOKEN_TYPE_BOOL_KEYWORD,   // 'bool'
+	TOKEN_TYPE_CHAR_KEYWORD,   // 'char'
+	TOKEN_TYPE_UCHAR_KEYWORD,  // 'uchar'
+	TOKEN_TYPE_SHORT_KEYWORD,  // 'short'
+	TOKEN_TYPE_USHORT_KEYWORD, // 'ushort'
+	TOKEN_TYPE_INT_KEYWORD,    // 'int'
+	TOKEN_TYPE_UINT_KEYWORD,   // 'uint'
+	TOKEN_TYPE_LONG_KEYWORD,   // 'long'
+	TOKEN_TYPE_ULONG_KEYWORD,  // 'ulong'
+	TOKEN_TYPE_FLOAT_KEYWORD,  // 'float'
+	TOKEN_TYPE_DOUBLE_KEYWORD, // 'double'
+	TOKEN_TYPE_TRUE_KEYWORD,   // 'true'
+	TOKEN_TYPE_FALSE_KEYWORD,  // 'false'
 
 	// Single-character token
 	TOKEN_TYPE_OPEN_PAREN,  //  (
@@ -31,10 +44,13 @@ typedef enum TokenType
 	TOKEN_TYPE_STAR,        //  *
 	TOKEN_TYPE_SLASH,       //  /
 	TOKEN_TYPE_EQUALS,      //  =
+	TOKEN_TYPE_DOT,         //  .
 
 	// Other
 	TOKEN_TYPE_IDENTIFIER, //  ident
 	TOKEN_TYPE_INTEGER,    // 123
+	TOKEN_TYPE_FLOAT,      // 3.14f, 3.f, .14f
+	TOKEN_TYPE_DOUBLE,     // 3.14d, 3.d, .14d
 
 	TOKEN_TYPE_EOF,
 	TOKEN_TYPE_COUNT

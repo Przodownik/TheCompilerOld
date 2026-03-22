@@ -15,4 +15,18 @@ var int y = 11 + x;
 var int z = 12 + y;
 var int zz = 12 + z;
 
-return (x + y + z) / 64; // 64
+var float f = 1.2f;
+
+
+// // 12
+// // 12.0f 12.f
+// // 12.0d 12.d
+
+// // var int f1 = f as int;
+
+// return (x + y + z) / 64; // 64
+
+// var char a = 100;
+// var char x = a;
+
+return x * 2;

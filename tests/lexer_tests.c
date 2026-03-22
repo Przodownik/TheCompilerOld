@@ -5,6 +5,7 @@
  */
 #include "wandelt/lexer.h"
 #include "wandelt/memory.h"
+#include "wandelt/platform.h"
 
 // ---------------------------------------------------------------------------
 // Minimal test framework
@@ -19,28 +20,27 @@ static void print_section(const char* name)
 	printf("\n  " ANSI_COLOR_CYAN ANSI_COLOR_BOLD "%s" ANSI_COLOR_RESET "\n", name);
 }
 
-#define TEST(name)                                                                                                    \
-	static void test_##name(Allocator* alloc);                                                                        \
-	static void run_test_##name(Allocator* alloc)                                                                     \
-	{                                                                                                                 \
-		g_tests_run++;                                                                                                \
-		int _failed_before = g_tests_failed;                                                                          \
-		struct timespec _start, _end;                                                                                 \
-		timespec_get(&_start, TIME_UTC);                                                                              \
-		printf("  %-50s", #name);                                                                                     \
-		test_##name(alloc);                                                                                           \
-		timespec_get(&_end, TIME_UTC);                                                                                \
-		double _ms = timespec_diff_ms(&_start, &_end);                                                                \
-		if (g_tests_failed == _failed_before)                                                                         \
-		{                                                                                                             \
-			g_tests_passed++;                                                                                         \
-			printf(ANSI_COLOR_GREEN "PASS" ANSI_COLOR_RESET ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);  \
-		}                                                                                                             \
-		else                                                                                                          \
-		{                                                                                                             \
-			printf(ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);                                           \
-		}                                                                                                             \
-	}                                                                                                                 \
+#define TEST(name)                                                                                                   \
+	static void test_##name(Allocator* alloc);                                                                       \
+	static void run_test_##name(Allocator* alloc)                                                                    \
+	{                                                                                                                \
+		g_tests_run++;                                                                                               \
+		int _failed_before = g_tests_failed;                                                                         \
+		PlatformTimer _timer;                                                                                        \
+		platform_timer_start(&_timer);                                                                               \
+		printf("  %-50s", #name);                                                                                    \
+		test_##name(alloc);                                                                                          \
+		double _ms = platform_timer_elapsed_ms(&_timer);                                                             \
+		if (g_tests_failed == _failed_before)                                                                        \
+		{                                                                                                            \
+			g_tests_passed++;                                                                                        \
+			printf(ANSI_COLOR_GREEN "PASS" ANSI_COLOR_RESET ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms); \
+		}                                                                                                            \
+		else                                                                                                         \
+		{                                                                                                            \
+			printf(ANSI_COLOR_DIM "  (%.3fms)" ANSI_COLOR_RESET "\n", _ms);                                          \
+		}                                                                                                            \
+	}                                                                                                                \
 	static void test_##name(Allocator* alloc)
 
 #define ASSERT_EQ(a, b)                                                   \
@@ -119,7 +119,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 19, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 35, "Update lexer tests when adding new token types");
 
 // --- Empty / whitespace-only inputs ----------------------------------------
 
@@ -133,6 +133,14 @@ TEST(empty_input)
 TEST(whitespace_only)
 {
 	TokenList tl = lex_all(alloc, "   \t\n\r  \n  ");
+	ASSERT_EQ(tl.count, 1);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EOF);
+}
+
+TEST(comments_only)
+{
+	const char* src = "// This is a comment\n// Another comment\n";
+	TokenList tl    = lex_all(alloc, src);
 	ASSERT_EQ(tl.count, 1);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EOF);
 }
@@ -230,6 +238,15 @@ TEST(equals)
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "=");
 }
 
+TEST(dot)
+{
+	const char* src = ".";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOT);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ".");
+}
+
 // --- Identifiers -----------------------------------------------------------
 
 TEST(simple_identifier)
@@ -324,6 +341,60 @@ TEST(var_keyword)
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "var");
 }
 
+TEST(as_keyword)
+{
+	const char* src = "as";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_AS_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "as");
+}
+
+TEST(bool_keyword)
+{
+	const char* src = "bool";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_BOOL_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "bool");
+}
+
+TEST(char_keyword)
+{
+	const char* src = "char";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_CHAR_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "char");
+}
+
+TEST(uchar_keyword)
+{
+	const char* src = "uchar";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_UCHAR_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "uchar");
+}
+
+TEST(short_keyword)
+{
+	const char* src = "short";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_SHORT_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "short");
+}
+
+TEST(ushort_keyword)
+{
+	const char* src = "ushort";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_USHORT_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "ushort");
+}
+
 TEST(int_keyword)
 {
 	const char* src = "int";
@@ -331,6 +402,69 @@ TEST(int_keyword)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INT_KEYWORD);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "int");
+}
+
+TEST(uint_keyword)
+{
+	const char* src = "uint";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_UINT_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "uint");
+}
+
+TEST(long_keyword)
+{
+	const char* src = "long";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_LONG_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "long");
+}
+
+TEST(ulong_keyword)
+{
+	const char* src = "ulong";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_ULONG_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "ulong");
+}
+
+TEST(float_keyword)
+{
+	const char* src = "float";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FLOAT_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "float");
+}
+
+TEST(double_keyword)
+{
+	const char* src = "double";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOUBLE_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "double");
+}
+
+TEST(true_keyword)
+{
+	const char* src = "true";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_TRUE_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "true");
+}
+
+TEST(false_keyword)
+{
+	const char* src = "false";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FALSE_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "false");
 }
 
 // --- Integers --------------------------------------------------------------
@@ -360,6 +494,62 @@ TEST(large_integer)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INTEGER);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "1234567890");
+}
+
+// --- Floats and doubles ----------------------------------------------------
+
+TEST(float_literal_1)
+{
+	const char* src = "3.14f";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FLOAT);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "3.14f");
+}
+
+TEST(float_literal_2)
+{
+	const char* src = "3.f";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FLOAT);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "3.f");
+}
+
+TEST(float_literal_3)
+{
+	const char* src = ".14f";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_FLOAT);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ".14f");
+}
+
+TEST(double_literal_1)
+{
+	const char* src = "2.71828d";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOUBLE);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "2.71828d");
+}
+
+TEST(double_literal_2)
+{
+	const char* src = "2.d";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOUBLE);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "2.d");
+}
+
+TEST(double_literal_3)
+{
+	const char* src = ".71828d";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOUBLE);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ".71828d");
 }
 
 // --- Peek / eat semantics --------------------------------------------------
@@ -489,14 +679,15 @@ int main(void)
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));
 
-	struct timespec total_start, total_end;
-	timespec_get(&total_start, TIME_UTC);
+	PlatformTimer total_timer;
+	platform_timer_start(&total_timer);
 
 	printf(ANSI_COLOR_BOLD "Running lexer tests..." ANSI_COLOR_RESET "\n");
 
 	print_section("Empty / whitespace");
 	RUN_TEST(empty_input);
 	RUN_TEST(whitespace_only);
+	RUN_TEST(comments_only);
 
 	print_section("Single-character tokens");
 	RUN_TEST(open_paren);
@@ -509,6 +700,7 @@ int main(void)
 	RUN_TEST(star);
 	RUN_TEST(slash);
 	RUN_TEST(equals);
+	RUN_TEST(dot);
 
 	print_section("Identifiers");
 	RUN_TEST(simple_identifier);
@@ -523,13 +715,34 @@ int main(void)
 	RUN_TEST(return_keyword);
 	RUN_TEST(namespace_keyword);
 	RUN_TEST(var_keyword);
-	
+	RUN_TEST(as_keyword);
+
+	RUN_TEST(bool_keyword);
+	RUN_TEST(char_keyword);
+	RUN_TEST(uchar_keyword);
+	RUN_TEST(short_keyword);
+	RUN_TEST(ushort_keyword);
 	RUN_TEST(int_keyword);
+	RUN_TEST(uint_keyword);
+	RUN_TEST(long_keyword);
+	RUN_TEST(ulong_keyword);
+	RUN_TEST(float_keyword);
+	RUN_TEST(double_keyword);
+	RUN_TEST(true_keyword);
+	RUN_TEST(false_keyword);
 
 	print_section("Integers");
 	RUN_TEST(single_digit);
 	RUN_TEST(multi_digit_integer);
 	RUN_TEST(large_integer);
+
+	print_section("Floats and doubles");
+	RUN_TEST(float_literal_1);
+	RUN_TEST(float_literal_2);
+	RUN_TEST(float_literal_3);
+	RUN_TEST(double_literal_1);
+	RUN_TEST(double_literal_2);
+	RUN_TEST(double_literal_3);
 
 	print_section("Peek / eat semantics");
 	RUN_TEST(peek_returns_same_token);
@@ -546,8 +759,7 @@ int main(void)
 	RUN_TEST(carriage_return_newline);
 	RUN_TEST(tokens_separated_by_whitespace);
 
-	timespec_get(&total_end, TIME_UTC);
-	double total_ms = timespec_diff_ms(&total_start, &total_end);
+	double total_ms = platform_timer_elapsed_ms(&total_timer);
 
 	printf("\n  " ANSI_COLOR_DIM "----------------------------------------" ANSI_COLOR_RESET "\n");
 

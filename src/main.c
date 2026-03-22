@@ -8,6 +8,7 @@
 #include "wandelt/lexer.h"
 #include "wandelt/memory.h"
 #include "wandelt/parser.h"
+#include "wandelt/platform.h"
 #include "wandelt/sema.h"
 #include "wandelt/string.h"
 #include "wandelt/vector.h"
@@ -31,7 +32,7 @@ int main(int argc, char* argv[])
 	Allocator expr_arena   = allocator_get_arena_allocator(&heap, MB(2));
 	Allocator string_arena = allocator_get_arena_allocator(&heap, MB(2));
 
-	struct timespec ts_start, ts_end;
+	PlatformTimer timer;
 	double dt_lexing_parsing = 0.0;
 	double dt_sema           = 0.0;
 	double dt_ast_opt        = 0.0;
@@ -42,18 +43,12 @@ int main(int argc, char* argv[])
 	File demo_file       = file_create(&string_arena, demo_filepath);
 
 	// Lexing & Parsing
-	timespec_get(&ts_start, TIME_UTC);
+	platform_timer_start(&timer);
 	Lexer lexer        = lexer_create(&demo_file);
 	Parser parser      = parser_create(&stmt_arena, &decl_arena, &expr_arena, &lexer);
 	TranslationUnit tu = parser_parse(&parser);
-	timespec_get(&ts_end, TIME_UTC);
-	dt_lexing_parsing = timespec_diff_ms(&ts_start, &ts_end);
+	dt_lexing_parsing  = platform_timer_elapsed_ms(&timer);
 
-	if (debug)
-	{
-		printf("======== Before optimization: =======\n");
-		ast_dump_statements(tu.statements);
-	}
 	if (diagnostics_has_errors())
 	{
 		printf("Compilation failed with %d error(s) and %d warning(s)\n", diagnostics_get_error_count(),
@@ -62,11 +57,10 @@ int main(int argc, char* argv[])
 	}
 
 	// Semantic Analysis
-	timespec_get(&ts_start, TIME_UTC);
+	platform_timer_start(&timer);
 	Sema sema    = sema_create(&expr_arena, &decl_arena, &demo_file);
 	bool sema_ok = sema_analyze(&sema, &tu);
-	timespec_get(&ts_end, TIME_UTC);
-	dt_sema = timespec_diff_ms(&ts_start, &ts_end);
+	dt_sema      = platform_timer_elapsed_ms(&timer);
 
 	if (!sema_ok)
 	{
@@ -75,14 +69,19 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	if (debug)
+	{
+		printf("======== Before optimization: =======\n");
+		ast_dump_statements(tu.statements);
+	}
+
 	// AST Optimization
 	if (optimize)
 	{
-		timespec_get(&ts_start, TIME_UTC);
+		platform_timer_start(&timer);
 		AstOptimizer optimizer = ast_optimizer_create(&expr_arena);
 		ast_optimizer_run(&optimizer, &tu);
-		timespec_get(&ts_end, TIME_UTC);
-		dt_ast_opt = timespec_diff_ms(&ts_start, &ts_end);
+		dt_ast_opt = platform_timer_elapsed_ms(&timer);
 
 		if (debug)
 		{
@@ -94,11 +93,10 @@ int main(int argc, char* argv[])
 	// Bytecode Generation
 	Allocator bytecode_arena = allocator_get_arena_allocator(&heap, MB(4));
 
-	timespec_get(&ts_start, TIME_UTC);
+	platform_timer_start(&timer);
 	BytecodeCompiler compiler = bytecode_compiler_create(&bytecode_arena, &demo_file);
 	Chunk chunk               = bytecode_compiler_compile(&compiler, tu.statements);
-	timespec_get(&ts_end, TIME_UTC);
-	dt_bytecode = timespec_diff_ms(&ts_start, &ts_end);
+	dt_bytecode               = platform_timer_elapsed_ms(&timer);
 
 	if (debug)
 		disassemble_chunk(&chunk, "main", &demo_file);
@@ -108,10 +106,9 @@ int main(int argc, char* argv[])
 	VM vm           = vm_create(&chunk);
 	VmResult result = VM_ERROR;
 
-	timespec_get(&ts_start, TIME_UTC);
+	platform_timer_start(&timer);
 	result = vm_execute(&vm);
-	timespec_get(&ts_end, TIME_UTC);
-	dt_vm = timespec_diff_ms(&ts_start, &ts_end);
+	dt_vm  = platform_timer_elapsed_ms(&timer);
 
 	// Timing table
 	double dt_total = dt_lexing_parsing + dt_sema + dt_ast_opt + dt_bytecode + dt_vm;

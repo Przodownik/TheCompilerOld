@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 // Unsigned int types.
 typedef unsigned char u8;
@@ -108,17 +107,6 @@ static_assert(sizeof(f64) == 8, "f64 is not 8 bytes");
 		}                                                                                         \
 	} while (0)
 
-static inline double timespec_diff_ms(struct timespec* start, struct timespec* end)
-{
-	return (double)(end->tv_sec - start->tv_sec) * 1000.0 +
-	       (double)(end->tv_nsec - start->tv_nsec) / 1000000.0;
-}
-
-static inline double timespec_diff_ns(struct timespec* start, struct timespec* end)
-{
-	return (double)(end->tv_sec - start->tv_sec) * 1000000000.0 +
-	       (double)(end->tv_nsec - start->tv_nsec);
-}
 
 #define ASSERT_PICK(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, NAME, ...) NAME
 #define ASSERT(...)                                                                                              \

@@ -10,13 +10,14 @@
 #include "wandelt/token.h"
 #include "wandelt/type.h"
 
-
 typedef enum ResolveStatus
 {
 	RESOLVE_STATUS_UNRESOLVED = 0,
 	RESOLVE_STATUS_RESOLVING,
 	RESOLVE_STATUS_RESOLVED,
 } ResolveStatus;
+
+const char* resolve_status_to_cstr(ResolveStatus status);
 
 typedef enum ExpressionType
 {
@@ -25,6 +26,7 @@ typedef enum ExpressionType
 	EXPRESSION_TYPE_BINARY,
 	EXPRESSION_TYPE_GROUP,
 	EXPRESSION_TYPE_IDENTIFIER,
+	EXPRESSION_TYPE_CAST,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
 
@@ -34,6 +36,9 @@ typedef enum ConstantKind
 {
 	CONSTANT_KIND_INVALID = 0,
 	CONSTANT_KIND_INTEGER,
+	CONSTANT_KIND_FLOAT,
+	CONSTANT_KIND_DOUBLE,
+	CONSTANT_KIND_BOOLEAN,
 	CONSTANT_KIND_COUNT,
 } ConstantKind;
 
@@ -44,8 +49,10 @@ typedef struct
 	ConstantKind kind;
 
 	union {
-		u64 integer;
-		// double float_value;
+		u64 integer_value;
+		float float_value;
+		double double_value;
+		bool boolean_value;
 	};
 } ConstantExpression;
 
@@ -80,6 +87,12 @@ typedef struct IdentifierExpression
 	struct Declaration* declaration_ref; // might be null
 } IdentifierExpression;
 
+typedef struct CastExpression
+{
+	Type* target_type;
+	struct Expression* expression;
+} CastExpression;
+
 typedef struct Expression
 {
 	ExpressionType type;
@@ -93,6 +106,7 @@ typedef struct Expression
 		BinaryExpression binary;
 		GroupExpression group;
 		IdentifierExpression identifier;
+		CastExpression cast;
 	};
 } Expression;
 

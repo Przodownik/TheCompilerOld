@@ -1,5 +1,4 @@
 Lexer:
-- add tests for single line tokens
 
 Parser:
 - add tests

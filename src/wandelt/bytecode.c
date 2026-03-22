@@ -131,7 +131,7 @@ static u8 bytecode_compiler_compile_node(BytecodeCompiler* c, Statement* stateme
 
 static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expression)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 5, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
 
 	set_line_from_span(c, expression->span);
 
@@ -141,7 +141,7 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 		u8 dest = c->next_reg++;
 		if (c->next_reg > c->max_reg)
 			c->max_reg = c->next_reg;
-		u32 k = chunk_add_constant(&c->chunk, value_int((i64)expression->constant.integer));
+		u32 k = chunk_add_constant(&c->chunk, value_int((i64)expression->constant.integer_value));
 		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, dest, k));
 		return dest;
 	}
@@ -192,6 +192,9 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 		}
 		ASSERT(false, "Undefined variable");
 	}
+
+	case EXPRESSION_TYPE_CAST:
+		return bytecode_compiler_compile_expr(c, expression->cast.expression);
 
 	default:
 		break;

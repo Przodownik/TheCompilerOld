@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include "diagnostics.h"
 #include "wandelt/string.h"
+#include "wandelt/token.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -131,25 +132,68 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 
 	switch (ident.data[0])
 	{
+	case 'a':
+		if (ident.len == 2 && strncmp(ident.data, "as", 2) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_AS_KEYWORD);
+		break;
+	case 'b':
+		if (ident.len == 4 && strncmp(ident.data, "bool", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_BOOL_KEYWORD);
+		break;
+	case 'c':
+		if (ident.len == 4 && strncmp(ident.data, "char", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_CHAR_KEYWORD);
+		break;
+	case 'd':
+		if (ident.len == 6 && strncmp(ident.data, "double", 6) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_DOUBLE_KEYWORD);
+		break;
 	case 'f':
 		if (ident.len == 2 && strncmp(ident.data, "fn", 2) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_FUNCTION_KEYWORD);
-		break;
-	case 'r':
-		if (ident.len == 6 && strncmp(ident.data, "return", 6) == 0)
-			return _lexer_create_new_token(lexer, TOKEN_TYPE_RETURN_KEYWORD);
-		break;
-	case 'n':
-		if (ident.len == 9 && strncmp(ident.data, "namespace", 9) == 0)
-			return _lexer_create_new_token(lexer, TOKEN_TYPE_NAMESPACE_KEYWORD);
+		if (ident.len == 5 && strncmp(ident.data, "float", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_FLOAT_KEYWORD);
+		if (ident.len == 5 && strncmp(ident.data, "false", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_FALSE_KEYWORD);
 		break;
 	case 'i':
 		if (ident.len == 3 && strncmp(ident.data, "int", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_INT_KEYWORD);
 		break;
+	case 'l':
+		if (ident.len == 4 && strncmp(ident.data, "long", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_LONG_KEYWORD);
+		break;
+	case 'n':
+		if (ident.len == 9 && strncmp(ident.data, "namespace", 9) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_NAMESPACE_KEYWORD);
+		break;
+	case 'r':
+		if (ident.len == 6 && strncmp(ident.data, "return", 6) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_RETURN_KEYWORD);
+		break;
+	case 's':
+		if (ident.len == 5 && strncmp(ident.data, "short", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_SHORT_KEYWORD);
+		break;
+	case 't':
+		if (ident.len == 4 && strncmp(ident.data, "true", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_TRUE_KEYWORD);
+		break;
+	case 'u':
+		if (ident.len == 5 && strncmp(ident.data, "uchar", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_UCHAR_KEYWORD);
+		if (ident.len == 6 && strncmp(ident.data, "ushort", 6) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_USHORT_KEYWORD);
+		if (ident.len == 4 && strncmp(ident.data, "uint", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_UINT_KEYWORD);
+		if (ident.len == 5 && strncmp(ident.data, "ulong", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_ULONG_KEYWORD);
+		break;
 	case 'v':
 		if (ident.len == 3 && strncmp(ident.data, "var", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_VAR_KEYWORD);
+		break;
 	}
 
 	return _lexer_create_new_token(lexer, TOKEN_TYPE_IDENTIFIER);
@@ -157,12 +201,46 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 
 Token _lexer_lex_digit(Lexer* lexer)
 {
+	// 12
 	while (is_character_a_digit(lexer_get_current_char(lexer)))
 	{
 		_lexer_advance(lexer);
 	}
 
-	return _lexer_create_new_token(lexer, TOKEN_TYPE_INTEGER);
+	TokenType type = TOKEN_TYPE_INTEGER;
+
+	// 12.0f 12.0d
+	// 12.f  12.d
+	// .12f  .12d
+	if (lexer_get_current_char(lexer) == '.')
+	{
+		_lexer_advance(lexer); // consume '.'
+
+		while (is_character_a_digit(lexer_get_current_char(lexer)))
+		{
+			_lexer_advance(lexer);
+		}
+
+		if (lexer_get_current_char(lexer) == 'f')
+		{
+			type = TOKEN_TYPE_FLOAT;
+			_lexer_advance(lexer); // consume 'f'
+		}
+		else if (lexer_get_current_char(lexer) == 'd')
+		{
+			type = TOKEN_TYPE_DOUBLE;
+			_lexer_advance(lexer); // consume 'd'
+		}
+		else
+		{
+			Token error = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+			diagnostics_verror_along_span(
+			    error.span, lexer->file_to_lex,
+			    "Invalid floating-point literal, expected 'f' or 'd' suffix after the fractional part.");
+		}
+	}
+
+	return _lexer_create_new_token(lexer, type);
 }
 
 Token _lexer_lex_token(Lexer* lexer)
@@ -176,7 +254,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 19, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 35, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -222,7 +300,18 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 	case '=':
 		token = _lexer_create_new_token(lexer, TOKEN_TYPE_EQUALS);
 		break;
-
+	case '.':
+		if (is_character_a_digit(lexer_get_current_char(lexer)))
+		{
+			// Handle floating-point literals that start with a dot, like .14f or .14d
+			lexer->current_char--;
+			token = _lexer_lex_digit(lexer);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_DOT);
+		}
+		break;
 	default:
 		if (is_character_a_digit(c))
 		{
