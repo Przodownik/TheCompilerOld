@@ -35,3 +35,11 @@ StringView string_view_from_cstr_part(const char* str, u64 len)
 {
 	return (StringView){.data = str, .len = len};
 }
+
+bool string_view_equals(StringView a, StringView b)
+{
+	if (a.len != b.len)
+		return false;
+
+	return memcmp(a.data, b.data, a.len) == 0;
+}

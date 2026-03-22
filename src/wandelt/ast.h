@@ -5,9 +5,17 @@
  */
 #pragma once
 
-#include "type.h"
+#include "wandelt/type.h"
 #include "wandelt/defines.h"
-#include "wandelt/lexer.h"
+#include "wandelt/string.h"
+#include "wandelt/token.h"
+
+typedef enum ResolveStatus
+{
+	RESOLVE_STATUS_UNRESOLVED = 0,
+	RESOLVE_STATUS_RESOLVING,
+	RESOLVE_STATUS_RESOLVED,
+} ResolveStatus;
 
 typedef enum ExpressionType
 {
@@ -70,6 +78,9 @@ typedef struct Expression
 	ExpressionType type;
 	Span span;
 
+	ResolveStatus resolve_status;
+	Type* resolved_type;
+
 	union {
 		ConstantExpression constant;
 		BinaryExpression binary;
@@ -103,6 +114,7 @@ typedef struct Declaration
 {
 	DeclarationType type;
 	Span span;
+	ResolveStatus resolve_status;
 
 	union {
 		NamespaceDeclaration namespace;

@@ -8,6 +8,7 @@
 #include "wandelt/lexer.h"
 #include "wandelt/memory.h"
 #include "wandelt/parser.h"
+#include "wandelt/sema.h"
 #include "wandelt/string.h"
 #include "wandelt/vector.h"
 #include "wandelt/vm.h"
@@ -49,6 +50,16 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	Sema sema    = sema_create(&expr_arena, &decl_arena, &demo_file);
+	bool sema_ok = sema_analyze(&sema, &tu);
+
+	if (!sema_ok)
+	{
+		printf("Compilation failed with %d error(s) and %d warning(s)\n", diagnostics_get_error_count(),
+		       diagnostics_get_warning_count());
+		return 1;
+	}
+
 	if (optimize)
 	{
 		AstOptimizer optimizer = ast_optimizer_create(&expr_arena);
@@ -59,10 +70,6 @@ int main(int argc, char* argv[])
 			ast_dump_statements(tu.statements);
 		}
 	}
-
-	// for now remove the namespace decl stmt;
-	Statement* stmt = nullptr;
-	vector_remove_at(tu.statements, 0, &stmt);
 
 	Allocator bytecode_arena = allocator_get_arena_allocator(&heap, MB(4));
 

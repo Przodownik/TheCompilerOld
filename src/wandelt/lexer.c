@@ -94,6 +94,14 @@ void _lexer_skip_whitespace(Lexer* lexer)
 		case '\n':
 			_lexer_advance(lexer);
 			break;
+		case '/':
+			if (lexer_get_next_char(lexer) == '/')
+			{
+				// Skip the rest of the line
+				while (!lexer_is_at_newline(lexer) && !lexer_is_eof(lexer)) _lexer_advance(lexer);
+				break;
+			}
+			return;
 		default:
 			return;
 		};

@@ -30,3 +30,5 @@ typedef struct StringView
 
 StringView string_view_from_cstr(const char* str);
 StringView string_view_from_cstr_part(const char* str, u64 len);
+
+bool string_view_equals(StringView a, StringView b);

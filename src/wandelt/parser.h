@@ -6,6 +6,8 @@
 #pragma once
 
 #include "wandelt/ast.h"
+#include "wandelt/file.h"
+#include "wandelt/lexer.h"
 #include "wandelt/memory.h"
 #include "wandelt/string.h"
 

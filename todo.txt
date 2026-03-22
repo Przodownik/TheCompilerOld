@@ -1,0 +1,8 @@
+Lexer:
+- add tests for single line tokens
+
+Parser:
+- add tests
+
+Sema:
+- add tests

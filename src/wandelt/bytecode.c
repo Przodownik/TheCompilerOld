@@ -1,5 +1,7 @@
 #include "bytecode.h"
+#include "defines.h"
 #include "wandelt/ast.h"
+#include "wandelt/string.h"
 #include "wandelt/vector.h"
 
 const char* op_code_to_cstr(OpCode op)
@@ -88,7 +90,7 @@ static void set_line_from_span(BytecodeCompiler* c, Span span)
 {
 	if (c->source)
 	{
-		FileLocation loc    = file_resolve_location(c->source, span.begin);
+		FileLocation loc      = file_resolve_location(c->source, span.begin);
 		c->chunk.current_line = loc.row;
 	}
 }
@@ -99,6 +101,23 @@ static u8 bytecode_compiler_compile_node(BytecodeCompiler* c, Statement* stateme
 
 	switch (statement->type)
 	{
+	case STATEMENT_TYPE_DECLARATION: {
+		if (statement->decl_stmt.declaration->type == DECLARATION_TYPE_VARIABLE)
+		{
+			VariableDeclaration* var_decl = &statement->decl_stmt.declaration->variable;
+			if (var_decl->initializer)
+			{
+				u8 reg               = bytecode_compiler_compile_expr(c, var_decl->initializer);
+				LocalVariable* local = &c->variables[c->local_count++];
+				local->name          = var_decl->name;
+				local->reg           = reg;
+				local->scope_depth   = c->scope_depth;
+				return reg;
+			}
+		}
+		return 0;
+	}
+
 	case STATEMENT_TYPE_RETURN: {
 		u8 reg = bytecode_compiler_compile_expr(c, statement->return_stmt.expression);
 		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_RETURN, reg, 0));
@@ -118,7 +137,8 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 	{
 	case EXPRESSION_TYPE_CONSTANT: {
 		u8 dest = c->next_reg++;
-		if (c->next_reg > c->max_reg) c->max_reg = c->next_reg;
+		if (c->next_reg > c->max_reg)
+			c->max_reg = c->next_reg;
 		u32 k = chunk_add_constant(&c->chunk, value_int((i64)expression->constant.integer));
 		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, dest, k));
 		return dest;
@@ -155,6 +175,19 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 
 		return dest;
 	}
+
+	case EXPRESSION_TYPE_IDENTIFIER: {
+		for (i64 i = c->local_count - 1; i >= 0; i--)
+		{
+			LocalVariable* local = &c->variables[i];
+			if (string_view_equals(local->name, expression->identifier.name))
+			{
+				return local->reg;
+			}
+		}
+		ASSERT(false, "Undefined variable");
+	}
+
 	default:
 		break;
 	}

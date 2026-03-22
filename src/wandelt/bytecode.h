@@ -67,14 +67,21 @@ typedef struct Chunk
 {
 	Instruction* instructions;
 	Value* constants;
-	u32* lines;           // parallel to instructions: source line number
-	u32 current_line;     // set by compiler before emitting
+	u32* lines;       // parallel to instructions: source line number
+	u32 current_line; // set by compiler before emitting
 	u32 registers_needed;
 } Chunk;
 
 Chunk chunk_create(Allocator* alloc);
 u32 chunk_emit(Chunk* chunk, Instruction inst);
 u32 chunk_add_constant(Chunk* chunk, Value val);
+
+typedef struct LocalVariable
+{
+	StringView name;
+	u8 reg;
+	u8 scope_depth;
+} LocalVariable;
 
 typedef struct BytecodeCompiler
 {
@@ -83,6 +90,9 @@ typedef struct BytecodeCompiler
 	Chunk chunk;
 	u8 next_reg; // next free register (max 255)
 	u8 max_reg;  // high-water mark of registers used
+	LocalVariable variables[128];
+	u8 local_count;
+	u8 scope_depth;
 } BytecodeCompiler;
 
 BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);

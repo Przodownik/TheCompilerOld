@@ -3,6 +3,7 @@
 #include "bytecode.h"
 #include "defines.h"
 #include "wandelt/vector.h"
+#include <assert.h>
 
 #define DISASM_LINE_WIDTH 68
 
@@ -48,6 +49,8 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 
 static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
+	static_assert(OP_CODE_COUNT == 9, "format_instruction needs to be updated for new opcodes");
+
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
 
