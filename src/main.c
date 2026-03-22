@@ -16,6 +16,8 @@
 
 int main(int argc, char* argv[])
 {
+	setvbuf(stdout, NULL, _IOFBF, 8192);
+
 	bool debug    = false;
 	bool optimize = false;
 	for (int i = 1; i < argc; i++)

@@ -15,7 +15,18 @@ var int y = 11 + x;
 var int z = 12 + y;
 var int zz = 12 + z;
 
-var float f = 1.2f;
+var int f = 1;
+var int f1 = 1;
+var int f2 = 1;
+var int f3 = 1;
+var int f4 = 1;
+var int f5 = 1;
+var int f6 = 1;
+var int f7 = 1;
+var int f8 = 1;
+var int f9 = 1;
+var int f10 = 1;
+var int f11 = 1;
 
 
 // // 12
