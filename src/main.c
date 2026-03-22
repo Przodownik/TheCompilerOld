@@ -31,13 +31,24 @@ int main(int argc, char* argv[])
 	Allocator expr_arena   = allocator_get_arena_allocator(&heap, MB(2));
 	Allocator string_arena = allocator_get_arena_allocator(&heap, MB(2));
 
+	struct timespec ts_start, ts_end;
+	double dt_lexing_parsing = 0.0;
+	double dt_sema           = 0.0;
+	double dt_ast_opt        = 0.0;
+	double dt_bytecode       = 0.0;
+	double dt_vm             = 0.0;
+
 	String demo_filepath = string_from_cstr(&string_arena, DEMO_PATH "main.wdt");
 	File demo_file       = file_create(&string_arena, demo_filepath);
 
-	Lexer lexer   = lexer_create(&demo_file);
-	Parser parser = parser_create(&stmt_arena, &decl_arena, &expr_arena, &lexer);
-
+	// Lexing & Parsing
+	timespec_get(&ts_start, TIME_UTC);
+	Lexer lexer        = lexer_create(&demo_file);
+	Parser parser      = parser_create(&stmt_arena, &decl_arena, &expr_arena, &lexer);
 	TranslationUnit tu = parser_parse(&parser);
+	timespec_get(&ts_end, TIME_UTC);
+	dt_lexing_parsing = timespec_diff_ms(&ts_start, &ts_end);
+
 	if (debug)
 	{
 		printf("======== Before optimization: =======\n");
@@ -50,8 +61,12 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	// Semantic Analysis
+	timespec_get(&ts_start, TIME_UTC);
 	Sema sema    = sema_create(&expr_arena, &decl_arena, &demo_file);
 	bool sema_ok = sema_analyze(&sema, &tu);
+	timespec_get(&ts_end, TIME_UTC);
+	dt_sema = timespec_diff_ms(&ts_start, &ts_end);
 
 	if (!sema_ok)
 	{
@@ -60,10 +75,15 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	// AST Optimization
 	if (optimize)
 	{
+		timespec_get(&ts_start, TIME_UTC);
 		AstOptimizer optimizer = ast_optimizer_create(&expr_arena);
 		ast_optimizer_run(&optimizer, &tu);
+		timespec_get(&ts_end, TIME_UTC);
+		dt_ast_opt = timespec_diff_ms(&ts_start, &ts_end);
+
 		if (debug)
 		{
 			printf("======== After optimization: =======\n");
@@ -71,25 +91,39 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	// Bytecode Generation
 	Allocator bytecode_arena = allocator_get_arena_allocator(&heap, MB(4));
 
+	timespec_get(&ts_start, TIME_UTC);
 	BytecodeCompiler compiler = bytecode_compiler_create(&bytecode_arena, &demo_file);
 	Chunk chunk               = bytecode_compiler_compile(&compiler, tu.statements);
+	timespec_get(&ts_end, TIME_UTC);
+	dt_bytecode = timespec_diff_ms(&ts_start, &ts_end);
+
 	if (debug)
 		disassemble_chunk(&chunk, "main", &demo_file);
 	disassemble_chunk_to_file(&chunk, "main", &demo_file, "demo/main.wdtbc");
+
+	// VM Execution
 	VM vm           = vm_create(&chunk);
 	VmResult result = VM_ERROR;
 
-	{
-		struct timespec _start, _end;
-		timespec_get(&_start, TIME_UTC);
+	timespec_get(&ts_start, TIME_UTC);
+	result = vm_execute(&vm);
+	timespec_get(&ts_end, TIME_UTC);
+	dt_vm = timespec_diff_ms(&ts_start, &ts_end);
 
-		result = vm_execute(&vm);
-		timespec_get(&_end, TIME_UTC);
-		double _ms = timespec_diff_ms(&_start, &_end);
-		printf("Execution time: %.3f ms\n", _ms);
-	}
+	// Timing table
+	double dt_total = dt_lexing_parsing + dt_sema + dt_ast_opt + dt_bytecode + dt_vm;
+
+	printf("\n");
+	printf("Lexing & Parsing:      %.3fms\n", dt_lexing_parsing);
+	printf("Semantic Analysis:     %.3fms\n", dt_sema);
+	printf("AST Optimization:      %.3fms\n", dt_ast_opt);
+	printf("Bytecode Generation:   %.3fms\n", dt_bytecode);
+	printf("VM Execution:          %.3fms\n", dt_vm);
+	printf("Total:                 %.3fms\n", dt_total);
+	printf("\n");
 
 	if (result == VM_OK)
 	{
