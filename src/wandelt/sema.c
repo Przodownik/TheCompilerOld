@@ -184,6 +184,8 @@ bool sema_analyze_declaration(Sema* sema, Declaration* decl)
 	case RESOLVE_STATUS_RESOLVED:
 		return true;
 	}
+
+	ASSERT(false);
 }
 
 bool sema_analyze_declaration_internal(Sema* sema, Declaration* decl)
@@ -252,6 +254,8 @@ bool sema_check_expression(Sema* sema, Expression* expr, Type* type_hint)
 	case RESOLVE_STATUS_RESOLVED:
 		return true;
 	}
+
+	ASSERT(false);
 }
 
 bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hint)
@@ -428,8 +432,9 @@ bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint)
 	Type* source = expr->cast.expression->resolved_type;
 	if (source == target)
 	{
-		diagnostics_vwarning_along_span(expr->span, sema->source, "Redundant cast from '%s' to '%s', the type is already '%s'",
-		                                type_kind_to_cstr(source->kind), type_kind_to_cstr(target->kind), type_kind_to_cstr(source->kind));
+		diagnostics_vwarning_along_span(
+		    expr->span, sema->source, "Redundant cast from '%s' to '%s', the type is already '%s'",
+		    type_kind_to_cstr(source->kind), type_kind_to_cstr(target->kind), type_kind_to_cstr(source->kind));
 		expr->resolved_type = target;
 		return true;
 	}

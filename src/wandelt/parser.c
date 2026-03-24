@@ -116,7 +116,11 @@ void parser_recover_from_error(Parser* parser)
 		case TOKEN_TYPE_FUNCTION_KEYWORD:
 		case TOKEN_TYPE_RETURN_KEYWORD:
 		case TOKEN_TYPE_NAMESPACE_KEYWORD:
+			return;
+
+		// Synchronize and skip past closing braces
 		case TOKEN_TYPE_CLOSE_BRACE:
+			parser_eat_token(parser);
 			return;
 
 		default:

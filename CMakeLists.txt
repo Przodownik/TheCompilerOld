@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.30...4.0 FATAL_ERROR)
 
 project(Wandelt VERSION 0.1.0 LANGUAGES C)
+
+set(CMAKE_SUPPRESS_REGENERATION ON)
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -10,6 +12,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 set(CMAKE_COLOR_DIAGNOSTICS ON)
+
+set_property(GLOBAL PROPERTY USE_FOLDERS OFF)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 
 option(COMPILE_COMMANDS "Generate compile_commands.json" ON)
 
@@ -144,6 +149,7 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.c
     ${CMAKE_SOURCE_DIR}/src/*.h
 )
+source_group("src" FILES ${SOURCES})
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -158,14 +164,13 @@ file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/wandelt/*.h
 )
 
-add_executable(lexer_tests
+set(TEST_TARGET "${PROJECT_NAME}.Tests")
+
+add_executable(${TEST_TARGET}
     ${CMAKE_SOURCE_DIR}/tests/lexer_tests.c
     ${LIB_SOURCES}
 )
 
-target_include_directories(lexer_tests PRIVATE
+target_include_directories(${TEST_TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
-
-enable_testing()
-add_test(NAME lexer_tests COMMAND lexer_tests)

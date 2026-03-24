@@ -1,7 +1,7 @@
 #include "ast_opt.h"
 
-#include "defines.h"
-#include "type.h"
+#include "wandelt/defines.h"
+#include "wandelt/type.h"
 #include "wandelt/ast.h"
 #include "wandelt/vector.h"
 
