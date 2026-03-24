@@ -24,47 +24,155 @@ VmResult vm_execute(VM* vm)
 			R[a]   = K[bx];
 			break;
 		}
-		case OP_CODE_LOAD_INT: {
-			u8 a   = DECODE_A(inst);
-			i16 bx = (i16)DECODE_Bx(inst);
-			R[a]   = value_int((i64)bx);
-			break;
-		}
 		case OP_CODE_MOVE: {
 			u8 a = DECODE_A(inst);
 			u8 b = DECODE_B(inst);
 			R[a] = R[b];
 			break;
 		}
-		case OP_CODE_ADD: {
+
+		case OP_CODE_ADD_I: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].i64_val = R[b].i64_val + R[c].i64_val;
+			R[a].kind    = VALUE_KIND_I64;
+			break;
+		}
+		case OP_CODE_ADD_U: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].u64_val = R[b].u64_val + R[c].u64_val;
+			R[a].kind    = VALUE_KIND_U64;
+			break;
+		}
+		case OP_CODE_ADD_F: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f32_val = R[b].f32_val + R[c].f32_val;
+			R[a].kind    = VALUE_KIND_F32;
+			break;
+		}
+		case OP_CODE_ADD_D: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f64_val = R[b].f64_val + R[c].f64_val;
+			R[a].kind    = VALUE_KIND_F64;
+			break;
+		}
+
+		case OP_CODE_SUB_I: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].i64_val = R[b].i64_val - R[c].i64_val;
+			R[a].kind    = VALUE_KIND_I64;
+			break;
+		}
+		case OP_CODE_SUB_U: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].u64_val = R[b].u64_val - R[c].u64_val;
+			R[a].kind    = VALUE_KIND_U64;
+			break;
+		}
+		case OP_CODE_SUB_F: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f32_val = R[b].f32_val - R[c].f32_val;
+			R[a].kind    = VALUE_KIND_F32;
+			break;
+		}
+		case OP_CODE_SUB_D: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f64_val = R[b].f64_val - R[c].f64_val;
+			R[a].kind    = VALUE_KIND_F64;
+			break;
+		}
+
+		case OP_CODE_MUL_I: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].i64_val = R[b].i64_val * R[c].i64_val;
+			R[a].kind    = VALUE_KIND_I64;
+			break;
+		}
+		case OP_CODE_MUL_U: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].u64_val = R[b].u64_val * R[c].u64_val;
+			R[a].kind    = VALUE_KIND_U64;
+			break;
+		}
+		case OP_CODE_MUL_F: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f32_val = R[b].f32_val * R[c].f32_val;
+			R[a].kind    = VALUE_KIND_F32;
+			break;
+		}
+		case OP_CODE_MUL_D: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f64_val = R[b].f64_val * R[c].f64_val;
+			R[a].kind    = VALUE_KIND_F64;
+			break;
+		}
+
+		case OP_CODE_DIV_I: {
 			u8 a = DECODE_A(inst);
 			u8 b = DECODE_B(inst);
 			u8 c = DECODE_C(inst);
-			R[a] = value_int(R[b].integer + R[c].integer);
+			ASSERT(R[c].i64_val != 0, "Division by zero");
+			R[a].i64_val = R[b].i64_val / R[c].i64_val;
+			R[a].kind    = VALUE_KIND_I64;
 			break;
 		}
-		case OP_CODE_SUB: {
+		case OP_CODE_DIV_U: {
 			u8 a = DECODE_A(inst);
 			u8 b = DECODE_B(inst);
 			u8 c = DECODE_C(inst);
-			R[a] = value_int(R[b].integer - R[c].integer);
+			ASSERT(R[c].u64_val != 0, "Division by zero");
+			R[a].u64_val = R[b].u64_val / R[c].u64_val;
+			R[a].kind    = VALUE_KIND_U64;
 			break;
 		}
-		case OP_CODE_MUL: {
-			u8 a = DECODE_A(inst);
-			u8 b = DECODE_B(inst);
-			u8 c = DECODE_C(inst);
-			R[a] = value_int(R[b].integer * R[c].integer);
+		case OP_CODE_DIV_F: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f32_val = R[b].f32_val / R[c].f32_val;
+			R[a].kind    = VALUE_KIND_F32;
 			break;
 		}
-		case OP_CODE_DIV: {
-			u8 a = DECODE_A(inst);
-			u8 b = DECODE_B(inst);
-			u8 c = DECODE_C(inst);
-			ASSERT(R[c].integer != 0, "Division by zero");
-			R[a] = value_int(R[b].integer / R[c].integer);
+		case OP_CODE_DIV_D: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			u8 c         = DECODE_C(inst);
+			R[a].f64_val = R[b].f64_val / R[c].f64_val;
+			R[a].kind    = VALUE_KIND_F64;
 			break;
 		}
+
+		case OP_CODE_CAST: {
+			u8 a            = DECODE_A(inst);
+			u8 b            = DECODE_B(inst);
+			TypeKind target = (TypeKind)DECODE_C(inst);
+			R[a]            = value_convert(R[b], target);
+			break;
+		}
+
 		case OP_CODE_RETURN: {
 			u8 a             = DECODE_A(inst);
 			vm->return_value = R[a];

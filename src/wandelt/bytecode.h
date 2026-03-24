@@ -21,15 +21,33 @@ typedef u32 Instruction;
 
 typedef enum OpCode
 {
-	OP_CODE_LOAD_CONST, // R(A) = K(Bx)
-	OP_CODE_LOAD_INT,   // R(A) = (i16)Bx
-	OP_CODE_MOVE,       // R(A) = R(B)
-	OP_CODE_ADD,        // R(A) = R(B) + R(C)
-	OP_CODE_SUB,        // R(A) = R(B) - R(C)
-	OP_CODE_MUL,        // R(A) = R(B) * R(C)
-	OP_CODE_DIV,        // R(A) = R(B) / R(C)
-	OP_CODE_RETURN,     // return R(A)
-	OP_CODE_HALT,       // stop execution
+	OP_CODE_LOAD_CONST, // 	ABx     R(A) = K(Bx)
+	OP_CODE_MOVE,       // 	ABC     R(A) = R(B)
+
+	OP_CODE_ADD_I, // 		ABC     R(A).i64 = R(B).i64 + R(C).i64
+	OP_CODE_ADD_U, // 		ABC     R(A).u64 = R(B).u64 + R(C).u64
+	OP_CODE_ADD_F, // 		ABC		R(A).f32 = R(B).f32 + R(C).f32
+	OP_CODE_ADD_D, // 		ABC     R(A).f64 = R(B).f64 + R(C).f64
+
+	OP_CODE_SUB_I, // 		ABC     R(A).i64 = R(B).i64 - R(C).i64
+	OP_CODE_SUB_U, // 		ABC     R(A).u64 = R(B).u64 - R(C).u64
+	OP_CODE_SUB_F, // 		ABC     R(A).f32 = R(B).f32 - R(C).f32
+	OP_CODE_SUB_D, // 		ABC     R(A).f64 = R(B).f64 - R(C).f64
+
+	OP_CODE_MUL_I, // 		ABC     R(A).i64 = R(B).i64 * R(C).i64
+	OP_CODE_MUL_U, // 		ABC     R(A).u64 = R(B).u64 * R(C).u64
+	OP_CODE_MUL_F, // 		ABC     R(A).f32 = R(B).f32 * R(C).f32
+	OP_CODE_MUL_D, // 		ABC     R(A).f64 = R(B).f64 * R(C).f64
+
+	OP_CODE_DIV_I, //  		ABC     R(A).i64 = R(B).i64 / R(C).i64
+	OP_CODE_DIV_U, //  		ABC     R(A).u64 = R(B).u64 / R(C).u64
+	OP_CODE_DIV_F, //  		ABC     R(A).f32 = R(B).f32 / R(C).f32
+	OP_CODE_DIV_D, //  		ABC     R(A).f64 = R(B).f64 / R(C).f64
+
+	OP_CODE_CAST, //        ABC     R(A) = convert(R(B), TypeKind(C))
+
+	OP_CODE_RETURN, // return R(A)
+	OP_CODE_HALT,   // stop execution
 	OP_CODE_COUNT,
 } OpCode;
 
@@ -46,22 +64,90 @@ const char* op_code_to_cstr(OpCode op);
 
 typedef enum ValueKind
 {
-	VALUE_KIND_INTEGER,
+	VALUE_KIND_BOOL,
+	VALUE_KIND_I8,
+	VALUE_KIND_U8,
+	VALUE_KIND_I16,
+	VALUE_KIND_U16,
+	VALUE_KIND_I32,
+	VALUE_KIND_U32,
+	VALUE_KIND_I64,
+	VALUE_KIND_U64,
+	VALUE_KIND_F32,
+	VALUE_KIND_F64,
+	VALUE_KIND_COUNT,
 } ValueKind;
 
 typedef struct Value
 {
 	ValueKind kind;
-
 	union {
-		i64 integer;
+		i64 i64_val; // bool, char, short, int, long
+		u64 u64_val; // uchar, ushort, uint, ulong
+		f32 f32_val; // float
+		f64 f64_val; // double
 	};
 } Value;
 
-static inline Value value_int(i64 v)
+static inline Value value_bool(bool v)
 {
-	return (Value){.kind = VALUE_KIND_INTEGER, .integer = v};
+	return (Value){.kind = VALUE_KIND_BOOL, .i64_val = (i64)v};
 }
+
+static inline Value value_i8(i8 v)
+{
+	return (Value){.kind = VALUE_KIND_I8, .i64_val = (i64)v};
+}
+
+static inline Value value_u8(u8 v)
+{
+	return (Value){.kind = VALUE_KIND_U8, .u64_val = (u64)v};
+}
+
+static inline Value value_i16(i16 v)
+{
+	return (Value){.kind = VALUE_KIND_I16, .i64_val = (i64)v};
+}
+
+static inline Value value_u16(u16 v)
+{
+	return (Value){.kind = VALUE_KIND_U16, .u64_val = (u64)v};
+}
+
+static inline Value value_i32(i32 v)
+{
+	return (Value){.kind = VALUE_KIND_I32, .i64_val = (i64)v};
+}
+
+static inline Value value_u32(u32 v)
+{
+	return (Value){.kind = VALUE_KIND_U32, .u64_val = (u64)v};
+}
+
+static inline Value value_i64(i64 v)
+{
+	return (Value){.kind = VALUE_KIND_I64, .i64_val = v};
+}
+
+static inline Value value_u64(u64 v)
+{
+	return (Value){.kind = VALUE_KIND_U64, .u64_val = v};
+}
+
+static inline Value value_f32(f32 v)
+{
+	return (Value){.kind = VALUE_KIND_F32, .f32_val = v};
+}
+
+static inline Value value_f64(f64 v)
+{
+	return (Value){.kind = VALUE_KIND_F64, .f64_val = v};
+}
+
+ValueKind value_kind_from_type_kind(TypeKind tk);
+const char* value_kind_to_cstr(ValueKind kind);
+void value_print(Value v, FILE* out);
+Value value_convert(Value src, TypeKind target);
 
 typedef struct Chunk
 {

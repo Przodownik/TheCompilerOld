@@ -11,12 +11,11 @@
 #include "wandelt/platform.h"
 #include "wandelt/sema.h"
 #include "wandelt/string.h"
-#include "wandelt/vector.h"
 #include "wandelt/vm.h"
 
 int main(int argc, char* argv[])
 {
-	setvbuf(stdout, NULL, _IOFBF, 8192);
+	setvbuf(stdout, NULL, _IOFBF, 256 * 1024);
 
 	bool debug    = false;
 	bool optimize = false;
@@ -126,7 +125,9 @@ int main(int argc, char* argv[])
 
 	if (result == VM_OK)
 	{
-		printf("Program returned: %lld\n", vm.return_value.integer);
+		printf("Program returned: ");
+		value_print(vm.return_value, stdout);
+		printf("\n");
 	}
 	else
 	{

@@ -49,7 +49,7 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 
 static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
-	static_assert(OP_CODE_COUNT == 9, "format_instruction needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 21, "format_instruction needs to be updated for new opcodes");
 
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -64,14 +64,50 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		u16 bx = DECODE_Bx(inst);
 		snprintf(operands, op_size, "R%u, K%u", a, bx);
 		if (bx < (u16)vector_get_length(chunk->constants))
-			snprintf(comment, cm_size, "R%u = %lld", a, chunk->constants[bx].integer);
-		break;
-	}
-	case OP_CODE_LOAD_INT: {
-		u8 a   = DECODE_A(inst);
-		i16 bx = (i16)DECODE_Bx(inst);
-		snprintf(operands, op_size, "R%u, %d", a, bx);
-		snprintf(comment, cm_size, "R%u = %d", a, bx);
+		{
+			char val_buf[32];
+			Value v = chunk->constants[bx];
+			switch (v.kind)
+			{
+			case VALUE_KIND_BOOL:
+				snprintf(val_buf, sizeof(val_buf), "%s", v.i64_val ? "true" : "false");
+				break;
+			case VALUE_KIND_I8:
+				snprintf(val_buf, sizeof(val_buf), "%d", (int)(i8)v.i64_val);
+				break;
+			case VALUE_KIND_U8:
+				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)(u8)v.u64_val);
+				break;
+			case VALUE_KIND_I16:
+				snprintf(val_buf, sizeof(val_buf), "%d", (int)(i16)v.i64_val);
+				break;
+			case VALUE_KIND_U16:
+				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)(u16)v.u64_val);
+				break;
+			case VALUE_KIND_I32:
+				snprintf(val_buf, sizeof(val_buf), "%d", (int)v.i64_val);
+				break;
+			case VALUE_KIND_U32:
+				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)v.u64_val);
+				break;
+			case VALUE_KIND_I64:
+				snprintf(val_buf, sizeof(val_buf), "%lld", v.i64_val);
+				break;
+			case VALUE_KIND_U64:
+				snprintf(val_buf, sizeof(val_buf), "%llu", v.u64_val);
+				break;
+			case VALUE_KIND_F32:
+				snprintf(val_buf, sizeof(val_buf), "%f", (double)v.f32_val);
+				break;
+			case VALUE_KIND_F64:
+				snprintf(val_buf, sizeof(val_buf), "%f", v.f64_val);
+				break;
+			default:
+				snprintf(val_buf, sizeof(val_buf), "???");
+				break;
+			}
+			snprintf(comment, cm_size, "R%u = %s", a, val_buf);
+		}
 		break;
 	}
 	case OP_CODE_MOVE: {
@@ -81,7 +117,10 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		snprintf(comment, cm_size, "R%u = R%u", a, b);
 		break;
 	}
-	case OP_CODE_ADD: {
+	case OP_CODE_ADD_I:
+	case OP_CODE_ADD_U:
+	case OP_CODE_ADD_F:
+	case OP_CODE_ADD_D: {
 		u8 a = DECODE_A(inst);
 		u8 b = DECODE_B(inst);
 		u8 c = DECODE_C(inst);
@@ -89,7 +128,10 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		snprintf(comment, cm_size, "R%u = R%u + R%u", a, b, c);
 		break;
 	}
-	case OP_CODE_SUB: {
+	case OP_CODE_SUB_I:
+	case OP_CODE_SUB_U:
+	case OP_CODE_SUB_F:
+	case OP_CODE_SUB_D: {
 		u8 a = DECODE_A(inst);
 		u8 b = DECODE_B(inst);
 		u8 c = DECODE_C(inst);
@@ -97,7 +139,10 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		snprintf(comment, cm_size, "R%u = R%u - R%u", a, b, c);
 		break;
 	}
-	case OP_CODE_MUL: {
+	case OP_CODE_MUL_I:
+	case OP_CODE_MUL_U:
+	case OP_CODE_MUL_F:
+	case OP_CODE_MUL_D: {
 		u8 a = DECODE_A(inst);
 		u8 b = DECODE_B(inst);
 		u8 c = DECODE_C(inst);
@@ -105,12 +150,23 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		snprintf(comment, cm_size, "R%u = R%u * R%u", a, b, c);
 		break;
 	}
-	case OP_CODE_DIV: {
+	case OP_CODE_DIV_I:
+	case OP_CODE_DIV_U:
+	case OP_CODE_DIV_F:
+	case OP_CODE_DIV_D: {
 		u8 a = DECODE_A(inst);
 		u8 b = DECODE_B(inst);
 		u8 c = DECODE_C(inst);
 		snprintf(operands, op_size, "R%u, R%u, R%u", a, b, c);
 		snprintf(comment, cm_size, "R%u = R%u / R%u", a, b, c);
+		break;
+	}
+	case OP_CODE_CAST: {
+		u8 a = DECODE_A(inst);
+		u8 b = DECODE_B(inst);
+		u8 c = DECODE_C(inst);
+		snprintf(operands, op_size, "R%u, R%u", a, b);
+		snprintf(comment, cm_size, "R%u = R%u as %s", a, b, type_kind_to_cstr((TypeKind)c));
 		break;
 	}
 	case OP_CODE_RETURN: {
@@ -171,15 +227,9 @@ static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File*
 		for (u32 i = 0; i < num_constants; i++)
 		{
 			Value v = chunk->constants[i];
-			switch (v.kind)
-			{
-			case VALUE_KIND_INTEGER:
-				fprintf(out, "    K%-4u= %-20lld (long)\n", i + 1, v.integer);
-				break;
-			default:
-				fprintf(out, "    K%-4u= ???                  (unknown)\n", i + 1);
-				break;
-			}
+			fprintf(out, "    K%-4u= ", i + 1);
+			value_print(v, out);
+			fprintf(out, " (%s)\n", value_kind_to_cstr(v.kind));
 		}
 	}
 
@@ -235,15 +285,9 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 		for (u32 i = 0; i < num_constants; i++)
 		{
 			Value v = chunk->constants[i];
-			switch (v.kind)
-			{
-			case VALUE_KIND_INTEGER:
-				fprintf(out, ".const long  K%u = %lld\n", i + 1, v.integer);
-				break;
-			default:
-				fprintf(out, ".const ???   K%u = ???\n", i + 1);
-				break;
-			}
+			fprintf(out, ".const %-6s K%u = ", value_kind_to_cstr(v.kind), i + 1);
+			value_print(v, out);
+			fprintf(out, "\n");
 		}
 	}
 
