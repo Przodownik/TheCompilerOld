@@ -339,7 +339,7 @@ bool sema_check_constant_expression(Sema* sema, Expression* expr, Type* type_hin
 			return false;
 		}
 
-		expr->resolved_type = common;
+		sema_promote_constant(expr, common);
 	}
 
 	return true;
@@ -367,9 +367,8 @@ bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 	if (left_type != common)
 	{
-		// Constants can just adopt the target type directly — no cast node needed
 		if (expr->binary.left->type == EXPRESSION_TYPE_CONSTANT)
-			expr->binary.left->resolved_type = common;
+			sema_promote_constant(expr->binary.left, common);
 		else
 			expr->binary.left = sema_insert_cast(sema, expr->binary.left, common);
 	}
@@ -377,7 +376,7 @@ bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint)
 	if (right_type != common)
 	{
 		if (expr->binary.right->type == EXPRESSION_TYPE_CONSTANT)
-			expr->binary.right->resolved_type = common;
+			sema_promote_constant(expr->binary.right, common);
 		else
 			expr->binary.right = sema_insert_cast(sema, expr->binary.right, common);
 	}
@@ -453,6 +452,62 @@ bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 	expr->resolved_type = target;
 	return true;
+}
+
+void sema_promote_constant(Expression* expr, Type* target)
+{
+	ASSERT(expr->type == EXPRESSION_TYPE_CONSTANT);
+
+	ConstantKind ck = expr->constant.kind;
+
+	// Extract the source value
+	u64 as_u64 = 0;
+	f64 as_f64 = 0.0;
+
+	switch (ck)
+	{
+	case CONSTANT_KIND_BOOLEAN:
+		as_u64 = expr->constant.boolean_value ? 1 : 0;
+		as_f64 = (f64)as_u64;
+		break;
+	case CONSTANT_KIND_INTEGER:
+		as_u64 = expr->constant.integer_value;
+		as_f64 = (f64)as_u64;
+		break;
+	case CONSTANT_KIND_FLOAT:
+		as_f64 = (f64)expr->constant.float_value;
+		as_u64 = (u64)as_f64;
+		break;
+	case CONSTANT_KIND_DOUBLE:
+		as_f64 = expr->constant.double_value;
+		as_u64 = (u64)as_f64;
+		break;
+	default:
+		break;
+	}
+
+	if (type_is_integer(target))
+	{
+		expr->constant.kind          = CONSTANT_KIND_INTEGER;
+		expr->constant.integer_value = as_u64;
+	}
+	else if (target->kind == TYPE_KIND_FLOAT)
+	{
+		expr->constant.kind        = CONSTANT_KIND_FLOAT;
+		expr->constant.float_value = (float)as_f64;
+	}
+	else if (target->kind == TYPE_KIND_DOUBLE)
+	{
+		expr->constant.kind         = CONSTANT_KIND_DOUBLE;
+		expr->constant.double_value = as_f64;
+	}
+	else if (target->kind == TYPE_KIND_BOOL)
+	{
+		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
+		expr->constant.boolean_value = as_u64 != 0;
+	}
+
+	expr->resolved_type = target;
 }
 
 Expression* sema_insert_cast(Sema* sema, Expression* inner, Type* target)

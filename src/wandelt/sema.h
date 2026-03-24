@@ -51,4 +51,5 @@ bool sema_check_group_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_identifier_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint);
 
+void sema_promote_constant(Expression* expr, Type* target);
 Expression* sema_insert_cast(Sema* sema, Expression* inner, Type* target);
