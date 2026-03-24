@@ -43,4 +43,6 @@ bool type_is_unsigned(const Type* t);
 bool type_is_bool(const Type* type);
 
 bool type_is_implicitly_convertible(Type* from, Type* to);
+bool type_is_explicitly_castable(const Type* from, const Type* to);
+
 Type* type_common(Type* left, Type* right);

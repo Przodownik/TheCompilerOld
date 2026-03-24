@@ -417,11 +417,41 @@ bool sema_check_identifier_expression(Sema* sema, Expression* expr, Type* type_h
 
 bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint)
 {
-	if (!sema_check_expression(sema, expr->cast.expression, type_hint))
+	(void)type_hint;
+
+	Type* target = expr->cast.target_type;
+	ASSERT(target != nullptr && target->kind != TYPE_KIND_INVALID);
+
+	// Resolve inner expression with target type as hint
+	if (!sema_check_expression(sema, expr->cast.expression, target))
 		return false;
 
-	expr->resolved_type = expr->cast.target_type;
+	Type* source = expr->cast.expression->resolved_type;
+	if (source == target)
+	{
+		diagnostics_vwarning_along_span(expr->span, sema->source, "Redundant cast from '%s' to '%s', the type is already '%s'",
+		                                type_kind_to_cstr(source->kind), type_kind_to_cstr(target->kind), type_kind_to_cstr(source->kind));
+		expr->resolved_type = target;
+		return true;
+	}
 
+	if (type_is_implicitly_convertible(source, target))
+	{
+		diagnostics_vwarning_along_span(expr->span, sema->source,
+		                                "Unnecessary cast: '%s' is implicitly convertible to '%s'",
+		                                type_kind_to_cstr(source->kind), type_kind_to_cstr(target->kind));
+		expr->resolved_type = target;
+		return true;
+	}
+
+	if (!type_is_explicitly_castable(source, target))
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "Cannot cast from '%s' to '%s'",
+		                              type_kind_to_cstr(source->kind), type_kind_to_cstr(target->kind));
+		return false;
+	}
+
+	expr->resolved_type = target;
 	return true;
 }
 

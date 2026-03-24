@@ -143,6 +143,27 @@ bool type_is_implicitly_convertible(Type* from, Type* to)
 	return false;
 }
 
+bool type_is_explicitly_castable(const Type* from, const Type* to)
+{
+	ASSERT(from->kind != TYPE_KIND_INVALID && to->kind != TYPE_KIND_INVALID);
+
+	if (from == to)
+		return true;
+
+	// Bool <-> any arithmetic: allowed
+	if (type_is_bool(from) && type_is_arithmetic(to))
+		return true;
+
+	if (type_is_arithmetic(from) && type_is_bool(to))
+		return true;
+
+	// Any arithmetic <-> any arithmetic: allowed
+	if (type_is_arithmetic(from) && type_is_arithmetic(to))
+		return true;
+
+	return false;
+}
+
 Type* type_common(Type* left, Type* right)
 {
 	if (left == right)
