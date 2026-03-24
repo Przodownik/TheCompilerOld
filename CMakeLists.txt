@@ -149,9 +149,15 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.c
     ${CMAKE_SOURCE_DIR}/src/*.h
 )
-source_group("src" FILES ${SOURCES})
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+file(GLOB DEMO_FILES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/demo/*
+)
+
+source_group("src" FILES ${SOURCES})
+source_group("demo" FILES ${DEMO_FILES})
+
+add_executable(${PROJECT_NAME} ${SOURCES} ${DEMO_FILES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/src

@@ -5,3 +5,6 @@ Parser:
 
 Sema:
 - add tests
+
+Bytecode:
+- How to call like external functions?

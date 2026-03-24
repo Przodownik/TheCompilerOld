@@ -1,0 +1,5 @@
+[$RootKey$\TextMate\Repositories]
+"Wandelt"="$PackageFolder$\Syntaxes"
+
+[$RootKey$\TextMate\ContentToGrammarMappings]
+"wdt"="source.wdt"
