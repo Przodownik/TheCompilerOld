@@ -1,0 +1,35 @@
+{
+	"name": "wandelt",
+	"displayName": "Wandelt",
+	"description": "Syntax highlighting for the Wandelt programming language",
+	"version": "0.1.0",
+	"publisher": "tycjan-fortuna",
+	"engines": {
+		"vscode": "^1.75.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "wandelt",
+				"aliases": [
+					"Wandelt",
+					"wdt"
+				],
+				"extensions": [
+					".wdt"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "wandelt",
+				"scopeName": "source.wdt",
+				"path": "./syntaxes/wdt.tmLanguage.json"
+			}
+		]
+	}
+}

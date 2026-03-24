@@ -9,4 +9,6 @@ build
 *.ll
 *.asm
 *.json
+!editors/**/*.json
 *.wdtbc
+*.vsix
