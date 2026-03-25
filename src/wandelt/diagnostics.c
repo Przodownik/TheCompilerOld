@@ -3,6 +3,7 @@
 #include <stdarg.h>
 
 #include "defines.h"
+#include "platform.h"
 
 static u32 g_error_count   = 0;
 static u32 g_warning_count = 0;
@@ -116,23 +117,75 @@ void _diagnostics_print_at_location(Span span, const File* file, const char* mes
 		printf(" %*u | %.*s\n", gutter_width, loc.row - 1, (int)(prev_end - prev_start), src + prev_start);
 	}
 
-	// Print the source line with line number gutter
-	// 1 |
-	printf(" %u | %.*s\n", loc.row, (int)(line_end - line_start), src + line_start);
-
-	// Print the caret + tildes underline with matching gutter
+	// Truncate long source lines to fit terminal width
 	u64 col_offset = span.begin - line_start;
 	u64 span_len   = span.end - span.begin;
 	if (span_len == 0)
 		span_len = 1;
 
-	printf(" %*s | %s%s", gutter_width, "", color_code, ANSI_COLOR_BOLD);
+	u64 line_len     = line_end - line_start;
+	int gutter_chars = gutter_width + 4; // " %u | " = width + space + space + pipe + space
+	int term_width   = platform_get_terminal_width();
+	int avail        = term_width - gutter_chars;
+	if (avail < 20)
+		avail = 20; // minimum usable width
 
-	for (u64 i = 0; i < col_offset; i++) putchar(' ');
+	u64 view_start  = 0;
+	u64 view_end    = line_len;
+	bool clip_left  = false;
+	bool clip_right = false;
+
+	if ((int)line_len > avail)
+	{
+		// Center the window on the span, with some margin
+		int margin = (avail - (int)span_len) / 2;
+		if (margin < 8)
+			margin = 8;
+
+		i64 desired_start = (i64)col_offset - margin;
+		if (desired_start < 0)
+			desired_start = 0;
+
+		view_start = (u64)desired_start;
+		view_end   = view_start + (u64)avail;
+
+		// Account for "..." markers (3 chars each)
+		if (view_start > 0)
+		{
+			view_start += 3;
+			clip_left = true;
+		}
+		if (view_end < line_len)
+		{
+			view_end -= 3;
+			clip_right = true;
+		}
+		if (view_end > line_len)
+			view_end = line_len;
+	}
+
+	// Print the source line with line number gutter
+	printf(" %u | ", loc.row);
+	if (clip_left)
+		printf("...");
+	printf("%.*s", (int)(view_end - view_start), src + line_start + view_start);
+	if (clip_right)
+		printf("...");
+	printf("\n");
+
+	// Print the caret + tildes underline with matching gutter
+	u64 display_offset = col_offset - view_start;
+
+	printf(" %*s | ", gutter_width, "");
+	if (clip_left)
+		printf("   "); // match "..." width
+	printf("%s%s", color_code, ANSI_COLOR_BOLD);
+
+	for (u64 i = 0; i < display_offset; i++) putchar(' ');
 
 	putchar('^');
 
-	for (u64 i = 1; i < span_len && (col_offset + i) < (line_end - line_start); i++) putchar('~');
+	for (u64 i = 1; i < span_len && (display_offset + i) < (view_end - view_start); i++) putchar('~');
 
 	printf("%s\n", ANSI_COLOR_RESET);
 }

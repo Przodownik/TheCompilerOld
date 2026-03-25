@@ -46,3 +46,77 @@ var int r22 = a - d as int;        // 95
 var double r23 = d as int as double;  // 5.0
 
 return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;
+
+<*
+
+Prepare a gigantic implementation reports with code samples about adding following language constructs:
+First report:
+	1) If statement:
+	if x > y {
+		
+	}
+	
+	2) While loop
+	while x > y {
+		x--;
+	}
+	
+	3) For loop
+	for ulong x = 0; x < 100; x++ {
+		
+	}
+	
+4) Discuss and show possible optimization passes
+5) Discuss and show possible inlining for "for" loop like":
+
+	inline for ulong x = 0; x < 10; x++ {
+		
+	}
+	
+Second report:
+Functions:
+fn int test(int x = 12, int y)
+{
+	return x + y;
+}
+
+test(, 12); // keep 1 param as default
+test(y = 12); // named params
+test() // if both are defaulted
+test(12) // if params after non-defaulted are defaulted, can skip the ,
+
+Third report:
+user types
+1)
+struct Vector2
+{
+	float x; // can be defaulted like float x = 12; then when initializing we can Vector2 vec = {.y = 12}; if both defaulted Vector2 vec = {};
+	float y;
+}
+
+2) member functions?
+fn void Vector2.scale(self, float scale = 12)
+{
+	self.x *= scale;
+	self.y *= scale;
+}
+
+Vector2 vec = {.x = 12, .y = 12};
+vec.scale(15);
+
+Fourth report:
+compiletime execution
+
+int calc(int x) {
+	...
+}
+
+var int x = #run calc(100); // executed at cmptime
+
+or like 
+
+#run {
+	... 
+}
+
+*>

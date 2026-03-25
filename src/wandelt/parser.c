@@ -496,11 +496,12 @@ Expression* parser_parse_cast_expression(Parser* parser, Expression* left)
 	Expression* expr = new_expression(parser);
 	expr->type       = EXPRESSION_TYPE_CAST;
 
+	const Token typeToken = parser_peek_token(parser);
 	if (!parser_parse_type(parser, &expr->cast.target_type))
 		return &invalid_expression;
 
 	expr->cast.expression = left;
-	expr->span            = span_extend(left->span, parser_peek_token(parser).span);
+	expr->span            = span_extend(left->span, typeToken.span);
 
 	return expr;
 }

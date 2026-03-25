@@ -15,3 +15,5 @@ typedef struct PlatformTimer
 
 void platform_timer_start(PlatformTimer* timer);
 double platform_timer_elapsed_ms(PlatformTimer* timer);
+
+int platform_get_terminal_width(void);

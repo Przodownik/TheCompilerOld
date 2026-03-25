@@ -145,6 +145,14 @@ TEST(comments_only)
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EOF);
 }
 
+TEST(multiline_comment_only)
+{
+	const char* src = "<* This is a\nmultiline comment *>";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 1);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EOF);
+}
+
 // --- Single-character tokens -----------------------------------------------
 
 TEST(open_paren)
@@ -744,6 +752,7 @@ int main(void)
 	RUN_TEST(empty_input);
 	RUN_TEST(whitespace_only);
 	RUN_TEST(comments_only);
+	RUN_TEST(multiline_comment_only);
 
 	print_section("Single-character tokens");
 	RUN_TEST(open_paren);
