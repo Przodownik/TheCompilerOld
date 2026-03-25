@@ -262,12 +262,14 @@ bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hin
 {
 	(void)type_hint;
 
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update sema_check_expression_internal when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update sema_check_expression_internal when adding new expression types");
 
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_CONSTANT:
 		return sema_check_constant_expression(sema, expr, type_hint);
+	case EXPRESSION_TYPE_UNARY:
+		return sema_check_unary_expression(sema, expr, type_hint);
 	case EXPRESSION_TYPE_BINARY:
 		return sema_check_binary_expression(sema, expr, type_hint);
 	case EXPRESSION_TYPE_GROUP:
@@ -345,6 +347,39 @@ bool sema_check_constant_expression(Sema* sema, Expression* expr, Type* type_hin
 
 		sema_promote_constant(expr, common);
 	}
+
+	return true;
+}
+
+bool sema_check_unary_expression(Sema* sema, Expression* expr, Type* type_hint)
+{
+	if (!sema_check_expression(sema, expr->unary.operand, type_hint))
+		return false;
+
+	Type* operand_type = expr->unary.operand->resolved_type;
+
+	if (expr->unary.operator == UNARY_OPERATOR_NEGATE)
+	{
+		bool can_be_negated = type_is_arithmetic(operand_type);
+
+		if (!can_be_negated)
+		{
+			diagnostics_verror_along_span(expr->span, sema->source, "Cannot negate non-arithmetic type '%s'",
+			                              type_kind_to_cstr(operand_type->kind));
+			return false;
+		}
+
+		// Negating an unsigned type
+		if (type_is_unsigned(operand_type))
+		{
+			diagnostics_verror_along_span(expr->span, sema->source,
+			                              "Cannot negate unsigned type '%s', as it would result in an overflow",
+			                              type_kind_to_cstr(operand_type->kind));
+			return false;
+		}
+	}
+
+	expr->resolved_type = operand_type;
 
 	return true;
 }

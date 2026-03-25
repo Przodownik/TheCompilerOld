@@ -44,6 +44,10 @@ typedef enum OpCode
 	OP_CODE_DIV_F, //  		ABC     R(A).f32 = R(B).f32 / R(C).f32
 	OP_CODE_DIV_D, //  		ABC     R(A).f64 = R(B).f64 / R(C).f64
 
+	OP_CODE_NEG_I, //		AB		R(A).i64 = -R(B).i64
+	OP_CODE_NEG_F, //		AB		R(A).f32 = -R(B).f32
+	OP_CODE_NEG_D, //		AB		R(A).f64 = -R(B).f64
+
 	OP_CODE_CAST, //        ABC     R(A) = convert(R(B), TypeKind(C))
 
 	OP_CODE_RETURN, // return R(A)

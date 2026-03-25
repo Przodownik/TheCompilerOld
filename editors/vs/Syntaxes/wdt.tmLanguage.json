@@ -19,6 +19,11 @@
 				{
 					"name": "comment.line.double-slash.wdt",
 					"match": "//.*$"
+				},
+				{
+					"name": "comment.block.wdt",
+					"begin": "<\\*",
+					"end": "\\*>"
 				}
 			]
 		},

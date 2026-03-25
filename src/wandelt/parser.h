@@ -39,8 +39,9 @@ typedef enum Precedence
 	PRECEDENCE_NONE = 0,
 	PRECEDENCE_ADDITIVE, // + -
 	PRECEDENCE_MULTIPLY, // * /
-	PRECEDENCE_CAST,     // as
-	PRECEDENCE_PRIMARY,  // literals, identifiers
+	PRECEDENCE_UNARY,
+	PRECEDENCE_CAST,    // as
+	PRECEDENCE_PRIMARY, // literals, identifiers
 } Precedence;
 
 typedef Expression* (*PrefixParseFn)(Parser* parser);
@@ -72,6 +73,7 @@ Expression* parser_parse_integer_constant_expression(Parser* parser);
 Expression* parser_parse_float_constant_expression(Parser* parser);
 Expression* parser_parse_double_constant_expression(Parser* parser);
 Expression* parser_parse_boolean_constant_expression(Parser* parser);
+Expression* parser_parse_unary_expression(Parser* parser);
 Expression* parser_parse_binary_expression(Parser* parser, Expression* left);
 Expression* parser_parse_group_expression(Parser* parser);
 Expression* parser_parse_identifier_expression(Parser* parser);

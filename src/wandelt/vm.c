@@ -11,6 +11,8 @@ VM vm_create(Chunk* chunk)
 
 VmResult vm_execute(VM* vm)
 {
+	static_assert(OP_CODE_COUNT == 24, "vm_execute needs to be updated for new opcodes");
+
 	Value* R = vm->registers;
 	Value* K = vm->chunk->constants;
 	for (;;)
@@ -161,6 +163,28 @@ VmResult vm_execute(VM* vm)
 			u8 b         = DECODE_B(inst);
 			u8 c         = DECODE_C(inst);
 			R[a].f64_val = R[b].f64_val / R[c].f64_val;
+			R[a].kind    = VALUE_KIND_F64;
+			break;
+		}
+
+		case OP_CODE_NEG_I: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			R[a].i64_val = -R[b].i64_val;
+			R[a].kind    = VALUE_KIND_I64;
+			break;
+		}
+		case OP_CODE_NEG_F: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			R[a].f32_val = -R[b].f32_val;
+			R[a].kind    = VALUE_KIND_F32;
+			break;
+		}
+		case OP_CODE_NEG_D: {
+			u8 a         = DECODE_A(inst);
+			u8 b         = DECODE_B(inst);
+			R[a].f64_val = -R[b].f64_val;
 			R[a].kind    = VALUE_KIND_F64;
 			break;
 		}

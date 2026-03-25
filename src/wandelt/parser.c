@@ -402,6 +402,25 @@ Expression* parser_parse_boolean_constant_expression(Parser* parser)
 	return expr;
 }
 
+Expression* parser_parse_unary_expression(Parser* parser)
+{
+	Token opToken = parser_peek_token(parser);
+	ASSERT(opToken.type == TOKEN_TYPE_MINUS);
+
+	parser_eat_token(parser); // eat PREFIX unary operator token
+
+	Expression* expr     = new_expression(parser);
+	expr->type           = EXPRESSION_TYPE_UNARY;
+	expr->unary.operator = UNARY_OPERATOR_NEGATE; // todo other unary operators
+	expr->unary.operand  = parser_parse_expression_with_precedence(parser, PRECEDENCE_UNARY);
+	if (expr->unary.operand->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_expression;
+
+	expr->span = span_extend(opToken.span, expr->unary.operand->span);
+
+	return expr;
+}
+
 Expression* parser_parse_binary_expression(Parser* parser, Expression* left)
 {
 	Token infixToken = parser_peek_token(parser);
@@ -582,7 +601,7 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_AS_KEYWORD]    = {nullptr, parser_parse_cast_expression, PRECEDENCE_CAST},
     [TOKEN_TYPE_OPEN_PAREN]    = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_PLUS]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
-    [TOKEN_TYPE_MINUS]         = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
+    [TOKEN_TYPE_MINUS]         = {parser_parse_unary_expression, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_STAR]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
     [TOKEN_TYPE_SLASH]         = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
     [TOKEN_TYPE_INTEGER]       = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},

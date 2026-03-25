@@ -49,7 +49,7 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 
 static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
-	static_assert(OP_CODE_COUNT == 21, "format_instruction needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 24, "format_instruction needs to be updated for new opcodes");
 
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -161,6 +161,16 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		snprintf(comment, cm_size, "R%u = R%u / R%u", a, b, c);
 		break;
 	}
+	case OP_CODE_NEG_I:
+	case OP_CODE_NEG_F:
+	case OP_CODE_NEG_D: {
+		u8 a = DECODE_A(inst);
+		u8 b = DECODE_B(inst);
+		snprintf(operands, op_size, "R%u, R%u", a, b);
+		snprintf(comment, cm_size, "R%u = -R%u", a, b);
+		break;
+	}
+
 	case OP_CODE_CAST: {
 		u8 a = DECODE_A(inst);
 		u8 b = DECODE_B(inst);

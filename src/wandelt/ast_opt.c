@@ -1,8 +1,8 @@
 #include "ast_opt.h"
 
+#include "wandelt/ast.h"
 #include "wandelt/defines.h"
 #include "wandelt/type.h"
-#include "wandelt/ast.h"
 #include "wandelt/vector.h"
 
 AstOptimizer ast_optimizer_create(Allocator* expr_alloc)
@@ -86,11 +86,14 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 // Recursively check if any identifier in the expression tree references the given declaration.
 static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* decl)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
+
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return expr->identifier.declaration_ref == decl;
+	case EXPRESSION_TYPE_UNARY:
+		return ast_optimizer_expr_references_decl(expr->unary.operand, decl);
 	case EXPRESSION_TYPE_BINARY:
 		return ast_optimizer_expr_references_decl(expr->binary.left, decl) ||
 		       ast_optimizer_expr_references_decl(expr->binary.right, decl);
@@ -132,11 +135,15 @@ void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPa
 
 Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
 	ASSERT(expr->type != EXPRESSION_TYPE_INVALID);
 
 	switch (expr->type)
 	{
+	case EXPRESSION_TYPE_UNARY:
+		expr->unary.operand = ast_optimizer_optimize_expression(optimizer, pass, expr->unary.operand);
+		break;
+
 	case EXPRESSION_TYPE_BINARY:
 		expr->binary.left  = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.left);
 		expr->binary.right = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.right);
@@ -250,6 +257,38 @@ static Expression* ast_optimizer_fold_cast(Expression* expr)
 	return expr;
 }
 
+static Expression* ast_optimizer_fold_unary(Expression* expr)
+{
+	ASSERT(expr->type == EXPRESSION_TYPE_UNARY);
+	Expression* operand = expr->unary.operand;
+	if (operand->type != EXPRESSION_TYPE_CONSTANT)
+		return expr;
+
+	if (expr->unary.operator != UNARY_OPERATOR_NEGATE)
+		return expr;
+
+	switch (operand->constant.kind)
+	{
+	case CONSTANT_KIND_INTEGER:
+		expr->type                   = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind          = CONSTANT_KIND_INTEGER;
+		expr->constant.integer_value = (u64)(-(i64)operand->constant.integer_value);
+		return expr;
+	case CONSTANT_KIND_FLOAT:
+		expr->type                 = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind        = CONSTANT_KIND_FLOAT;
+		expr->constant.float_value = -operand->constant.float_value;
+		return expr;
+	case CONSTANT_KIND_DOUBLE:
+		expr->type                  = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind         = CONSTANT_KIND_DOUBLE;
+		expr->constant.double_value = -operand->constant.double_value;
+		return expr;
+	default:
+		return expr;
+	}
+}
+
 static Expression* ast_optimizer_fold_integer_binary(Expression* expr, i64 lval, i64 rval)
 {
 	i64 result;
@@ -336,6 +375,9 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 	(void)optimizer;
 	static_assert(BINARY_OPERATOR_COUNT == 5, "Update this function when adding new binary operators");
 
+	if (expr->type == EXPRESSION_TYPE_UNARY)
+		return ast_optimizer_fold_unary(expr);
+
 	if (expr->type == EXPRESSION_TYPE_CAST)
 		return ast_optimizer_fold_cast(expr);
 
@@ -354,7 +396,8 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 	switch (left->constant.kind)
 	{
 	case CONSTANT_KIND_INTEGER:
-		return ast_optimizer_fold_integer_binary(expr, (i64)left->constant.integer_value, (i64)right->constant.integer_value);
+		return ast_optimizer_fold_integer_binary(expr, (i64)left->constant.integer_value,
+		                                         (i64)right->constant.integer_value);
 	case CONSTANT_KIND_FLOAT:
 		return ast_optimizer_fold_float_binary(expr, left->constant.float_value, right->constant.float_value);
 	case CONSTANT_KIND_DOUBLE:

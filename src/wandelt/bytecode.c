@@ -6,7 +6,7 @@
 
 const char* op_code_to_cstr(OpCode op)
 {
-	static_assert(OP_CODE_COUNT == 21, "Update this function when adding new opcodes");
+	static_assert(OP_CODE_COUNT == 24, "Update this function when adding new opcodes");
 
 	switch (op)
 	{
@@ -50,6 +50,13 @@ const char* op_code_to_cstr(OpCode op)
 		return "DIV_F";
 	case OP_CODE_DIV_D:
 		return "DIV_D";
+
+	case OP_CODE_NEG_I:
+		return "NEG_I";
+	case OP_CODE_NEG_F:
+		return "NEG_F";
+	case OP_CODE_NEG_D:
+		return "NEG_D";
 
 	case OP_CODE_CAST:
 		return "CAST";
@@ -400,9 +407,19 @@ static bool is_local_register(BytecodeCompiler* c, u8 reg)
 	return false;
 }
 
+static OpCode select_negate_opcode(Type* type)
+{
+	if (type->kind == TYPE_KIND_DOUBLE)
+		return OP_CODE_NEG_D;
+	else if (type->kind == TYPE_KIND_FLOAT)
+		return OP_CODE_NEG_F;
+	else
+		return OP_CODE_NEG_I;
+}
+
 static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expression)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
 
 	set_line_from_span(c, expression->span);
 
@@ -434,8 +451,8 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 		}
 
 		// If resolved_type differs from the natural constant type perform an implicit conversion now
-		TypeKind target = expression->resolved_type->kind;
-		ValueKind natural = val.kind;
+		TypeKind target    = expression->resolved_type->kind;
+		ValueKind natural  = val.kind;
 		ValueKind expected = value_kind_from_type_kind(target);
 		if (natural != expected)
 		{
@@ -444,6 +461,22 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 
 		u32 k = chunk_add_constant(&c->chunk, val);
 		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, dest, k));
+		return dest;
+	}
+
+	case EXPRESSION_TYPE_UNARY: {
+		u8 src  = bytecode_compiler_compile_expr(c, expression->unary.operand);
+		u8 dest = src;
+		if (is_local_register(c, src))
+		{
+			dest = c->next_reg++;
+			if (c->next_reg > c->max_reg)
+				c->max_reg = c->next_reg;
+		}
+
+		OpCode op = select_negate_opcode(expression->resolved_type);
+		chunk_emit(&c->chunk, ENCODE_ABC(op, dest, src, 0));
+
 		return dest;
 	}
 

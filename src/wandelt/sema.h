@@ -46,6 +46,7 @@ bool sema_analyze_expression_statement(Sema* sema, Statement* stmt);
 bool sema_check_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_constant_expression(Sema* sema, Expression* expr, Type* type_hint);
+bool sema_check_unary_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_group_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_identifier_expression(Sema* sema, Expression* expr, Type* type_hint);

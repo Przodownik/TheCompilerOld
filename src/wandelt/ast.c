@@ -22,7 +22,7 @@ const char* resolve_status_to_cstr(ResolveStatus status)
 
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
@@ -30,6 +30,8 @@ const char* expression_type_to_cstr(ExpressionType type)
 		return "InvalidExpression";
 	case EXPRESSION_TYPE_CONSTANT:
 		return "ConstantExpression";
+	case EXPRESSION_TYPE_UNARY:
+		return "UnaryExpression";
 	case EXPRESSION_TYPE_BINARY:
 		return "BinaryExpression";
 	case EXPRESSION_TYPE_GROUP:
@@ -112,6 +114,21 @@ BinaryOperator token_type_to_binary_operator(TokenType type)
 	ASSERT(false, "Token type '%s' is not a binary operator", token_type_to_cstr(type));
 }
 
+const char* unary_operator_to_cstr(UnaryOperator op)
+{
+	static_assert(UNARY_OPERATOR_COUNT == 2, "Update unary_operator_to_cstr when adding new unary operators");
+	switch (op)
+	{
+	case UNARY_OPERATOR_INVALID:
+		return "InvalidUnaryOperator";
+	case UNARY_OPERATOR_NEGATE:
+		return "Negate";
+	default:
+		break;
+	}
+	ASSERT(false, "Unknown unary operator");
+}
+
 const char* declaration_type_to_cstr(DeclarationType type)
 {
 	static_assert(DECLARATION_TYPE_COUNT == 3, "Update declaration_type_to_cstr when adding new declaration types");
@@ -154,7 +171,7 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 6, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
@@ -168,13 +185,24 @@ static void dump_expression(Expression* expr, int indent)
 	{
 		printf("%*sConstant kind: %s\n", indent + 2, "", constant_kind_to_cstr(expr->constant.kind));
 		if (expr->constant.kind == CONSTANT_KIND_INTEGER)
-			printf("%*sValue: %llu\n", indent + 2, "", expr->constant.integer_value);
+		{
+			if ((i64)expr->constant.integer_value < 0)
+				printf("%*sValue: %lld\n", indent + 2, "", (i64)expr->constant.integer_value);
+			else
+				printf("%*sValue: %llu\n", indent + 2, "", expr->constant.integer_value);
+		}
 		else if (expr->constant.kind == CONSTANT_KIND_FLOAT)
 			printf("%*sValue: %f\n", indent + 2, "", (double)expr->constant.float_value);
 		else if (expr->constant.kind == CONSTANT_KIND_DOUBLE)
 			printf("%*sValue: %lf\n", indent + 2, "", expr->constant.double_value);
 		else if (expr->constant.kind == CONSTANT_KIND_BOOLEAN)
 			printf("%*sValue: %s\n", indent + 2, "", expr->constant.boolean_value ? "true" : "false");
+	}
+	else if (expr->type == EXPRESSION_TYPE_UNARY)
+	{
+		printf("%*sUnary operator: %s\n", indent + 2, "", unary_operator_to_cstr(expr->unary.operator));
+		printf("%*sOperand:\n", indent + 2, "");
+		dump_expression(expr->unary.operand, indent + 4);
 	}
 	else if (expr->type == EXPRESSION_TYPE_BINARY)
 	{
