@@ -64,11 +64,21 @@ typedef enum BinaryOperator
 	BINARY_OPERATOR_SUB, // -
 	BINARY_OPERATOR_MUL, // *
 	BINARY_OPERATOR_DIV, // /
+	BINARY_OPERATOR_EQ,  // ==
+	BINARY_OPERATOR_NEQ, // !=
+	BINARY_OPERATOR_LT,  // <
+	BINARY_OPERATOR_GT,  // >
+	BINARY_OPERATOR_LEQ, // <=
+	BINARY_OPERATOR_GEQ, // >=
 	BINARY_OPERATOR_COUNT,
 } BinaryOperator;
 
 const char* binary_operator_to_cstr(BinaryOperator op);
+const char* binary_operator_to_token_cstr(BinaryOperator op);
 BinaryOperator token_type_to_binary_operator(TokenType type);
+bool binary_operator_is_comparison(BinaryOperator op);
+bool binary_operator_is_equality(BinaryOperator op);
+bool binary_operator_is_ordering(BinaryOperator op);
 
 typedef enum UnaryOperator
 {

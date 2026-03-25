@@ -33,7 +33,7 @@ typedef enum TokenType
 	TOKEN_TYPE_TRUE_KEYWORD,   // 'true'
 	TOKEN_TYPE_FALSE_KEYWORD,  // 'false'
 
-	// Single-character token
+	// Single-character tokens
 	TOKEN_TYPE_OPEN_PAREN,  //  (
 	TOKEN_TYPE_CLOSE_PAREN, //  )
 	TOKEN_TYPE_OPEN_BRACE,  //  {
@@ -45,6 +45,14 @@ typedef enum TokenType
 	TOKEN_TYPE_SLASH,       //  /
 	TOKEN_TYPE_EQUALS,      //  =
 	TOKEN_TYPE_DOT,         //  .
+	TOKEN_TYPE_GREATER,     //  >
+	TOKEN_TYPE_LESS,        //  <
+
+	// Double-character tokens
+	TOKEN_TYPE_GREATER_EQUAL, //  >=
+	TOKEN_TYPE_LESS_EQUAL,    //  <=
+	TOKEN_TYPE_EQUAL_EQUAL,   //  ==
+	TOKEN_TYPE_BANG_EQUAL,    //  !=
 
 	// Other
 	TOKEN_TYPE_IDENTIFIER, //  ident

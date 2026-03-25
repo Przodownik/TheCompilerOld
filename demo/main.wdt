@@ -23,11 +23,11 @@ var uint r9 = e + 8;          // 50
 var uint r10 = e * 2;         // 84
 
 // cross-type with explicit cast
-var float r11 = (a as float) + b;          // 103.14
-var int r12 = (b as int) + a;              // 103
-var double r13 = (b as double) + c;        // 5.858
-var float r14 = (d as float) + b;          // 8.14
-var double r15 = (a as double) + c;        // 102.718
+var float r11 = a as float + b;          // 103.14
+var int r12 = b as int + a;              // 103
+var double r13 = b as double + c;        // 5.858
+var float r14 = d as float + b;          // 8.14
+var double r15 = a as double + c;        // 102.718
 
 // implicit promotion: int literal in float context
 var float r16 = b + 10;       // 13.14
@@ -35,14 +35,14 @@ var float r17 = 20 + b;       // 23.14
 var double r18 = c + 100;     // 102.718
 
 // chained operations with mixed casts
-var float r19 = ((a as float) + b) * 2.0f;               // 206.28
-var double r20 = ((a as double) + c) * (b as double);     // 322.536...
+var float r19 = (a as float + b) * 2.0f;               // 206.28
+var double r20 = (a as double + c) * b as double;     // 322.536...
 
 // subtraction across types
-var float r21 = (a as float) - b;    // 96.86
-var int r22 = a - (d as int);        // 95
+var float r21 = a as float - b;    // 96.86
+var int r22 = a - d as int;        // 95
 
 // nested casts
-var double r23 = ((d as int) as double);  // 5.0
+var double r23 = d as int as double;  // 5.0
 
-return (r1 as double) + (r4 as double) + r7 + (r11 as double) + r13 + (r16 as double) + r18 + r20 + (r21 as double) + (r23 as double);
+return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;

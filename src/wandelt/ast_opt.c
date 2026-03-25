@@ -291,6 +291,41 @@ static Expression* ast_optimizer_fold_unary(Expression* expr)
 
 static Expression* ast_optimizer_fold_integer_binary(Expression* expr, i64 lval, i64 rval)
 {
+	if (binary_operator_is_comparison(expr->binary.operator))
+	{
+		bool result = false;
+
+		switch (expr->binary.operator)
+		{
+		case BINARY_OPERATOR_EQ:
+			result = lval == rval;
+			break;
+		case BINARY_OPERATOR_NEQ:
+			result = lval != rval;
+			break;
+		case BINARY_OPERATOR_LT:
+			result = lval < rval;
+			break;
+		case BINARY_OPERATOR_GT:
+			result = lval > rval;
+			break;
+		case BINARY_OPERATOR_LEQ:
+			result = lval <= rval;
+			break;
+		case BINARY_OPERATOR_GEQ:
+			result = lval >= rval;
+			break;
+		default:
+			ASSERT(false, "Not a comparison operator");
+			break;
+		}
+
+		expr->type                   = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
+		expr->constant.boolean_value = result;
+		return expr;
+	}
+
 	i64 result;
 	switch (expr->binary.operator)
 	{
@@ -318,6 +353,41 @@ static Expression* ast_optimizer_fold_integer_binary(Expression* expr, i64 lval,
 
 static Expression* ast_optimizer_fold_float_binary(Expression* expr, float lval, float rval)
 {
+	if (binary_operator_is_comparison(expr->binary.operator))
+	{
+		bool result = false;
+
+		switch (expr->binary.operator)
+		{
+		case BINARY_OPERATOR_EQ:
+			result = lval == rval;
+			break;
+		case BINARY_OPERATOR_NEQ:
+			result = lval != rval;
+			break;
+		case BINARY_OPERATOR_LT:
+			result = lval < rval;
+			break;
+		case BINARY_OPERATOR_GT:
+			result = lval > rval;
+			break;
+		case BINARY_OPERATOR_LEQ:
+			result = lval <= rval;
+			break;
+		case BINARY_OPERATOR_GEQ:
+			result = lval >= rval;
+			break;
+		default:
+			ASSERT(false, "Not a comparison operator");
+			break;
+		}
+
+		expr->type                   = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
+		expr->constant.boolean_value = result;
+		return expr;
+	}
+
 	float result;
 	switch (expr->binary.operator)
 	{
@@ -345,6 +415,41 @@ static Expression* ast_optimizer_fold_float_binary(Expression* expr, float lval,
 
 static Expression* ast_optimizer_fold_double_binary(Expression* expr, double lval, double rval)
 {
+	if (binary_operator_is_comparison(expr->binary.operator))
+	{
+		bool result = false;
+
+		switch (expr->binary.operator)
+		{
+		case BINARY_OPERATOR_EQ:
+			result = lval == rval;
+			break;
+		case BINARY_OPERATOR_NEQ:
+			result = lval != rval;
+			break;
+		case BINARY_OPERATOR_LT:
+			result = lval < rval;
+			break;
+		case BINARY_OPERATOR_GT:
+			result = lval > rval;
+			break;
+		case BINARY_OPERATOR_LEQ:
+			result = lval <= rval;
+			break;
+		case BINARY_OPERATOR_GEQ:
+			result = lval >= rval;
+			break;
+		default:
+			ASSERT(false, "Not a comparison operator");
+			break;
+		}
+
+		expr->type                   = EXPRESSION_TYPE_CONSTANT;
+		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
+		expr->constant.boolean_value = result;
+		return expr;
+	}
+
 	double result;
 	switch (expr->binary.operator)
 	{
@@ -373,7 +478,7 @@ static Expression* ast_optimizer_fold_double_binary(Expression* expr, double lva
 Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer, Expression* expr)
 {
 	(void)optimizer;
-	static_assert(BINARY_OPERATOR_COUNT == 5, "Update this function when adding new binary operators");
+	static_assert(BINARY_OPERATOR_COUNT == 11, "Update this function when adding new binary operators");
 
 	if (expr->type == EXPRESSION_TYPE_UNARY)
 		return ast_optimizer_fold_unary(expr);
@@ -393,6 +498,7 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 	// Both operands must be the same constant kind (sema ensures type promotion)
 	if (left->constant.kind != right->constant.kind)
 		return expr;
+
 	switch (left->constant.kind)
 	{
 	case CONSTANT_KIND_INTEGER:
@@ -400,8 +506,10 @@ Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer,
 		                                         (i64)right->constant.integer_value);
 	case CONSTANT_KIND_FLOAT:
 		return ast_optimizer_fold_float_binary(expr, left->constant.float_value, right->constant.float_value);
+
 	case CONSTANT_KIND_DOUBLE:
 		return ast_optimizer_fold_double_binary(expr, left->constant.double_value, right->constant.double_value);
+
 	default:
 		return expr;
 	}

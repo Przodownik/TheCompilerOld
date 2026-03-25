@@ -48,6 +48,36 @@ typedef enum OpCode
 	OP_CODE_NEG_F, //		AB		R(A).f32 = -R(B).f32
 	OP_CODE_NEG_D, //		AB		R(A).f64 = -R(B).f64
 
+	OP_CODE_EQ_I, //		ABC     R(A).bool = R(B).i64 == R(C).i64
+	OP_CODE_EQ_U, //		ABC     R(A).bool = R(B).u64 == R(C).u64
+	OP_CODE_EQ_F, //		ABC     R(A).bool = R(B).f32 == R(C).f32
+	OP_CODE_EQ_D, //		ABC     R(A).bool = R(B).f64 == R(C).f64
+
+	OP_CODE_NEQ_I, //		ABC     R(A).bool = R(B).i64 != R(C).i64
+	OP_CODE_NEQ_U, //		ABC     R(A).bool = R(B).u64 != R(C).u64
+	OP_CODE_NEQ_F, //		ABC     R(A).bool = R(B).f32 != R(C).f32
+	OP_CODE_NEQ_D, //		ABC     R(A).bool = R(B).f64 != R(C).f64
+
+	OP_CODE_LT_I, //		ABC     R(A).bool = R(B).i64 <  R(C).i64
+	OP_CODE_LT_U, //		ABC     R(A).bool = R(B).u64 <  R(C).u64
+	OP_CODE_LT_F, //		ABC     R(A).bool = R(B).f32 <  R(C).f32
+	OP_CODE_LT_D, //		ABC     R(A).bool = R(B).f64 <  R(C).f64
+
+	OP_CODE_GT_I, //		ABC     R(A).bool = R(B).i64 >  R(C).i64
+	OP_CODE_GT_U, //		ABC     R(A).bool = R(B).u64 >  R(C).u64
+	OP_CODE_GT_F, //		ABC     R(A).bool = R(B).f32 >  R(C).f32
+	OP_CODE_GT_D, //		ABC     R(A).bool = R(B).f64 >  R(C).f64
+
+	OP_CODE_LEQ_I, //		ABC     R(A).bool = R(B).i64 <= R(C).i64
+	OP_CODE_LEQ_U, //		ABC     R(A).bool = R(B).u64 <= R(C).u64
+	OP_CODE_LEQ_F, //		ABC     R(A).bool = R(B).f32 <= R(C).f32
+	OP_CODE_LEQ_D, //		ABC     R(A).bool = R(B).f64 <= R(C).f64
+
+	OP_CODE_GEQ_I, //		ABC     R(A).bool = R(B).i64 >= R(C).i64
+	OP_CODE_GEQ_U, //		ABC     R(A).bool = R(B).u64 >= R(C).u64
+	OP_CODE_GEQ_F, //		ABC     R(A).bool = R(B).f32 >= R(C).f32
+	OP_CODE_GEQ_D, //		ABC     R(A).bool = R(B).f64 >= R(C).f64
+
 	OP_CODE_CAST, //        ABC     R(A) = convert(R(B), TypeKind(C))
 
 	OP_CODE_RETURN, // return R(A)

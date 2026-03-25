@@ -49,7 +49,7 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 
 static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
-	static_assert(OP_CODE_COUNT == 24, "format_instruction needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 48, "format_instruction needs to be updated for new opcodes");
 
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -168,6 +168,45 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		u8 b = DECODE_B(inst);
 		snprintf(operands, op_size, "R%u, R%u", a, b);
 		snprintf(comment, cm_size, "R%u = -R%u", a, b);
+		break;
+	}
+
+	case OP_CODE_EQ_I:
+	case OP_CODE_EQ_U:
+	case OP_CODE_EQ_F:
+	case OP_CODE_EQ_D:
+	case OP_CODE_NEQ_I:
+	case OP_CODE_NEQ_U:
+	case OP_CODE_NEQ_F:
+	case OP_CODE_NEQ_D:
+	case OP_CODE_LT_I:
+	case OP_CODE_LT_U:
+	case OP_CODE_LT_F:
+	case OP_CODE_LT_D:
+	case OP_CODE_GT_I:
+	case OP_CODE_GT_U:
+	case OP_CODE_GT_F:
+	case OP_CODE_GT_D:
+	case OP_CODE_LEQ_I:
+	case OP_CODE_LEQ_U:
+	case OP_CODE_LEQ_F:
+	case OP_CODE_LEQ_D:
+	case OP_CODE_GEQ_I:
+	case OP_CODE_GEQ_U:
+	case OP_CODE_GEQ_F:
+	case OP_CODE_GEQ_D: {
+		u8 a = DECODE_A(inst);
+		u8 b = DECODE_B(inst);
+		u8 c = DECODE_C(inst);
+		snprintf(operands, op_size, "R%u, R%u, R%u", a, b, c);
+		const char* op_str = (op >= OP_CODE_EQ_I && op <= OP_CODE_EQ_D)     ? "=="
+		                     : (op >= OP_CODE_NEQ_I && op <= OP_CODE_NEQ_D) ? "!="
+		                     : (op >= OP_CODE_LT_I && op <= OP_CODE_LT_D)   ? "<"
+		                     : (op >= OP_CODE_GT_I && op <= OP_CODE_GT_D)   ? ">"
+		                     : (op >= OP_CODE_LEQ_I && op <= OP_CODE_LEQ_D) ? "<="
+		                     : (op >= OP_CODE_GEQ_I && op <= OP_CODE_GEQ_D) ? ">="
+		                                                                    : "??";
+		snprintf(comment, cm_size, "R%u = R%u %s R%u", a, b, op_str, c);
 		break;
 	}
 

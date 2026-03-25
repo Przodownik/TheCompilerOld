@@ -119,7 +119,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 35, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 41, "Update lexer tests when adding new token types");
 
 // --- Empty / whitespace-only inputs ----------------------------------------
 
@@ -245,6 +245,62 @@ TEST(dot)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOT);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ".");
+}
+
+TEST(greater)
+{
+	const char* src = ">";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_GREATER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ">");
+}
+
+TEST(less)
+{
+	const char* src = "<";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_LESS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "<");
+}
+
+// --- Double-character tokens -----------------------------------------------
+
+TEST(greater_equal)
+{
+	const char* src = ">=";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_GREATER_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ">=");
+}
+
+TEST(less_equal)
+{
+	const char* src = "<=";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_LESS_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "<=");
+}
+
+TEST(equal_equal)
+{
+	const char* src = "==";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_EQUAL_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "==");
+}
+
+TEST(bang_equal)
+{
+	const char* src = "!=";
+	TokenList tl    = lex_all(alloc, src);
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_BANG_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "!=");
 }
 
 // --- Identifiers -----------------------------------------------------------
@@ -701,6 +757,14 @@ int main(void)
 	RUN_TEST(slash);
 	RUN_TEST(equals);
 	RUN_TEST(dot);
+	RUN_TEST(greater);
+	RUN_TEST(less);
+
+	print_section("Double-character tokens");
+	RUN_TEST(greater_equal);
+	RUN_TEST(less_equal);
+	RUN_TEST(equal_equal);
+	RUN_TEST(bang_equal);
 
 	print_section("Identifiers");
 	RUN_TEST(simple_identifier);

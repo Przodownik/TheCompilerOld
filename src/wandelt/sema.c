@@ -386,10 +386,13 @@ bool sema_check_unary_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint)
 {
-	if (!sema_check_expression(sema, expr->binary.left, type_hint))
+	// For comparisons, don't propagate the type_hint — the result is bool
+	Type* operand_hint = binary_operator_is_comparison(expr->binary.operator) ? nullptr : type_hint;
+
+	if (!sema_check_expression(sema, expr->binary.left, operand_hint))
 		return false;
 
-	if (!sema_check_expression(sema, expr->binary.right, type_hint))
+	if (!sema_check_expression(sema, expr->binary.right, operand_hint))
 		return false;
 
 	Type* left_type  = expr->binary.left->resolved_type;
@@ -401,6 +404,14 @@ bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint)
 		diagnostics_verror_along_span(expr->span, sema->source,
 		                              "Cannot implicitly cast types '%s' and '%s' in binary expression",
 		                              type_kind_to_cstr(left_type->kind), type_kind_to_cstr(right_type->kind));
+		return false;
+	}
+
+	// Ordering operators (< > <= >=) reject bool operands
+	if (binary_operator_is_ordering(expr->binary.operator) && type_is_bool(common))
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "Cannot use ordering operator '%s' on 'bool' operands",
+		                              binary_operator_to_token_cstr(expr->binary.operator));
 		return false;
 	}
 
@@ -420,7 +431,10 @@ bool sema_check_binary_expression(Sema* sema, Expression* expr, Type* type_hint)
 			expr->binary.right = sema_insert_cast(sema, expr->binary.right, common);
 	}
 
-	expr->resolved_type = common;
+	if (binary_operator_is_comparison(expr->binary.operator))
+		expr->resolved_type = type_get_builtin(TYPE_KIND_BOOL);
+	else
+		expr->resolved_type = common;
 
 	return true;
 }

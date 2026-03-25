@@ -6,7 +6,7 @@
 
 const char* op_code_to_cstr(OpCode op)
 {
-	static_assert(OP_CODE_COUNT == 24, "Update this function when adding new opcodes");
+	static_assert(OP_CODE_COUNT == 48, "Update this function when adding new opcodes");
 
 	switch (op)
 	{
@@ -57,6 +57,60 @@ const char* op_code_to_cstr(OpCode op)
 		return "NEG_F";
 	case OP_CODE_NEG_D:
 		return "NEG_D";
+
+	case OP_CODE_EQ_I:
+		return "EQ_I";
+	case OP_CODE_EQ_U:
+		return "EQ_U";
+	case OP_CODE_EQ_F:
+		return "EQ_F";
+	case OP_CODE_EQ_D:
+		return "EQ_D";
+
+	case OP_CODE_NEQ_I:
+		return "NEQ_I";
+	case OP_CODE_NEQ_U:
+		return "NEQ_U";
+	case OP_CODE_NEQ_F:
+		return "NEQ_F";
+	case OP_CODE_NEQ_D:
+		return "NEQ_D";
+
+	case OP_CODE_LT_I:
+		return "LT_I";
+	case OP_CODE_LT_U:
+		return "LT_U";
+	case OP_CODE_LT_F:
+		return "LT_F";
+	case OP_CODE_LT_D:
+		return "LT_D";
+
+	case OP_CODE_GT_I:
+		return "GT_I";
+	case OP_CODE_GT_U:
+		return "GT_U";
+	case OP_CODE_GT_F:
+		return "GT_F";
+	case OP_CODE_GT_D:
+		return "GT_D";
+
+	case OP_CODE_LEQ_I:
+		return "LEQ_I";
+	case OP_CODE_LEQ_U:
+		return "LEQ_U";
+	case OP_CODE_LEQ_F:
+		return "LEQ_F";
+	case OP_CODE_LEQ_D:
+		return "LEQ_D";
+
+	case OP_CODE_GEQ_I:
+		return "GEQ_I";
+	case OP_CODE_GEQ_U:
+		return "GEQ_U";
+	case OP_CODE_GEQ_F:
+		return "GEQ_F";
+	case OP_CODE_GEQ_D:
+		return "GEQ_D";
 
 	case OP_CODE_CAST:
 		return "CAST";
@@ -193,13 +247,19 @@ static OpCode select_typed_opcode(BinaryOperator bin_op, Type* type)
 	else
 		family = 0;
 
+	// Bool equality uses the I (signed) family — bool is stored in i64_val
+	if (type_is_bool(type))
+		family = 0;
+
 	// Opcodes are laid out in groups of 4: I, U, F, D
 	OpCode bases[] = {
-	    [BINARY_OPERATOR_ADD] = OP_CODE_ADD_I,
-	    [BINARY_OPERATOR_SUB] = OP_CODE_SUB_I,
-	    [BINARY_OPERATOR_MUL] = OP_CODE_MUL_I,
-	    [BINARY_OPERATOR_DIV] = OP_CODE_DIV_I,
+	    [BINARY_OPERATOR_ADD] = OP_CODE_ADD_I, [BINARY_OPERATOR_SUB] = OP_CODE_SUB_I,
+	    [BINARY_OPERATOR_MUL] = OP_CODE_MUL_I, [BINARY_OPERATOR_DIV] = OP_CODE_DIV_I,
+	    [BINARY_OPERATOR_EQ] = OP_CODE_EQ_I,   [BINARY_OPERATOR_NEQ] = OP_CODE_NEQ_I,
+	    [BINARY_OPERATOR_LT] = OP_CODE_LT_I,   [BINARY_OPERATOR_GT] = OP_CODE_GT_I,
+	    [BINARY_OPERATOR_LEQ] = OP_CODE_LEQ_I, [BINARY_OPERATOR_GEQ] = OP_CODE_GEQ_I,
 	};
+	ASSERT(bin_op < sizeof(bases) / sizeof(bases[0]), "Invalid BinaryOperator");
 
 	return (OpCode)(bases[bin_op] + family);
 }
@@ -502,7 +562,10 @@ static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expres
 				c->max_reg = c->next_reg;
 		}
 
-		OpCode op = select_typed_opcode(expression->binary.operator, expression->resolved_type);
+		Type* opcode_type = binary_operator_is_comparison(expression->binary.operator)
+		                        ? expression->binary.left->resolved_type
+		                        : expression->resolved_type;
+		OpCode op         = select_typed_opcode(expression->binary.operator, opcode_type);
 		chunk_emit(&c->chunk, ENCODE_ABC(op, dest, left, right));
 
 		// Reclaim temporaries above dest, but never below the save point

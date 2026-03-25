@@ -11,7 +11,7 @@ VM vm_create(Chunk* chunk)
 
 VmResult vm_execute(VM* vm)
 {
-	static_assert(OP_CODE_COUNT == 24, "vm_execute needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 48, "vm_execute needs to be updated for new opcodes");
 
 	Value* R = vm->registers;
 	Value* K = vm->chunk->constants;
@@ -188,6 +188,79 @@ VmResult vm_execute(VM* vm)
 			R[a].kind    = VALUE_KIND_F64;
 			break;
 		}
+
+		case OP_CODE_EQ_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val == R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_EQ_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val == R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_EQ_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val == R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_EQ_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val == R[DECODE_C(inst)].f64_val);
+			break;
+		case OP_CODE_NEQ_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val != R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_NEQ_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val != R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_NEQ_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val != R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_NEQ_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val != R[DECODE_C(inst)].f64_val);
+			break;
+		case OP_CODE_LT_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val < R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_LT_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val < R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_LT_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val < R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_LT_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val < R[DECODE_C(inst)].f64_val);
+			break;
+		case OP_CODE_GT_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val > R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_GT_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val > R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_GT_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val > R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_GT_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val > R[DECODE_C(inst)].f64_val);
+			break;
+		case OP_CODE_LEQ_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val <= R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_LEQ_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val <= R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_LEQ_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val <= R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_LEQ_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val <= R[DECODE_C(inst)].f64_val);
+			break;
+		case OP_CODE_GEQ_I:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].i64_val >= R[DECODE_C(inst)].i64_val);
+			break;
+		case OP_CODE_GEQ_U:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].u64_val >= R[DECODE_C(inst)].u64_val);
+			break;
+		case OP_CODE_GEQ_F:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f32_val >= R[DECODE_C(inst)].f32_val);
+			break;
+		case OP_CODE_GEQ_D:
+			R[DECODE_A(inst)] = value_bool(R[DECODE_B(inst)].f64_val >= R[DECODE_C(inst)].f64_val);
+			break;
 
 		case OP_CODE_CAST: {
 			u8 a            = DECODE_A(inst);

@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
 
 	if (debug)
 		disassemble_chunk(&chunk, "main", &demo_file);
-	disassemble_chunk_to_file(&chunk, "main", &demo_file, "demo/main.wdtbc");
+	disassemble_chunk_to_file(&chunk, "main", &demo_file, DEMO_PATH "main.wdtbc");
 
 	// VM Execution
 	VM vm           = vm_create(&chunk);

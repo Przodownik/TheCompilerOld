@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 35, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 41, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -69,6 +69,19 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_EQUALS";
 	case TOKEN_TYPE_DOT:
 		return "TOKEN_TYPE_DOT";
+	case TOKEN_TYPE_GREATER:
+		return "TOKEN_TYPE_GREATER";
+	case TOKEN_TYPE_LESS:
+		return "TOKEN_TYPE_LESS";
+
+	case TOKEN_TYPE_GREATER_EQUAL:
+		return "TOKEN_TYPE_GREATER_EQUAL";
+	case TOKEN_TYPE_LESS_EQUAL:
+		return "TOKEN_TYPE_LESS_EQUAL";
+	case TOKEN_TYPE_EQUAL_EQUAL:
+		return "TOKEN_TYPE_EQUAL_EQUAL";
+	case TOKEN_TYPE_BANG_EQUAL:
+		return "TOKEN_TYPE_BANG_EQUAL";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
@@ -90,7 +103,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 35, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 41, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -157,6 +170,19 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "=";
 	case TOKEN_TYPE_DOT:
 		return ".";
+	case TOKEN_TYPE_GREATER:
+		return ">";
+	case TOKEN_TYPE_LESS:
+		return "<";
+
+	case TOKEN_TYPE_GREATER_EQUAL:
+		return ">=";
+	case TOKEN_TYPE_LESS_EQUAL:
+		return "<=";
+	case TOKEN_TYPE_EQUAL_EQUAL:
+		return "==";
+	case TOKEN_TYPE_BANG_EQUAL:
+		return "!=";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "identifier";

@@ -72,7 +72,7 @@ const char* constant_kind_to_cstr(ConstantKind kind)
 
 const char* binary_operator_to_cstr(BinaryOperator op)
 {
-	static_assert(BINARY_OPERATOR_COUNT == 5, "Update binary_operator_to_cstr when adding new binary operators");
+	static_assert(BINARY_OPERATOR_COUNT == 11, "Update binary_operator_to_cstr when adding new binary operators");
 
 	switch (op)
 	{
@@ -86,6 +86,18 @@ const char* binary_operator_to_cstr(BinaryOperator op)
 		return "Multiply";
 	case BINARY_OPERATOR_DIV:
 		return "Divide";
+	case BINARY_OPERATOR_EQ:
+		return "Equal";
+	case BINARY_OPERATOR_NEQ:
+		return "NotEqual";
+	case BINARY_OPERATOR_LT:
+		return "LessThan";
+	case BINARY_OPERATOR_GT:
+		return "GreaterThan";
+	case BINARY_OPERATOR_LEQ:
+		return "LessEqual";
+	case BINARY_OPERATOR_GEQ:
+		return "GreaterEqual";
 	default:
 		break;
 	}
@@ -93,9 +105,42 @@ const char* binary_operator_to_cstr(BinaryOperator op)
 	ASSERT(false, "Unknown binary operator");
 }
 
+const char* binary_operator_to_token_cstr(BinaryOperator op)
+{
+	static_assert(BINARY_OPERATOR_COUNT == 11, "Update binary_operator_to_token_cstr when adding new binary operators");
+	switch (op)
+	{
+	case BINARY_OPERATOR_INVALID:
+		return "InvalidBinaryOperator";
+	case BINARY_OPERATOR_ADD:
+		return "+";
+	case BINARY_OPERATOR_SUB:
+		return "-";
+	case BINARY_OPERATOR_MUL:
+		return "*";
+	case BINARY_OPERATOR_DIV:
+		return "/";
+	case BINARY_OPERATOR_EQ:
+		return "==";
+	case BINARY_OPERATOR_NEQ:
+		return "!=";
+	case BINARY_OPERATOR_LT:
+		return "<";
+	case BINARY_OPERATOR_GT:
+		return ">";
+	case BINARY_OPERATOR_LEQ:
+		return "<=";
+	case BINARY_OPERATOR_GEQ:
+		return ">=";
+	default:
+		break;
+	}
+	ASSERT(false, "Unknown binary operator");
+}
+
 BinaryOperator token_type_to_binary_operator(TokenType type)
 {
-	static_assert(BINARY_OPERATOR_COUNT == 5, "Update token_type_to_binary_operator when adding new binary operators");
+	static_assert(BINARY_OPERATOR_COUNT == 11, "Update token_type_to_binary_operator when adding new binary operators");
 
 	switch (type)
 	{
@@ -107,11 +152,39 @@ BinaryOperator token_type_to_binary_operator(TokenType type)
 		return BINARY_OPERATOR_MUL;
 	case TOKEN_TYPE_SLASH:
 		return BINARY_OPERATOR_DIV;
+	case TOKEN_TYPE_EQUAL_EQUAL:
+		return BINARY_OPERATOR_EQ;
+	case TOKEN_TYPE_BANG_EQUAL:
+		return BINARY_OPERATOR_NEQ;
+	case TOKEN_TYPE_LESS:
+		return BINARY_OPERATOR_LT;
+	case TOKEN_TYPE_GREATER:
+		return BINARY_OPERATOR_GT;
+	case TOKEN_TYPE_LESS_EQUAL:
+		return BINARY_OPERATOR_LEQ;
+	case TOKEN_TYPE_GREATER_EQUAL:
+		return BINARY_OPERATOR_GEQ;
 	default:
 		break;
 	}
 
 	ASSERT(false, "Token type '%s' is not a binary operator", token_type_to_cstr(type));
+}
+
+bool binary_operator_is_comparison(BinaryOperator op)
+{
+	return op >= BINARY_OPERATOR_EQ && op <= BINARY_OPERATOR_GEQ;
+}
+
+bool binary_operator_is_equality(BinaryOperator op)
+{
+	return op == BINARY_OPERATOR_EQ || op == BINARY_OPERATOR_NEQ;
+}
+
+bool binary_operator_is_ordering(BinaryOperator op)
+{
+	return op == BINARY_OPERATOR_LT || op == BINARY_OPERATOR_GT || op == BINARY_OPERATOR_LEQ ||
+	       op == BINARY_OPERATOR_GEQ;
 }
 
 const char* unary_operator_to_cstr(UnaryOperator op)

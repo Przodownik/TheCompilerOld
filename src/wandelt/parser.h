@@ -37,8 +37,9 @@ void parser_eat_token(Parser* parser);
 typedef enum Precedence
 {
 	PRECEDENCE_NONE = 0,
-	PRECEDENCE_ADDITIVE, // + -
-	PRECEDENCE_MULTIPLY, // * /
+	PRECEDENCE_COMPARISON, // == != < > <= >=
+	PRECEDENCE_ADDITIVE,   // + -
+	PRECEDENCE_MULTIPLY,   // * /
 	PRECEDENCE_UNARY,
 	PRECEDENCE_CAST,    // as
 	PRECEDENCE_PRIMARY, // literals, identifiers

@@ -1,5 +1,5 @@
-#include "lexer.h"
 #include "diagnostics.h"
+#include "lexer.h"
 #include "wandelt/string.h"
 #include "wandelt/token.h"
 #include <assert.h>
@@ -254,7 +254,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 35, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 41, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -298,7 +298,15 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH);
 		break;
 	case '=':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_EQUALS);
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_EQUAL_EQUAL);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_EQUALS);
+		}
 		break;
 	case '.':
 		if (is_character_a_digit(lexer_get_current_char(lexer)))
@@ -310,6 +318,42 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 		else
 		{
 			token = _lexer_create_new_token(lexer, TOKEN_TYPE_DOT);
+		}
+		break;
+	case '>':
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_GREATER_EQUAL);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_GREATER);
+		}
+		break;
+	case '<':
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_LESS_EQUAL);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_LESS);
+		}
+		break;
+	case '!':
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_BANG_EQUAL);
+		}
+		else
+		{
+			// Standalone '!' not supported yet
+			Token tok = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+			diagnostics_verror_along_span(tok.span, lexer->file_to_lex, "Unexpected character '!', did you mean '!='?");
+			return tok;
 		}
 		break;
 	default:

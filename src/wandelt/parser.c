@@ -604,6 +604,12 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_MINUS]         = {parser_parse_unary_expression, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_STAR]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
     [TOKEN_TYPE_SLASH]         = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
+    [TOKEN_TYPE_GREATER]       = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
+    [TOKEN_TYPE_LESS]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
+    [TOKEN_TYPE_GREATER_EQUAL] = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
+    [TOKEN_TYPE_LESS_EQUAL]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
+    [TOKEN_TYPE_EQUAL_EQUAL]   = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
+    [TOKEN_TYPE_BANG_EQUAL]    = {nullptr, parser_parse_binary_expression, PRECEDENCE_COMPARISON},
     [TOKEN_TYPE_INTEGER]       = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_FLOAT]         = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_DOUBLE]        = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
@@ -612,4 +618,4 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_IDENTIFIER]    = {parser_parse_identifier_expression, nullptr, PRECEDENCE_NONE},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 35, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 41, "Update parse_rules when adding new token types");
