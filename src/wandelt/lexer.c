@@ -103,6 +103,35 @@ void _lexer_skip_whitespace(Lexer* lexer)
 				break;
 			}
 			return;
+		case '<':
+			if (lexer_get_next_char(lexer) == '*')
+			{
+				_lexer_advance(lexer); // consume '<'
+				_lexer_advance(lexer); // consume '*'
+
+				while (true)
+				{
+					if (lexer_is_eof(lexer))
+					{
+						Token tok = _lexer_create_new_token(lexer, TOKEN_TYPE_INVALID);
+						diagnostics_verror_along_span(
+						    tok.span, lexer->file_to_lex,
+						    "Unterminated multi-line comment, expected '*>' before the end of the file.");
+						return;
+					}
+
+					if (lexer_get_current_char(lexer) == '*' && lexer_get_next_char(lexer) == '>')
+					{
+						_lexer_advance(lexer); // consume '*'
+						_lexer_advance(lexer); // consume '>'
+						break;
+					}
+
+					_lexer_advance(lexer);
+				}
+
+				continue;
+			}
 		default:
 			return;
 		};

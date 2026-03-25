@@ -113,7 +113,6 @@ void parser_recover_from_error(Parser* parser)
 			return;
 
 		// Synchronize and don't consume them
-		case TOKEN_TYPE_FUNCTION_KEYWORD:
 		case TOKEN_TYPE_RETURN_KEYWORD:
 		case TOKEN_TYPE_NAMESPACE_KEYWORD:
 			return;
