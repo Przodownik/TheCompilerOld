@@ -172,8 +172,20 @@ file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
 
 set(TEST_TARGET "${PROJECT_NAME}.Tests")
 
-add_executable(${TEST_TARGET}
+set(TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/tests/main.c
     ${CMAKE_SOURCE_DIR}/tests/lexer_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/lexer_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/parser_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/parser_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/sema_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/sema_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/test_framework.h
+)
+source_group("tests" FILES ${TEST_SOURCES})
+
+add_executable(${TEST_TARGET}
+    ${TEST_SOURCES}
     ${LIB_SOURCES}
 )
 

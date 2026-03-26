@@ -172,17 +172,20 @@ bool sema_analyze_declaration(Sema* sema, Declaration* decl)
 	case RESOLVE_STATUS_UNRESOLVED:
 		decl->resolve_status = RESOLVE_STATUS_RESOLVING;
 		bool success         = sema_analyze_declaration_internal(sema, decl);
-		if (success)
+		decl->resolve_status = RESOLVE_STATUS_RESOLVED;
+		if (!success)
 		{
-			decl->resolve_status = RESOLVE_STATUS_RESOLVED;
+			decl->type = DECLARATION_TYPE_INVALID;
 		}
 		return success;
 	case RESOLVE_STATUS_RESOLVING:
 		diagnostics_verror_along_span(decl->span, sema->source,
 		                              "Cyclic dependency detected while resolving declaration");
+		decl->resolve_status = RESOLVE_STATUS_RESOLVED;
+		decl->type           = DECLARATION_TYPE_INVALID;
 		return false;
 	case RESOLVE_STATUS_RESOLVED:
-		return true;
+		return decl->type != DECLARATION_TYPE_INVALID;
 	}
 
 	ASSERT(false);
@@ -459,6 +462,24 @@ bool sema_check_identifier_expression(Sema* sema, Expression* expr, Type* type_h
 		diagnostics_verror_along_span(expr->span, sema->source, "Undefined identifier '%.*s'",
 		                              FMT_STR_ARG(expr->identifier.name));
 		return false;
+	}
+
+	if (sym->declaration_ref->resolve_status == RESOLVE_STATUS_RESOLVING)
+	{
+		diagnostics_verror_along_span(expr->span, sema->source,
+		                              "Cyclic dependency detected while resolving identifier '%.*s'",
+		                              FMT_STR_ARG(expr->identifier.name));
+		return false;
+	}
+
+	if (sym->declaration_ref->type == DECLARATION_TYPE_INVALID)
+		return false;
+
+	if (sym->declaration_ref->resolve_status == RESOLVE_STATUS_UNRESOLVED)
+	{
+		diagnostics_verror_along_span(expr->span, sema->source,
+		                              "Cannot resolve identifier '%.*s' because its details have not been resolved yet",
+		                              FMT_STR_ARG(expr->identifier.name));
 	}
 
 	expr->resolved_type              = sym->type;
