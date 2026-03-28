@@ -180,6 +180,12 @@ set(TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/tests/parser_tests.h
     ${CMAKE_SOURCE_DIR}/tests/sema_tests.c
     ${CMAKE_SOURCE_DIR}/tests/sema_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/ast_optimizer_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/ast_optimizer_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/bytecode_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/bytecode_tests.h
+    ${CMAKE_SOURCE_DIR}/tests/e2e_tests.c
+    ${CMAKE_SOURCE_DIR}/tests/e2e_tests.h
     ${CMAKE_SOURCE_DIR}/tests/test_framework.h
 )
 source_group("tests" FILES ${TEST_SOURCES})

@@ -14,6 +14,7 @@
 #include "wandelt/parser.h"
 #include "wandelt/platform.h"
 #include "wandelt/sema.h"
+#include "wandelt/vector.h"
 #include "wandelt/vm.h"
 
 static int g_tests_run    = 0;
@@ -141,20 +142,20 @@ static void print_section(const char* name)
 		}                                                                       \
 	} while (0)
 
-#define ASSERT_STR_CONTAINS(str, expected)                                                              \
-	do                                                                                                 \
-	{                                                                                                  \
-		const char* _str = (str);                                                                      \
-		const char* _exp = (expected);                                                                 \
-		if (_str == NULL || strstr(_str, _exp) == NULL)                                                \
-		{                                                                                              \
-			printf(ANSI_COLOR_RED "FAIL" ANSI_COLOR_RESET "\n"                                         \
-			                      "    %s:%d: expected to contain \"%s\"\n"                             \
-			                      "    got: \"%s\"\n",                                                  \
-			       __FILE__, __LINE__, _exp, _str ? _str : "(null)");                                  \
-			g_tests_failed++;                                                                          \
-			return;                                                                                    \
-		}                                                                                              \
+#define ASSERT_STR_CONTAINS(str, expected)                                  \
+	do                                                                      \
+	{                                                                       \
+		const char* _str = (str);                                           \
+		const char* _exp = (expected);                                      \
+		if (_str == NULL || strstr(_str, _exp) == NULL)                     \
+		{                                                                   \
+			printf(ANSI_COLOR_RED "FAIL" ANSI_COLOR_RESET "\n"              \
+			                      "    %s:%d: expected to contain \"%s\"\n" \
+			                      "    got: \"%s\"\n",                      \
+			       __FILE__, __LINE__, _exp, _str ? _str : "(null)");       \
+			g_tests_failed++;                                               \
+			return;                                                         \
+		}                                                                   \
 	} while (0)
 
 #define ASSERT_FLOAT_EQ(a, b, epsilon)                                          \
