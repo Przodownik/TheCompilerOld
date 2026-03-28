@@ -83,6 +83,18 @@ TEST(bytecode_add_two_constants)
 	ASSERT_EQ(DECODE_C(add), 1); // right
 }
 
+TEST(bytecode_variable_move)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "var int x = 42;\nreturn x;");
+	ASSERT_TRUE(r.ok);
+
+	// LOAD_CONST R0, K0  (42)
+	// RETURN     R0
+	// HALT
+	ASSERT_EQ(instr_op(&r.chunk, 0), OP_CODE_LOAD_CONST);
+	ASSERT_EQ(instr_op(&r.chunk, 1), OP_CODE_RETURN);
+}
+
 TEST(bytecode_float_add)
 {
 	BytecodeTestResult r = compile_to_bytecode(alloc, "return 1.5f + 2.5f;");
@@ -117,6 +129,139 @@ TEST(bytecode_negation)
 	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_RETURN);
 }
 
+TEST(bytecode_int_sub)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 10 - 3;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_SUB_I);
+}
+
+TEST(bytecode_float_sub)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 5.0f - 2.0f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_SUB_F);
+}
+
+TEST(bytecode_double_sub)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 5.0d - 2.0d;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_SUB_D);
+}
+
+TEST(bytecode_int_mul)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 4 * 5;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_MUL_I);
+}
+
+TEST(bytecode_int_div)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 10 / 2;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_DIV_I);
+}
+
+TEST(bytecode_float_mul)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 2.0f * 3.0f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_MUL_F);
+}
+
+TEST(bytecode_float_div)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 10.0f / 2.0f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_DIV_F);
+}
+
+TEST(bytecode_double_add)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 1.5d + 2.5d;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_ADD_D);
+}
+
+TEST(bytecode_double_div)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 10.0d / 2.0d;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_DIV_D);
+}
+
+TEST(bytecode_float_negation)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return -3.14f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 1), OP_CODE_NEG_F);
+}
+
+TEST(bytecode_double_negation)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return -2.718d;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 1), OP_CODE_NEG_D);
+}
+
+TEST(bytecode_comparison_eq)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 5 == 5;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_EQ_I);
+}
+
+TEST(bytecode_comparison_neq)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 5 != 3;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_NEQ_I);
+}
+
+TEST(bytecode_comparison_lt)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 3 < 5;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_LT_I);
+}
+
+TEST(bytecode_comparison_leq)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 3 <= 5;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_LEQ_I);
+}
+
+TEST(bytecode_comparison_geq)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 5 >= 3;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_GEQ_I);
+}
+
+TEST(bytecode_float_comparison_lt)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 1.0f < 2.0f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_LT_F);
+}
+
+TEST(bytecode_float_comparison_eq)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 1.0f == 1.0f;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_EQ_F);
+}
+
+TEST(bytecode_double_comparison_gt)
+{
+	BytecodeTestResult r = compile_to_bytecode(alloc, "return 3.0d > 2.0d;");
+	ASSERT_TRUE(r.ok);
+	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_GT_D);
+}
+
 TestResults run_bytecode_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -130,10 +275,30 @@ TestResults run_bytecode_tests(void)
 	print_section("Bytecode generation");
 	RUN_TEST(bytecode_return_constant);
 	RUN_TEST(bytecode_add_two_constants);
+	RUN_TEST(bytecode_variable_move);
 	RUN_TEST(bytecode_float_add);
 	RUN_TEST(bytecode_double_mul);
 	RUN_TEST(bytecode_comparison_gt);
 	RUN_TEST(bytecode_negation);
+	RUN_TEST(bytecode_int_sub);
+	RUN_TEST(bytecode_float_sub);
+	RUN_TEST(bytecode_double_sub);
+	RUN_TEST(bytecode_int_mul);
+	RUN_TEST(bytecode_int_div);
+	RUN_TEST(bytecode_float_mul);
+	RUN_TEST(bytecode_float_div);
+	RUN_TEST(bytecode_double_add);
+	RUN_TEST(bytecode_double_div);
+	RUN_TEST(bytecode_float_negation);
+	RUN_TEST(bytecode_double_negation);
+	RUN_TEST(bytecode_comparison_eq);
+	RUN_TEST(bytecode_comparison_neq);
+	RUN_TEST(bytecode_comparison_lt);
+	RUN_TEST(bytecode_comparison_leq);
+	RUN_TEST(bytecode_comparison_geq);
+	RUN_TEST(bytecode_float_comparison_lt);
+	RUN_TEST(bytecode_float_comparison_eq);
+	RUN_TEST(bytecode_double_comparison_gt);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

@@ -120,6 +120,69 @@ TEST(sema_error_implicit_cast_initializer)
 	ASSERT_STR_CONTAINS(e->message, "Cannot implicitly cast constant of type 'double' to expected type 'int'");
 }
 
+TEST(sema_error_implicit_int_to_bool)
+{
+	SemaTestResult r = run_sema(alloc, "var bool b = 5;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Cannot implicitly cast constant of type 'char' to expected type 'bool'");
+}
+
+TEST(sema_error_narrowing_long_to_int)
+{
+	SemaTestResult r = run_sema(alloc, "var long x = 100;\n"
+	                                   "var int y = x;\n"
+	                                   "return y;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Cannot implicitly cast initializer of type 'long' to variable type 'int'");
+}
+
+TEST(sema_error_implicit_float_to_int)
+{
+	SemaTestResult r = run_sema(alloc, "var float f = 3.14f;\n"
+	                                   "var int x = f;\n"
+	                                   "return x;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Cannot implicitly cast initializer of type 'float' to variable type 'int'");
+}
+
+TEST(sema_error_implicit_signed_to_unsigned)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "var uint y = x;\n"
+	                                   "return y;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Cannot implicitly cast initializer of type 'int' to variable type 'uint'");
+}
+
+TEST(sema_error_negate_bool)
+{
+	SemaTestResult r = run_sema(alloc, "var bool b = true;\n"
+	                                   "var bool c = -b;\n");
+	ASSERT_FALSE(r.sema_ok);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_STR_CONTAINS(e->message, "Cannot negate non-arithmetic type 'bool'");
+}
+
+// ---------------------------------------------------------------------------
+// Warning tests
+// ---------------------------------------------------------------------------
+
 TEST(sema_warning_unused_variable)
 {
 	SemaTestResult r = run_sema(alloc, "var int x = 5;\n");
@@ -130,6 +193,17 @@ TEST(sema_warning_unused_variable)
 	DiagnosticEntry* e = diagnostics_get_captured(0);
 	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_WARN);
 	ASSERT_STR_CONTAINS(e->message, "Variable 'x' is declared but never used");
+}
+
+TEST(sema_warning_multiple_unused_variables)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 1;\n"
+	                                   "var int y = 2;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.warning_count, 2);
+	ASSERT_EQ(diagnostics_captured_count(), 2);
+	ASSERT_STR_CONTAINS(diagnostics_get_captured(0)->message, "Variable 'y' is declared but never used");
+	ASSERT_STR_CONTAINS(diagnostics_get_captured(1)->message, "Variable 'x' is declared but never used");
 }
 
 TEST(sema_warning_redundant_cast)
@@ -144,6 +218,7 @@ TEST(sema_warning_redundant_cast)
 	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_WARN);
 	ASSERT_STR_CONTAINS(e->message, "Redundant cast from 'int' to 'int'");
 }
+
 TEST(sema_warning_unnecessary_cast)
 {
 	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
@@ -157,6 +232,10 @@ TEST(sema_warning_unnecessary_cast)
 	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_WARN);
 	ASSERT_STR_CONTAINS(e->message, "Unnecessary cast: 'int' is implicitly convertible to 'long'");
 }
+
+// ---------------------------------------------------------------------------
+// Valid code tests
+// ---------------------------------------------------------------------------
 
 TEST(sema_valid_int_arithmetic)
 {
@@ -242,6 +321,51 @@ TEST(sema_inserts_implicit_cast_in_initializer)
 	ASSERT_EQ(init->resolved_type->kind, TYPE_KIND_LONG);
 }
 
+TEST(sema_valid_uint_arithmetic)
+{
+	SemaTestResult r = run_sema(alloc, "var uint a = 5;\n"
+	                                   "var uint b = 10;\n"
+	                                   "return a + b;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_implicit_widening_uchar_to_ushort)
+{
+	SemaTestResult r = run_sema(alloc, "var uchar a = 5;\n"
+	                                   "var ushort b = a;\n"
+	                                   "return b;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_implicit_widening_uchar_to_short)
+{
+	SemaTestResult r = run_sema(alloc, "var uchar a = 5;\n"
+	                                   "var short b = a;\n"
+	                                   "return b;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_explicit_cast_bool_to_int)
+{
+	SemaTestResult r = run_sema(alloc, "var bool b = true;\n"
+	                                   "var int x = b as int;\n"
+	                                   "return x;\n");
+	ASSERT_TRUE(r.sema_ok);
+}
+
+TEST(sema_valid_comparison_mixed_types)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "var long y = 10;\n"
+	                                   "var bool result = x < y;\n"
+	                                   "return result;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
 TestResults run_sema_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -260,9 +384,15 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_error_ordering_on_bool);
 	RUN_TEST(sema_error_incompatible_binary_types);
 	RUN_TEST(sema_error_implicit_cast_initializer);
+	RUN_TEST(sema_error_implicit_int_to_bool);
+	RUN_TEST(sema_error_narrowing_long_to_int);
+	RUN_TEST(sema_error_implicit_float_to_int);
+	RUN_TEST(sema_error_implicit_signed_to_unsigned);
+	RUN_TEST(sema_error_negate_bool);
 
 	print_section("Warning tests");
 	RUN_TEST(sema_warning_unused_variable);
+	RUN_TEST(sema_warning_multiple_unused_variables);
 	RUN_TEST(sema_warning_redundant_cast);
 	RUN_TEST(sema_warning_unnecessary_cast);
 
@@ -275,6 +405,11 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_valid_bool_equality);
 	RUN_TEST(sema_inserts_implicit_cast_in_binary);
 	RUN_TEST(sema_inserts_implicit_cast_in_initializer);
+	RUN_TEST(sema_valid_uint_arithmetic);
+	RUN_TEST(sema_valid_implicit_widening_uchar_to_ushort);
+	RUN_TEST(sema_valid_implicit_widening_uchar_to_short);
+	RUN_TEST(sema_valid_explicit_cast_bool_to_int);
+	RUN_TEST(sema_valid_comparison_mixed_types);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

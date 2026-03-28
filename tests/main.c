@@ -68,7 +68,7 @@ int main(void)
 
 	double grand_ms = platform_timer_elapsed_ms(&grand_timer);
 
-	printf(ANSI_COLOR_BOLD "=================================================================\n" ANSI_COLOR_RESET);
+	printf(ANSI_COLOR_BOLD "===================================================================\n" ANSI_COLOR_RESET);
 	if (total_failed == 0)
 	{
 		printf(ANSI_COLOR_GREEN ANSI_COLOR_BOLD "  All %d tests passed" ANSI_COLOR_RESET ANSI_COLOR_DIM
@@ -83,7 +83,7 @@ int main(void)
 		printf("  " ANSI_COLOR_GREEN "%d passed" ANSI_COLOR_RESET ", " ANSI_COLOR_RED "%d failed" ANSI_COLOR_RESET "\n",
 		       total_passed, total_failed);
 	}
-	printf(ANSI_COLOR_BOLD "=================================================================\n" ANSI_COLOR_RESET);
+	printf(ANSI_COLOR_BOLD "===================================================================\n" ANSI_COLOR_RESET);
 
 	return total_failed > 0 ? 1 : 0;
 }

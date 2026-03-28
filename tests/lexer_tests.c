@@ -733,6 +733,148 @@ TEST(tokens_separated_by_whitespace)
 	ASSERT_EQ(tl.tokens[3].type, TOKEN_TYPE_EOF);
 }
 
+// ---------------------------------------------------------------------------
+// Errors and edge-cases
+// ---------------------------------------------------------------------------
+
+TEST(unterminated_multiline_comment)
+{
+	diagnostics_reset();
+	diagnostics_enable_capture();
+
+	const char* src = "<* unterminated comment";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.tokens[tl.count - 1].type, TOKEN_TYPE_EOF);
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Unterminated multi-line comment, expected '*>' before the end of the file.");
+
+	diagnostics_disable_capture();
+}
+
+TEST(standalone_bang_invalid)
+{
+	diagnostics_reset();
+	diagnostics_enable_capture();
+
+	const char* src = "! 42";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Unexpected character '!', did you mean '!='?");
+
+	diagnostics_disable_capture();
+
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INTEGER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "42");
+}
+
+TEST(unrecognized_character)
+{
+	diagnostics_reset();
+	diagnostics_enable_capture();
+
+	const char* src = "@ 42";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message,
+	                    "Unexpected character '@', this character is not recognized as valid in the language.");
+
+	diagnostics_disable_capture();
+
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INTEGER);
+}
+
+TEST(float_literal_missing_suffix)
+{
+	diagnostics_reset();
+	diagnostics_enable_capture();
+
+	const char* src = "3.14 + 1";
+	TokenList tl    = lex_source(alloc, src);
+	(void)tl;
+
+	ASSERT_EQ(diagnostics_captured_count(), 1);
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Invalid floating-point literal, expected 'f' or 'd' suffix");
+
+	diagnostics_disable_capture();
+}
+
+TEST(comment_then_token_next_line)
+{
+	const char* src = "// comment\n42";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INTEGER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "42");
+}
+
+TEST(multiline_comment_between_tokens)
+{
+	const char* src = "42 <* middle *> 99";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 3);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INTEGER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "42");
+	ASSERT_EQ(tl.tokens[1].type, TOKEN_TYPE_INTEGER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[1]), "99");
+}
+
+TEST(keyword_prefix_is_identifier)
+{
+	const char* src = "integer";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_IDENTIFIER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "integer");
+}
+
+TEST(keyword_suffix_is_identifier)
+{
+	const char* src = "returns";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_IDENTIFIER);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "returns");
+}
+
+TEST(full_declaration_token_sequence)
+{
+	const char* src = "var int x = 42;";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 7);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_VAR_KEYWORD);
+	ASSERT_EQ(tl.tokens[1].type, TOKEN_TYPE_INT_KEYWORD);
+	ASSERT_EQ(tl.tokens[2].type, TOKEN_TYPE_IDENTIFIER);
+	ASSERT_EQ(tl.tokens[3].type, TOKEN_TYPE_EQUALS);
+	ASSERT_EQ(tl.tokens[4].type, TOKEN_TYPE_INTEGER);
+	ASSERT_EQ(tl.tokens[5].type, TOKEN_TYPE_SEMICOLON);
+	ASSERT_EQ(tl.tokens[6].type, TOKEN_TYPE_EOF);
+}
+
+TEST(span_correctness)
+{
+	const char* src = "  abc";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.tokens[0].span.begin, 2);
+	ASSERT_EQ(tl.tokens[0].span.end, 5);
+}
+
 TestResults run_lexer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -826,6 +968,18 @@ TestResults run_lexer_tests(void)
 	print_section("Whitespace variations");
 	RUN_TEST(carriage_return_newline);
 	RUN_TEST(tokens_separated_by_whitespace);
+
+	print_section("Errors and edge-cases");
+	RUN_TEST(unterminated_multiline_comment);
+	RUN_TEST(standalone_bang_invalid);
+	RUN_TEST(unrecognized_character);
+	RUN_TEST(float_literal_missing_suffix);
+	RUN_TEST(comment_then_token_next_line);
+	RUN_TEST(multiline_comment_between_tokens);
+	RUN_TEST(keyword_prefix_is_identifier);
+	RUN_TEST(keyword_suffix_is_identifier);
+	RUN_TEST(full_declaration_token_sequence);
+	RUN_TEST(span_correctness);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 

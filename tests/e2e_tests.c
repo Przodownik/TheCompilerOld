@@ -70,6 +70,88 @@ TEST(e2e_complex_arith)
 	EXPECT_RETURN_I64("return (10 - 2) * 3 + 1;", 25);
 }
 
+TEST(e2e_uint_add)
+{
+	EXPECT_RETURN_I64("var uint a = 10;\n"
+	                  "var uint b = 20;\n"
+	                  "return a + b;\n",
+	                  30);
+}
+
+TEST(e2e_uint_sub)
+{
+	EXPECT_RETURN_I64("var uint a = 20;\n"
+	                  "var uint b = 10;\n"
+	                  "return a - b;\n",
+	                  10);
+}
+
+TEST(e2e_uint_mul)
+{
+	EXPECT_RETURN_I64("var uint a = 5;\n"
+	                  "var uint b = 6;\n"
+	                  "return a * b;\n",
+	                  30);
+}
+
+TEST(e2e_uint_div)
+{
+	EXPECT_RETURN_I64("var uint a = 20;\n"
+	                  "var uint b = 4;\n"
+	                  "return a / b;\n",
+	                  5);
+}
+
+TEST(e2e_char_arithmetic)
+{
+	EXPECT_RETURN_I64("var char a = 10;\n"
+	                  "var char b = 20;\n"
+	                  "return a + b;\n",
+	                  30);
+}
+
+TEST(e2e_short_arithmetic)
+{
+	EXPECT_RETURN_I64("var short a = 100;\n"
+	                  "var short b = 50;\n"
+	                  "return a - b;\n",
+	                  50);
+}
+
+// ---------------------------------------------------------------------------
+// Floating-point arithmetic
+// ---------------------------------------------------------------------------
+
+TEST(e2e_float_sub)
+{
+	EXPECT_RETURN_F32("return 5.0f - 2.0f;", 3.0f, 0.001f);
+}
+
+TEST(e2e_float_mul)
+{
+	EXPECT_RETURN_F32("return 2.0f * 3.0f;", 6.0f, 0.001f);
+}
+
+TEST(e2e_float_div)
+{
+	EXPECT_RETURN_F32("return 10.0f / 4.0f;", 2.5f, 0.001f);
+}
+
+TEST(e2e_double_add)
+{
+	EXPECT_RETURN_F64("return 1.5d + 2.5d;", 4.0, 0.001);
+}
+
+TEST(e2e_double_sub)
+{
+	EXPECT_RETURN_F64("return 5.0d - 2.0d;", 3.0, 0.001);
+}
+
+TEST(e2e_double_div)
+{
+	EXPECT_RETURN_F64("return 10.0d / 4.0d;", 2.5, 0.001);
+}
+
 // ---------------------------------------------------------------------------
 // Variables
 // ---------------------------------------------------------------------------
@@ -103,6 +185,11 @@ TEST(e2e_multi_var)
 TEST(e2e_negate)
 {
 	EXPECT_RETURN_I64("return -5;", -5);
+}
+
+TEST(e2e_float_negate)
+{
+	EXPECT_RETURN_F32("return -3.14f;", -3.14f, 0.001f);
 }
 
 TEST(e2e_double_negate)
@@ -179,6 +266,16 @@ TEST(e2e_geq_greater)
 	EXPECT_RETURN_BOOL("return 5 >= 3;", 1);
 }
 
+TEST(e2e_leq_false)
+{
+	EXPECT_RETURN_BOOL("return 5 <= 3;", 0);
+}
+
+TEST(e2e_geq_false)
+{
+	EXPECT_RETURN_BOOL("return 3 >= 5;", 0);
+}
+
 // ---------------------------------------------------------------------------
 // Float / Double
 // ---------------------------------------------------------------------------
@@ -226,6 +323,35 @@ TEST(e2e_cast_float_to_int)
 	                  3);
 }
 
+TEST(e2e_cast_double_to_int)
+{
+	EXPECT_RETURN_I64("var double d = 3.99d;\n"
+	                  "return d as int;\n",
+	                  3);
+}
+
+TEST(e2e_cast_int_to_double)
+{
+	EXPECT_RETURN_F64("var int x = 42;\n"
+	                  "return x as double;\n",
+	                  42.0, 0.001);
+}
+
+TEST(e2e_cast_bool_to_int)
+{
+	EXPECT_RETURN_I64("var bool b = true;\n"
+	                  "return b as int;\n",
+	                  1);
+}
+
+TEST(e2e_cast_float_to_double)
+{
+	EXPECT_RETURN_F64("var float f = 3.14f;\n"
+	                  "var double d = f;\n"
+	                  "return d;\n",
+	                  3.14, 0.01);
+}
+
 // ---------------------------------------------------------------------------
 // Boolean variables and comparisons with vars
 // ---------------------------------------------------------------------------
@@ -235,6 +361,11 @@ TEST(e2e_bool_var)
 	EXPECT_RETURN_BOOL("var bool b = true;\n"
 	                   "return b;\n",
 	                   1);
+}
+
+TEST(e2e_bool_false_var)
+{
+	EXPECT_RETURN_BOOL("var bool b = false;\nreturn b;\n", 0);
 }
 
 TEST(e2e_comparison_with_vars)
@@ -262,6 +393,20 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_precedence);
 	RUN_TEST(e2e_parens);
 	RUN_TEST(e2e_complex_arith);
+	RUN_TEST(e2e_uint_add);
+	RUN_TEST(e2e_uint_sub);
+	RUN_TEST(e2e_uint_mul);
+	RUN_TEST(e2e_uint_div);
+	RUN_TEST(e2e_char_arithmetic);
+	RUN_TEST(e2e_short_arithmetic);
+
+	print_section("Floating-point arithmetic");
+	RUN_TEST(e2e_float_sub);
+	RUN_TEST(e2e_float_mul);
+	RUN_TEST(e2e_float_div);
+	RUN_TEST(e2e_double_add);
+	RUN_TEST(e2e_double_sub);
+	RUN_TEST(e2e_double_div);
 
 	print_section("Variables");
 	RUN_TEST(e2e_var_return);
@@ -270,6 +415,7 @@ TestResults run_e2e_tests(void)
 
 	print_section("Negation");
 	RUN_TEST(e2e_negate);
+	RUN_TEST(e2e_float_negate);
 	RUN_TEST(e2e_double_negate);
 	RUN_TEST(e2e_negate_expr);
 
@@ -286,6 +432,8 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_leq_less);
 	RUN_TEST(e2e_geq_eq);
 	RUN_TEST(e2e_geq_greater);
+	RUN_TEST(e2e_leq_false);
+	RUN_TEST(e2e_geq_false);
 
 	print_section("Float / Double");
 	RUN_TEST(e2e_float_add);
@@ -296,9 +444,14 @@ TestResults run_e2e_tests(void)
 	print_section("Type casts");
 	RUN_TEST(e2e_cast_int_to_float);
 	RUN_TEST(e2e_cast_float_to_int);
+	RUN_TEST(e2e_cast_double_to_int);
+	RUN_TEST(e2e_cast_int_to_double);
+	RUN_TEST(e2e_cast_bool_to_int);
+	RUN_TEST(e2e_cast_float_to_double);
 
 	print_section("Boolean variables and comparisons with vars");
 	RUN_TEST(e2e_bool_var);
+	RUN_TEST(e2e_bool_false_var);
 	RUN_TEST(e2e_comparison_with_vars);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);

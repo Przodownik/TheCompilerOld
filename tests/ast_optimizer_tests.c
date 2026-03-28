@@ -133,6 +133,19 @@ TEST(fold_comparison_gt)
 	ASSERT_TRUE(init->constant.boolean_value);
 }
 
+TEST(fold_comparison_lt_true)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = 2 < 3;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_BOOLEAN);
+	ASSERT_TRUE(init->constant.boolean_value);
+}
+
 TEST(fold_comparison_eq_false)
 {
 	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = 1 == 2;\n"
@@ -148,6 +161,40 @@ TEST(fold_comparison_eq_false)
 	ASSERT_FALSE(init->constant.boolean_value);
 }
 
+TEST(fold_comparison_neq_true)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = 1 != 2;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_BOOLEAN);
+	ASSERT_TRUE(init->constant.boolean_value);
+}
+
+TEST(fold_comparison_leq_true)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = 3 <= 3;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+	ASSERT_TRUE(init->constant.boolean_value);
+}
+
+TEST(fold_comparison_geq_false)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = 2 >= 3;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+	ASSERT_FALSE(init->constant.boolean_value);
+}
+
 TEST(fold_float_add)
 {
 	TranslationUnit tu = parse_sema_optimize(alloc, "var float x = 1.5f + 2.5f;\n"
@@ -157,7 +204,6 @@ TEST(fold_float_add)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_FLOAT);
 	ASSERT_FLOAT_EQ(init->constant.float_value, 4.0f, 0.001f);
@@ -172,10 +218,94 @@ TEST(fold_double_mul)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_DOUBLE);
 	ASSERT_FLOAT_EQ(init->constant.double_value, 6.0, 0.001);
+}
+
+TEST(fold_float_sub)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var float x = 5.0f - 2.0f;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_FLOAT_EQ(init->constant.float_value, 3.0f, 0.001f);
+}
+
+TEST(fold_float_div)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var float x = 10.0f / 4.0f;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_FLOAT_EQ(init->constant.float_value, 2.5f, 0.001f);
+}
+
+TEST(fold_float_mul)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var float x = 2.0f * 3.0f;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_FLOAT_EQ(init->constant.float_value, 6.0f, 0.001f);
+}
+
+TEST(fold_float_negation)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var float x = -3.14f;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_FLOAT_EQ(init->constant.float_value, -3.14f, 0.001f);
+}
+
+TEST(fold_double_add)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var double x = 1.5d + 2.5d;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_FLOAT_EQ(init->constant.double_value, 4.0, 0.001);
+}
+
+TEST(fold_double_sub)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var double x = 5.0d - 2.0d;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_FLOAT_EQ(init->constant.double_value, 3.0, 0.001);
+}
+
+TEST(fold_double_div)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var double x = 10.0d / 4.0d;\nreturn x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* init = stmt->return_stmt.expression;
+
+	ASSERT_FLOAT_EQ(init->constant.double_value, 2.5, 0.001);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +399,42 @@ TEST(differential_float_arithmetic)
 	ASSERT_FLOAT_EQ(no_opt.return_value.f32_val, with_opt.return_value.f32_val, 0.001f);
 }
 
+TEST(differential_cast_expression)
+{
+	const char* src = "var int x = 5;\nreturn x as float;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_FLOAT_EQ(no_opt.return_value.f32_val, with_opt.return_value.f32_val, 0.001f);
+}
+
+TEST(differential_comparison)
+{
+	const char* src = "var int x = 5;\nvar int y = 3;\nreturn x > y;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(differential_double_arithmetic)
+{
+	const char* src = "return 2.0d * 3.0d + 1.0d;";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_FLOAT_EQ(no_opt.return_value.f64_val, with_opt.return_value.f64_val, 0.001);
+}
+
 TestResults run_ast_optimizer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -288,9 +454,20 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(fold_unary_negation);
 	RUN_TEST(fold_double_negation);
 	RUN_TEST(fold_comparison_gt);
+	RUN_TEST(fold_comparison_lt_true);
 	RUN_TEST(fold_comparison_eq_false);
+	RUN_TEST(fold_comparison_neq_true);
+	RUN_TEST(fold_comparison_leq_true);
+	RUN_TEST(fold_comparison_geq_false);
 	RUN_TEST(fold_float_add);
 	RUN_TEST(fold_double_mul);
+	RUN_TEST(fold_float_sub);
+	RUN_TEST(fold_float_div);
+	RUN_TEST(fold_float_mul);
+	RUN_TEST(fold_float_negation);
+	RUN_TEST(fold_double_add);
+	RUN_TEST(fold_double_sub);
+	RUN_TEST(fold_double_div);
 
 	print_section("Variable propagation");
 	RUN_TEST(propagate_simple_variable);
@@ -301,6 +478,9 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(differential_simple_arithmetic);
 	RUN_TEST(differential_variable_propagation);
 	RUN_TEST(differential_float_arithmetic);
+	RUN_TEST(differential_cast_expression);
+	RUN_TEST(differential_comparison);
+	RUN_TEST(differential_double_arithmetic);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

@@ -21,7 +21,10 @@ TEST(precedence_mul_before_add)
 	TranslationUnit tu = parse_source(alloc, "return 2 + 3 * 4;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_ADD);
 	ASSERT_EQ(expr->binary.left->type, EXPRESSION_TYPE_CONSTANT);
@@ -39,7 +42,10 @@ TEST(precedence_add_before_comparison)
 	TranslationUnit tu = parse_source(alloc, "return 2 == 3 + 4;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_EQ);
 	ASSERT_EQ(expr->binary.left->constant.integer_value, 2);
@@ -54,7 +60,10 @@ TEST(precedence_left_associative_subtraction)
 	TranslationUnit tu = parse_source(alloc, "return 10 - 3 - 2;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_SUB);
 
@@ -71,7 +80,10 @@ TEST(precedence_parens_override)
 	TranslationUnit tu = parse_source(alloc, "return (2 + 3) * 4;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_MUL);
 
@@ -86,7 +98,10 @@ TEST(precedence_unary_binds_tight)
 	TranslationUnit tu = parse_source(alloc, "return -2 + 3;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_ADD);
 
@@ -101,7 +116,10 @@ TEST(precedence_cast_highest_infix)
 	TranslationUnit tu = parse_source(alloc, "return 2 + 3 as float;");
 	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_RETURN);
 
-	Expression* expr = tu.statements[0]->return_stmt.expression;
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
 	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
 	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_ADD);
 
@@ -109,6 +127,53 @@ TEST(precedence_cast_highest_infix)
 	ASSERT_EQ(right->type, EXPRESSION_TYPE_CAST);
 	ASSERT_EQ(right->cast.target_type->kind, TYPE_KIND_FLOAT);
 	ASSERT_EQ(right->cast.expression->constant.integer_value, 3);
+}
+
+TEST(precedence_left_associative_addition)
+{
+	TranslationUnit tu = parse_source(alloc, "return 1 + 2 + 3;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
+	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_ADD);
+
+	Expression* left = expr->binary.left;
+	ASSERT_EQ(left->type, EXPRESSION_TYPE_BINARY);
+	ASSERT_EQ(left->binary.operator, BINARY_OPERATOR_ADD);
+	ASSERT_EQ(left->binary.left->constant.integer_value, 1);
+	ASSERT_EQ(left->binary.right->constant.integer_value, 2);
+	ASSERT_EQ(expr->binary.right->constant.integer_value, 3);
+}
+
+TEST(precedence_left_associative_division)
+{
+	TranslationUnit tu = parse_source(alloc, "return 24 / 4 / 2;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_DIV);
+
+	Expression* left = expr->binary.left;
+	ASSERT_EQ(left->binary.operator, BINARY_OPERATOR_DIV);
+}
+
+TEST(parse_nested_groups)
+{
+	TranslationUnit tu = parse_source(alloc, "return ((5));");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->type, EXPRESSION_TYPE_GROUP);
+	ASSERT_EQ(expr->group.inner->type, EXPRESSION_TYPE_GROUP);
+	ASSERT_EQ(expr->group.inner->group.inner->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(expr->group.inner->group.inner->constant.integer_value, 5);
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +214,19 @@ TEST(parse_var_float_declaration)
 	ASSERT_FLOAT_EQ(init->constant.float_value, 3.14f, 0.001f);
 }
 
+TEST(parse_var_double_declaration)
+{
+	TranslationUnit tu = parse_source(alloc, "var double d = 2.718d;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_DECLARATION);
+
+	Declaration* decl = stmt->decl_stmt.declaration;
+	ASSERT_EQ(decl->variable.type->kind, TYPE_KIND_DOUBLE);
+	ASSERT_EQ(decl->variable.initializer->constant.kind, CONSTANT_KIND_DOUBLE);
+	ASSERT_FLOAT_EQ(decl->variable.initializer->constant.double_value, 2.718, 0.001);
+}
+
 TEST(parse_var_bool_true)
 {
 	TranslationUnit tu = parse_source(alloc, "var bool b = true;");
@@ -160,6 +238,18 @@ TEST(parse_var_bool_true)
 	ASSERT_EQ(decl->variable.type->kind, TYPE_KIND_BOOL);
 	ASSERT_EQ(decl->variable.initializer->constant.kind, CONSTANT_KIND_BOOLEAN);
 	ASSERT_TRUE(decl->variable.initializer->constant.boolean_value);
+}
+
+TEST(parse_var_bool_false)
+{
+	TranslationUnit tu = parse_source(alloc, "var bool b = false;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_DECLARATION);
+
+	Declaration* decl = stmt->decl_stmt.declaration;
+	ASSERT_EQ(decl->variable.type->kind, TYPE_KIND_BOOL);
+	ASSERT_FALSE(decl->variable.initializer->constant.boolean_value);
 }
 
 TEST(parse_namespace_declaration)
@@ -183,6 +273,31 @@ TEST(parse_return_statement)
 
 	ASSERT_EQ(stmt->return_stmt.expression->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(stmt->return_stmt.expression->constant.integer_value, 42);
+}
+
+TEST(parse_return_identifier)
+{
+	TranslationUnit tu = parse_source(alloc, "return x;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->type, EXPRESSION_TYPE_IDENTIFIER);
+	ASSERT_STR_EQ(expr->identifier.name, "x");
+}
+
+TEST(parse_unary_negate_identifier)
+{
+	TranslationUnit tu = parse_source(alloc, "return -x;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->type, EXPRESSION_TYPE_UNARY);
+	ASSERT_EQ(expr->unary.operator, UNARY_OPERATOR_NEGATE);
+	ASSERT_EQ(expr->unary.operand->type, EXPRESSION_TYPE_IDENTIFIER);
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +328,36 @@ TEST(parse_all_type_keywords)
 
 		Declaration* decl = stmt->decl_stmt.declaration;
 		ASSERT_EQ(decl->variable.type->kind, cases[i].expected);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// All arithmetic operators
+// ---------------------------------------------------------------------------
+
+TEST(parse_all_arithmetic_operators)
+{
+	struct
+	{
+		const char* src;
+		BinaryOperator expected;
+	} cases[] = {
+	    {"return 1 + 2;", BINARY_OPERATOR_ADD},
+	    {"return 1 - 2;", BINARY_OPERATOR_SUB},
+	    {"return 1 * 2;", BINARY_OPERATOR_MUL},
+	    {"return 1 / 2;", BINARY_OPERATOR_DIV},
+	};
+
+	for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++)
+	{
+		TranslationUnit tu = parse_source(alloc, cases[i].src);
+
+		Statement* stmt = tu.statements[0];
+		ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+		Expression* expr = stmt->return_stmt.expression;
+		ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
+		ASSERT_EQ(expr->binary.operator, cases[i].expected);
 	}
 }
 
@@ -261,6 +406,19 @@ TEST(parse_cast_expression)
 	ASSERT_EQ(expr->cast.target_type->kind, TYPE_KIND_FLOAT);
 	ASSERT_EQ(expr->cast.expression->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(expr->cast.expression->constant.integer_value, 5);
+}
+
+TEST(parse_cast_in_binary_expression)
+{
+	TranslationUnit tu = parse_source(alloc, "return 5 as float + 3.0f;");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* expr = stmt->return_stmt.expression;
+	ASSERT_EQ(expr->type, EXPRESSION_TYPE_BINARY);
+	ASSERT_EQ(expr->binary.operator, BINARY_OPERATOR_ADD);
+	ASSERT_EQ(expr->binary.left->type, EXPRESSION_TYPE_CAST);
 }
 
 // ---------------------------------------------------------------------------
@@ -318,6 +476,10 @@ TEST(parse_multiple_statements)
 	ASSERT_EQ(tu.statements[2]->type, STATEMENT_TYPE_RETURN);
 }
 
+// ---------------------------------------------------------------------------
+// Other (todo segregate)
+// ---------------------------------------------------------------------------
+
 TestResults run_parser_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -335,22 +497,33 @@ TestResults run_parser_tests(void)
 	RUN_TEST(precedence_parens_override);
 	RUN_TEST(precedence_unary_binds_tight);
 	RUN_TEST(precedence_cast_highest_infix);
+	RUN_TEST(precedence_left_associative_addition);
+	RUN_TEST(precedence_left_associative_division);
+	RUN_TEST(parse_nested_groups);
 
 	print_section("Declaration Parsing");
 	RUN_TEST(parse_var_int_declaration);
 	RUN_TEST(parse_var_float_declaration);
+	RUN_TEST(parse_var_double_declaration);
 	RUN_TEST(parse_var_bool_true);
+	RUN_TEST(parse_var_bool_false);
 	RUN_TEST(parse_namespace_declaration);
 	RUN_TEST(parse_return_statement);
+	RUN_TEST(parse_return_identifier);
+	RUN_TEST(parse_unary_negate_identifier);
 
 	print_section("All type keywords");
 	RUN_TEST(parse_all_type_keywords);
+
+	print_section("All arithmetic operators");
+	RUN_TEST(parse_all_arithmetic_operators);
 
 	print_section("All comparison operators");
 	RUN_TEST(parse_all_comparison_operators);
 
 	print_section("Cast expression parsing");
 	RUN_TEST(parse_cast_expression);
+	RUN_TEST(parse_cast_in_binary_expression);
 
 	print_section("Unary negation");
 	RUN_TEST(parse_unary_negation);
@@ -358,6 +531,8 @@ TestResults run_parser_tests(void)
 
 	print_section("Multiple statements");
 	RUN_TEST(parse_multiple_statements);
+
+	print_section("Other");
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);
