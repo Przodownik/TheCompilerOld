@@ -1,51 +1,54 @@
-var int a = 100;
-var float b = 3.14f;
-var double c = 2.718d;
-var char d = 5;
-var uint e = 42;
+// var int a = 100;
+// var float b = 3.14f;
+// var double c = 2.718d;
+// var char d = 5;
+// var uint e = 42;
 
-// int arithmetic
-var int r1 = a + 50;           // 150
-var int r2 = a * 2;            // 200
-var int r3 = a / 3;            // 33
+// // int arithmetic
+// var int r1 = a + 50;           // 150
+// var int r2 = a * 2;            // 200
+// var int r3 = a / 3;            // 33
 
-// float arithmetic
-var float r4 = b + 1.86f;     // 5.0
-var float r5 = b * 2.0f;      // 6.28
-var float r6 = b / 2.0f;      // 1.57
+// // float arithmetic
+// var float r4 = b + 1.86f;     // 5.0
+// var float r5 = b * 2.0f;      // 6.28
+// var float r6 = b / 2.0f;      // 1.57
 
-// double arithmetic
-var double r7 = c + 1.282d;   // 4.0
-var double r8 = c * 3.0d;     // 8.154
+// // double arithmetic
+// var double r7 = c + 1.282d;   // 4.0
+// var double r8 = c * 3.0d;     // 8.154
 
-// uint arithmetic
-var uint r9 = e + 8;          // 50
-var uint r10 = e * 2;         // 84
+// // uint arithmetic
+// var uint r9 = e + 8;          // 50
+// var uint r10 = e * 2;         // 84
 
-// cross-type with explicit cast
-var float r11 = a as float + b;          // 103.14
-var int r12 = b as int + a;              // 103
-var double r13 = b as double + c;        // 5.858
-var float r14 = d as float + b;          // 8.14
-var double r15 = a as double + c;        // 102.718
+// // cross-type with explicit cast
+// var float r11 = a as float + b;          // 103.14
+// var int r12 = b as int + a;              // 103
+// var double r13 = b as double + c;        // 5.858
+// var float r14 = d as float + b;          // 8.14
+// var double r15 = a as double + c;        // 102.718
 
-// implicit promotion: int literal in float context
-var float r16 = b + 10;       // 13.14
-var float r17 = 20 + b;       // 23.14
-var double r18 = c + 100;     // 102.718
+// // implicit promotion: int literal in float context
+// var float r16 = b + 10;       // 13.14
+// var float r17 = 20 + b;       // 23.14
+// var double r18 = c + 100;     // 102.718
 
-// chained operations with mixed casts
-var float r19 = (a as float + b) * 2.0f;               // 206.28
-var double r20 = (a as double + c) * b as double;     // 322.536...
+// // chained operations with mixed casts
+// var float r19 = (a as float + b) * 2.0f;               // 206.28
+// var double r20 = (a as double + c) * b as double;     // 322.536...
 
-// subtraction across types
-var float r21 = a as float - b;    // 96.86
-var int r22 = a - d as int;        // 95
+// // subtraction across types
+// var float r21 = a as float - b;    // 96.86
+// var int r22 = a - d as int;        // 95
 
-// nested casts
-var double r23 = d as int as double;  // 5.0
+// // nested casts
+// var double r23 = d as int as double;  // 5.0
 
-return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;
+// return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;
+
+var int x = 2 + 3;
+return x;
 
 <*
 

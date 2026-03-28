@@ -733,7 +733,7 @@ TEST(tokens_separated_by_whitespace)
 	ASSERT_EQ(tl.tokens[3].type, TOKEN_TYPE_EOF);
 }
 
-int run_lexer_tests(void)
+TestResults run_lexer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));
@@ -829,10 +829,8 @@ int run_lexer_tests(void)
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 
-	print_test_summary("Lexer", total_ms);
-
 	arena.release(arena.ctx);
 	heap.release(heap.ctx);
 
-	return g_tests_failed > 0 ? 1 : 0;
+	return print_test_summary("Lexer", total_ms);
 }

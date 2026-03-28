@@ -117,7 +117,7 @@ TEST(bytecode_negation)
 	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_RETURN);
 }
 
-int run_bytecode_tests(void)
+TestResults run_bytecode_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));

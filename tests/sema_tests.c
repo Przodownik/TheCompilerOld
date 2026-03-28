@@ -242,7 +242,7 @@ TEST(sema_inserts_implicit_cast_in_initializer)
 	ASSERT_EQ(init->resolved_type->kind, TYPE_KIND_LONG);
 }
 
-int run_sema_tests(void)
+TestResults run_sema_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));

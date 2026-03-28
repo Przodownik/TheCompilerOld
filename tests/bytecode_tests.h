@@ -5,4 +5,6 @@
  */
 #pragma once
 
-int run_bytecode_tests(void);
+#include "test_framework.h"
+
+TestResults run_bytecode_tests(void);

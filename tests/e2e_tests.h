@@ -5,4 +5,6 @@
  */
 #pragma once
 
-int run_e2e_tests(void);
+#include "test_framework.h"
+
+TestResults run_e2e_tests(void);

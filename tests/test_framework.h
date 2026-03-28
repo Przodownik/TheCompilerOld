@@ -17,6 +17,14 @@
 #include "wandelt/vector.h"
 #include "wandelt/vm.h"
 
+typedef struct TestResults
+{
+	int run;
+	int passed;
+	int failed;
+	double time_ms;
+} TestResults;
+
 static int g_tests_run    = 0;
 static int g_tests_passed = 0;
 static int g_tests_failed = 0;
@@ -246,8 +254,14 @@ static PipelineResult run_pipeline(Allocator* alloc, const char* source, bool op
 	return r;
 }
 
-static int print_test_summary(const char* suite_name, double total_ms)
+static TestResults print_test_summary(const char* suite_name, double total_ms)
 {
+	TestResults results;
+	results.run     = g_tests_run;
+	results.passed  = g_tests_passed;
+	results.failed  = g_tests_failed;
+	results.time_ms = total_ms;
+
 	printf("\n  " ANSI_COLOR_DIM "-----------------------------------------------------------------" ANSI_COLOR_RESET
 	       "\n");
 	if (g_tests_failed == 0)
@@ -265,5 +279,5 @@ static int print_test_summary(const char* suite_name, double total_ms)
 		       "\n\n",
 		       g_tests_passed, g_tests_failed);
 	}
-	return g_tests_failed > 0 ? 1 : 0;
+	return results;
 }

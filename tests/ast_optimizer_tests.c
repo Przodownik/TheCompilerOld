@@ -269,7 +269,7 @@ TEST(differential_float_arithmetic)
 	ASSERT_FLOAT_EQ(no_opt.return_value.f32_val, with_opt.return_value.f32_val, 0.001f);
 }
 
-int run_ast_optimizer_tests(void)
+TestResults run_ast_optimizer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));

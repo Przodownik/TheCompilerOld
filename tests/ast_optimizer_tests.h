@@ -5,4 +5,6 @@
  */
 #pragma once
 
-int run_ast_optimizer_tests(void);
+#include "test_framework.h"
+
+TestResults run_ast_optimizer_tests(void);

@@ -318,7 +318,7 @@ TEST(parse_multiple_statements)
 	ASSERT_EQ(tu.statements[2]->type, STATEMENT_TYPE_RETURN);
 }
 
-int run_parser_tests(void)
+TestResults run_parser_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));

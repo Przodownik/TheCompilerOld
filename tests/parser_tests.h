@@ -5,4 +5,6 @@
  */
 #pragma once
 
-int run_parser_tests(void);
+#include "test_framework.h"
+
+TestResults run_parser_tests(void);

@@ -244,7 +244,7 @@ TEST(e2e_comparison_with_vars)
 	                   1);
 }
 
-int run_e2e_tests(void)
+TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
 	Allocator arena = allocator_get_arena_allocator(&heap, MB(4));
