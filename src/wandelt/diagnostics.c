@@ -157,8 +157,8 @@ void _diagnostics_print_at_location(Span span, const File* file, const char* mes
 		// If the error line is empty, print the previous line for context
 		if (line_start == line_end && line_start > 0)
 		{
-			size_t prev_end   = line_start - 1; // skip the '\n'
-			size_t prev_start = prev_end;
+			u64 prev_end   = line_start - 1; // skip the '\n'
+			u64 prev_start = prev_end;
 			while (prev_start > 0 && src[prev_start - 1] != '\n') prev_start--;
 
 			printf(" %*u | %.*s\n", gutter_width, loc.row - 1, (int)(prev_end - prev_start), src + prev_start);

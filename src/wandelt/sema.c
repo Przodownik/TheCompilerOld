@@ -213,6 +213,8 @@ bool sema_analyze_variable_declaration(Sema* sema, Declaration* decl)
 	if (!sema_check_expression(sema, decl->variable.initializer, decl->variable.type))
 		return false;
 
+	ASSERT(decl->variable.initializer);
+
 	if (decl->variable.type != decl->variable.initializer->resolved_type)
 	{
 		if (!type_is_implicitly_convertible(decl->variable.initializer->resolved_type, decl->variable.type))

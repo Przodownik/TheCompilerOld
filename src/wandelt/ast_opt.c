@@ -7,510 +7,732 @@
 
 AstOptimizer ast_optimizer_create(Allocator* expr_alloc)
 {
-	AstOptimizer optimizer;
-	optimizer.expr_alloc = expr_alloc;
-	return optimizer;
+	return (AstOptimizer){
+	    .expr_alloc = expr_alloc,
+	};
 }
-
-static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* decl);
 
 void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 {
-	// Run propagation and folding per-statement so each declaration is fully
-	// optimized before subsequent statements reference it.
-	for (size_t i = 0; i < vector_get_length(tu->statements); i++)
+	bool changed = true;
+
+	while (changed)
 	{
-		Statement* stmt = tu->statements[i];
-		for (AstOptimizationPass pass = 0; pass < AST_OPTIMIZATION_PASS_COUNT; pass++)
+		changed = false;
+
+		for (u64 i = 0; i < vector_get_length(tu->statements); i++)
 		{
-			ast_optimizer_optimize_statement(optimizer, pass, stmt);
+			Statement* stmt = tu->statements[i];
+			changed |= ast_optimizer_fold_statement(optimizer, stmt);
+		}
+
+		for (u64 i = 0; i < vector_get_length(tu->statements); i++)
+		{
+			Statement* stmt = tu->statements[i];
+			changed |= ast_optimizer_propagate_statement(optimizer, stmt);
 		}
 	}
 
-	// Dead code elimination: remove variable declarations that are no longer
-	// referenced by any expression in the program.
-	for (size_t i = 0; i < vector_get_length(tu->statements);)
+	ast_optimizer_dce(optimizer, tu);
+}
+
+bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+
+	switch (stmt->type)
 	{
-		Statement* stmt = tu->statements[i];
-		if (stmt->type != STATEMENT_TYPE_DECLARATION || stmt->decl_stmt.declaration->type != DECLARATION_TYPE_VARIABLE)
+	case STATEMENT_TYPE_INVALID:
+		ASSERT(false, "Invalid statement.");
+		break;
+
+	case STATEMENT_TYPE_DECLARATION:
+		return ast_optimizer_fold_declaration_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_EXPRESSION:
+		return ast_optimizer_fold_expression_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_RETURN:
+		return ast_optimizer_fold_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid statement.");
+		break;
+	}
+}
+
+bool ast_optimizer_fold_declaration_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	Declaration* decl = stmt->decl_stmt.declaration;
+
+	if (decl->type == DECLARATION_TYPE_VARIABLE)
+	{
+		if (ast_optimizer_fold_expression(optimizer, &decl->variable.initializer))
+			return true;
+	}
+
+	return false;
+}
+
+bool ast_optimizer_fold_expression_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_fold_expression(optimizer, &stmt->expr_stmt.expression);
+}
+
+bool ast_optimizer_fold_return_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_fold_expression(optimizer, &stmt->return_stmt.expression);
+}
+
+bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	const Expression* expression = *expr;
+
+	switch (expression->type)
+	{
+	case EXPRESSION_TYPE_INVALID:
+		ASSERT(false, "Invalid statement.");
+		break;
+
+	case EXPRESSION_TYPE_CONSTANT:
+		return ast_optimizer_fold_constant_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_UNARY:
+		return ast_optimizer_fold_unary_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_BINARY:
+		return ast_optimizer_fold_binary_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_GROUP:
+		return ast_optimizer_fold_group_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_IDENTIFIER:
+		return ast_optimizer_fold_identifier_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_CAST:
+		return ast_optimizer_fold_cast_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid expression.");
+		break;
+	}
+}
+
+bool ast_optimizer_fold_constant_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+	(void)expr;
+
+	return false;
+}
+
+bool ast_optimizer_fold_unary_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+	Expression* operand    = expression->unary.operand;
+
+	bool changed = ast_optimizer_fold_expression(optimizer, &expression->unary.operand);
+
+	if (operand->type != EXPRESSION_TYPE_CONSTANT)
+		return changed;
+
+	if (expression->unary.operator == UNARY_OPERATOR_NEGATE)
+	{
+		switch (operand->constant.kind)
 		{
-			i++;
-			continue;
+		case CONSTANT_KIND_INVALID:
+			ASSERT(false, "Invalid constant.");
+			break;
+
+		case CONSTANT_KIND_INTEGER:
+			expression->type                   = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind          = CONSTANT_KIND_INTEGER;
+			expression->constant.integer_value = (u64)(-(i64)operand->constant.integer_value);
+			return true;
+
+		case CONSTANT_KIND_FLOAT:
+			expression->type                 = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind        = CONSTANT_KIND_FLOAT;
+			expression->constant.float_value = -operand->constant.float_value;
+			return true;
+
+		case CONSTANT_KIND_DOUBLE:
+			expression->type                  = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind         = CONSTANT_KIND_DOUBLE;
+			expression->constant.double_value = -operand->constant.double_value;
+			return true;
+
+		case CONSTANT_KIND_BOOLEAN:
+			ASSERT(false, "CE: Cannot apply unary minus to boolean constant.");
+			return changed;
+
+		case CONSTANT_KIND_COUNT:
+		default:
+			ASSERT(false, "Invalid constant.");
+			break;
 		}
+	}
 
-		Declaration* decl = stmt->decl_stmt.declaration;
-		bool referenced   = false;
+	ASSERT(false, "TODO: Unsupported unary operator for constant folding.");
 
-		for (size_t j = 0; j < vector_get_length(tu->statements); j++)
+	return false;
+}
+
+bool ast_optimizer_fold_binary_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+	Expression* left       = expression->binary.left;
+	Expression* right      = expression->binary.right;
+
+	bool changed = ast_optimizer_fold_expression(optimizer, &expression->binary.left);
+	changed |= ast_optimizer_fold_expression(optimizer, &expression->binary.right);
+
+	if (left->type != EXPRESSION_TYPE_CONSTANT || right->type != EXPRESSION_TYPE_CONSTANT)
+		return changed;
+
+	ASSERT(left->constant.kind == right->constant.kind);
+
+	switch (left->constant.kind)
+	{
+	case CONSTANT_KIND_INVALID:
+		ASSERT(false, "Invalid constant.");
+		break;
+
+	case CONSTANT_KIND_INTEGER: {
+		u64 lval = left->constant.integer_value;
+		u64 rval = right->constant.integer_value;
+
+		if (binary_operator_is_comparison(expression->binary.operator))
 		{
-			if (j == i)
-				continue;
+			bool result = false;
 
-			Statement* other = tu->statements[j];
-			Expression* expr = nullptr;
-
-			switch (other->type)
+			switch (expression->binary.operator)
 			{
-			case STATEMENT_TYPE_EXPRESSION:
-				expr = other->expr_stmt.expression;
+			case BINARY_OPERATOR_EQ:
+				result = lval == rval;
 				break;
-			case STATEMENT_TYPE_RETURN:
-				expr = other->return_stmt.expression;
+			case BINARY_OPERATOR_NEQ:
+				result = lval != rval;
 				break;
-			case STATEMENT_TYPE_DECLARATION:
-				if (other->decl_stmt.declaration->type == DECLARATION_TYPE_VARIABLE)
-					expr = other->decl_stmt.declaration->variable.initializer;
+			case BINARY_OPERATOR_LT:
+				result = lval < rval;
+				break;
+			case BINARY_OPERATOR_GT:
+				result = lval > rval;
+				break;
+			case BINARY_OPERATOR_LEQ:
+				result = lval <= rval;
+				break;
+			case BINARY_OPERATOR_GEQ:
+				result = lval >= rval;
 				break;
 			default:
+				ASSERT(false, "Not a comparison operator");
 				break;
 			}
 
-			if (expr && ast_optimizer_expr_references_decl(expr, decl))
-			{
-				referenced = true;
-				break;
-			}
+			expression->type                   = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind          = CONSTANT_KIND_BOOLEAN;
+			expression->constant.boolean_value = result;
+
+			return true;
 		}
 
-		if (!referenced)
+		u64 result;
+
+		switch (expression->binary.operator)
 		{
-			vector_remove_at(tu->statements, i, nullptr);
+		case BINARY_OPERATOR_ADD:
+			result = lval + rval;
+			break;
+		case BINARY_OPERATOR_SUB:
+			result = lval - rval;
+			break;
+		case BINARY_OPERATOR_MUL:
+			result = lval * rval;
+			break;
+		case BINARY_OPERATOR_DIV:
+			ASSERT(rval != 0);
+			result = lval / rval;
+			break;
+		default:
+			ASSERT(false, "Not a supported binary operator for integer constant folding.");
+			break;
+		}
+
+		expression->type                   = EXPRESSION_TYPE_CONSTANT;
+		expression->constant.kind          = CONSTANT_KIND_INTEGER;
+		expression->constant.integer_value = (u64)result;
+
+		return true;
+	}
+
+	case CONSTANT_KIND_FLOAT: {
+		float lval = left->constant.float_value;
+		float rval = right->constant.float_value;
+
+		if (binary_operator_is_comparison(expression->binary.operator))
+		{
+			bool result = false;
+			switch (expression->binary.operator)
+			{
+			case BINARY_OPERATOR_EQ:
+				result = lval == rval;
+				break;
+			case BINARY_OPERATOR_NEQ:
+				result = lval != rval;
+				break;
+			case BINARY_OPERATOR_LT:
+				result = lval < rval;
+				break;
+			case BINARY_OPERATOR_GT:
+				result = lval > rval;
+				break;
+			case BINARY_OPERATOR_LEQ:
+				result = lval <= rval;
+				break;
+			case BINARY_OPERATOR_GEQ:
+				result = lval >= rval;
+				break;
+			default:
+				ASSERT(false, "Not a comparison operator");
+				break;
+			}
+			expression->type                   = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind          = CONSTANT_KIND_BOOLEAN;
+			expression->constant.boolean_value = result;
+			return true;
+		}
+
+		float result;
+
+		switch (expression->binary.operator)
+		{
+		case BINARY_OPERATOR_ADD:
+			result = lval + rval;
+			break;
+		case BINARY_OPERATOR_SUB:
+			result = lval - rval;
+			break;
+		case BINARY_OPERATOR_MUL:
+			result = lval * rval;
+			break;
+		case BINARY_OPERATOR_DIV:
+			ASSERT(rval != 0.0f);
+			result = lval / rval;
+			break;
+		default:
+			ASSERT(false, "Not a supported binary operator for float constant folding.");
+			break;
+		}
+
+		expression->type                 = EXPRESSION_TYPE_CONSTANT;
+		expression->constant.kind        = CONSTANT_KIND_FLOAT;
+		expression->constant.float_value = result;
+
+		return true;
+	}
+
+	case CONSTANT_KIND_DOUBLE: {
+		double lval = left->constant.double_value;
+		double rval = right->constant.double_value;
+
+		if (binary_operator_is_comparison(expression->binary.operator))
+		{
+			bool result = false;
+			switch (expression->binary.operator)
+			{
+			case BINARY_OPERATOR_EQ:
+				result = lval == rval;
+				break;
+			case BINARY_OPERATOR_NEQ:
+				result = lval != rval;
+				break;
+			case BINARY_OPERATOR_LT:
+				result = lval < rval;
+				break;
+			case BINARY_OPERATOR_GT:
+				result = lval > rval;
+				break;
+			case BINARY_OPERATOR_LEQ:
+				result = lval <= rval;
+				break;
+			case BINARY_OPERATOR_GEQ:
+				result = lval >= rval;
+				break;
+			default:
+				ASSERT(false, "Not a comparison operator");
+				break;
+			}
+			expression->type                   = EXPRESSION_TYPE_CONSTANT;
+			expression->constant.kind          = CONSTANT_KIND_BOOLEAN;
+			expression->constant.boolean_value = result;
+			return true;
+		}
+
+		double result;
+
+		switch (expression->binary.operator)
+		{
+		case BINARY_OPERATOR_ADD:
+			result = lval + rval;
+			break;
+		case BINARY_OPERATOR_SUB:
+			result = lval - rval;
+			break;
+		case BINARY_OPERATOR_MUL:
+			result = lval * rval;
+			break;
+		case BINARY_OPERATOR_DIV:
+			ASSERT(rval != 0.0);
+			result = lval / rval;
+			break;
+		default:
+			ASSERT(false, "Not a supported binary operator for double constant folding.");
+			break;
+		}
+
+		expression->type                  = EXPRESSION_TYPE_CONSTANT;
+		expression->constant.kind         = CONSTANT_KIND_DOUBLE;
+		expression->constant.double_value = result;
+
+		return true;
+	}
+
+	case CONSTANT_KIND_BOOLEAN:
+		ASSERT(false, "CE: sCannot apply unary minus to boolean constant.");
+		return changed;
+
+	case CONSTANT_KIND_COUNT:
+	default:
+		ASSERT(false, "Invalid constant.");
+		break;
+	}
+}
+
+bool ast_optimizer_fold_group_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+
+	bool changed = ast_optimizer_fold_expression(optimizer, &expression->group.inner);
+	if (expression->group.inner->type == EXPRESSION_TYPE_CONSTANT)
+	{
+		*expr = expression->group.inner;
+		return true;
+	}
+
+	return changed;
+}
+
+bool ast_optimizer_fold_identifier_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+	(void)expr;
+
+	return false;
+}
+
+bool ast_optimizer_fold_cast_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+	Expression* inner      = expression->cast.expression;
+
+	bool changed = ast_optimizer_fold_expression(optimizer, &inner);
+
+	if (expression->cast.expression->type == EXPRESSION_TYPE_CONSTANT)
+	{
+		Type* target    = expression->cast.target_type;
+		ConstantKind ck = inner->constant.kind;
+
+		i64 as_i64 = 0;
+		f64 as_f64 = 0.0;
+
+		switch (ck)
+		{
+		case CONSTANT_KIND_BOOLEAN:
+			as_i64 = inner->constant.boolean_value ? 1 : 0;
+			as_f64 = (f64)as_i64;
+			break;
+		case CONSTANT_KIND_INTEGER:
+			as_i64 = (i64)inner->constant.integer_value;
+			as_f64 = (f64)as_i64;
+			break;
+		case CONSTANT_KIND_FLOAT:
+			as_f64 = (f64)inner->constant.float_value;
+			as_i64 = (i64)as_f64;
+			break;
+		case CONSTANT_KIND_DOUBLE:
+			as_f64 = inner->constant.double_value;
+			as_i64 = (i64)as_f64;
+			break;
+		default:
+			return expr;
+		}
+
+		expression->type = EXPRESSION_TYPE_CONSTANT;
+
+		if (type_is_integer(target))
+		{
+			expression->constant.kind          = CONSTANT_KIND_INTEGER;
+			expression->constant.integer_value = (u64)as_i64;
+		}
+		else if (target->kind == TYPE_KIND_FLOAT)
+		{
+			expression->constant.kind        = CONSTANT_KIND_FLOAT;
+			expression->constant.float_value = (float)as_f64;
+		}
+		else if (target->kind == TYPE_KIND_DOUBLE)
+		{
+			expression->constant.kind         = CONSTANT_KIND_DOUBLE;
+			expression->constant.double_value = as_f64;
+		}
+		else if (target->kind == TYPE_KIND_BOOL)
+		{
+			expression->constant.kind          = CONSTANT_KIND_BOOLEAN;
+			expression->constant.boolean_value = as_i64 != 0;
+		}
+		else
+		{
+			ASSERT(false, "Unsupported target type for cast constant folding.");
+		}
+
+		expression->resolved_type = target;
+	}
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+
+	switch (stmt->type)
+	{
+	case STATEMENT_TYPE_INVALID:
+		ASSERT(false, "Invalid statement.");
+		break;
+
+	case STATEMENT_TYPE_DECLARATION:
+		return ast_optimizer_propagate_declaration_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_EXPRESSION:
+		return ast_optimizer_propagate_expression_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_RETURN:
+		return ast_optimizer_propagate_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid statement.");
+		break;
+	}
+}
+
+bool ast_optimizer_propagate_declaration_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	Declaration* decl = stmt->decl_stmt.declaration;
+
+	if (decl->type == DECLARATION_TYPE_VARIABLE)
+		return ast_optimizer_propagate_expression(optimizer, &decl->variable.initializer);
+
+	return false;
+}
+
+bool ast_optimizer_propagate_expression_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_propagate_expression(optimizer, &stmt->expr_stmt.expression);
+}
+
+bool ast_optimizer_propagate_return_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_propagate_expression(optimizer, &stmt->return_stmt.expression);
+}
+
+bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	const Expression* expression = *expr;
+
+	switch (expression->type)
+	{
+	case EXPRESSION_TYPE_INVALID:
+		ASSERT(false, "Invalid expression.");
+		break;
+
+	case EXPRESSION_TYPE_CONSTANT:
+		return ast_optimizer_propagate_constant_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_UNARY:
+		return ast_optimizer_propagate_unary_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_BINARY:
+		return ast_optimizer_propagate_binary_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_GROUP:
+		return ast_optimizer_propagate_group_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_IDENTIFIER:
+		return ast_optimizer_propagate_identifier_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_CAST:
+		return ast_optimizer_propagate_cast_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid expression.");
+		break;
+	}
+}
+
+bool ast_optimizer_propagate_constant_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+	(void)expr;
+
+	return false;
+}
+
+bool ast_optimizer_propagate_unary_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+	return ast_optimizer_propagate_expression(optimizer, &expression->unary.operand);
+}
+
+bool ast_optimizer_propagate_binary_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+
+	bool changed = ast_optimizer_propagate_expression(optimizer, &expression->binary.left);
+	changed |= ast_optimizer_propagate_expression(optimizer, &expression->binary.right);
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_group_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+	return ast_optimizer_propagate_expression(optimizer, &expression->group.inner);
+}
+
+bool ast_optimizer_propagate_identifier_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+
+	Expression* expression = *expr;
+	Declaration* decl      = expression->identifier.declaration_ref;
+	ASSERT(decl, "Identifier expression has no declaration reference.");
+
+	if (decl->type != DECLARATION_TYPE_VARIABLE)
+		return false;
+
+	Expression* init = decl->variable.initializer;
+	if (init->type != EXPRESSION_TYPE_CONSTANT)
+		return false;
+
+	expression->type     = EXPRESSION_TYPE_CONSTANT;
+	expression->constant = init->constant;
+
+	return true;
+}
+
+bool ast_optimizer_propagate_cast_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	Expression* expression = *expr;
+
+	return ast_optimizer_propagate_expression(optimizer, &expression->cast.expression);
+}
+
+void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
+{
+	(void)optimizer;
+
+	Allocator heap     = allocator_get_heap_allocator();
+	Declaration** used = vector_create(&heap, 16, sizeof(Declaration*));
+
+	for (u64 i = 0; i < vector_get_length(tu->statements); i++)
+		ast_optimizer_dce_mark_statement(tu->statements[i], used);
+
+	u64 i = 0;
+	while (i < vector_get_length(tu->statements))
+	{
+		Statement* stmt = tu->statements[i];
+
+		if (stmt->type == STATEMENT_TYPE_DECLARATION &&
+		    stmt->decl_stmt.declaration->type == DECLARATION_TYPE_VARIABLE &&
+		    !ast_optimizer_dce_is_used(stmt->decl_stmt.declaration, used))
+		{
+			vector_remove_at(tu->statements, i, NULL);
 		}
 		else
 		{
 			i++;
 		}
 	}
+
+	vector_destroy(used);
 }
 
-// Recursively check if any identifier in the expression tree references the given declaration.
-static bool ast_optimizer_expr_references_decl(Expression* expr, Declaration* decl)
+void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
-
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
-		return expr->identifier.declaration_ref == decl;
+		if (expr->identifier.declaration_ref)
+			vector_push(used, expr->identifier.declaration_ref);
+		break;
+
 	case EXPRESSION_TYPE_UNARY:
-		return ast_optimizer_expr_references_decl(expr->unary.operand, decl);
+		ast_optimizer_dce_mark_expression(expr->unary.operand, used);
+		break;
+
 	case EXPRESSION_TYPE_BINARY:
-		return ast_optimizer_expr_references_decl(expr->binary.left, decl) ||
-		       ast_optimizer_expr_references_decl(expr->binary.right, decl);
+		ast_optimizer_dce_mark_expression(expr->binary.left, used);
+		ast_optimizer_dce_mark_expression(expr->binary.right, used);
+		break;
+
 	case EXPRESSION_TYPE_GROUP:
-		return ast_optimizer_expr_references_decl(expr->group.inner, decl);
+		ast_optimizer_dce_mark_expression(expr->group.inner, used);
+		break;
+
 	case EXPRESSION_TYPE_CAST:
-		return ast_optimizer_expr_references_decl(expr->cast.expression, decl);
+		ast_optimizer_dce_mark_expression(expr->cast.expression, used);
+		break;
+
+	case EXPRESSION_TYPE_CONSTANT:
 	default:
-		return false;
+		break;
 	}
 }
 
-void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPass pass, Statement* stmt)
+void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
-	ASSERT(stmt->type != STATEMENT_TYPE_INVALID);
-
 	switch (stmt->type)
 	{
 	case STATEMENT_TYPE_EXPRESSION:
-		stmt->expr_stmt.expression = ast_optimizer_optimize_expression(optimizer, pass, stmt->expr_stmt.expression);
+		ast_optimizer_dce_mark_expression(stmt->expr_stmt.expression, used);
 		break;
+
 	case STATEMENT_TYPE_RETURN:
-		stmt->return_stmt.expression = ast_optimizer_optimize_expression(optimizer, pass, stmt->return_stmt.expression);
+		ast_optimizer_dce_mark_expression(stmt->return_stmt.expression, used);
 		break;
-	case STATEMENT_TYPE_DECLARATION: {
-		Declaration* decl = stmt->decl_stmt.declaration;
-		if (decl->type == DECLARATION_TYPE_VARIABLE && decl->variable.initializer)
-		{
-			decl->variable.initializer = ast_optimizer_optimize_expression(optimizer, pass, decl->variable.initializer);
-		}
+
+	case STATEMENT_TYPE_DECLARATION:
+		// Don't mark declarations' own initializers — only non-decl uses count
 		break;
-	}
-	case STATEMENT_TYPE_COUNT:
+
 	default:
 		break;
 	}
 }
 
-Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr)
+bool ast_optimizer_dce_is_used(Declaration* decl, Declaration** used)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
-	ASSERT(expr->type != EXPRESSION_TYPE_INVALID);
-
-	switch (expr->type)
+	for (u64 i = 0; i < vector_get_length(used); i++)
 	{
-	case EXPRESSION_TYPE_UNARY:
-		expr->unary.operand = ast_optimizer_optimize_expression(optimizer, pass, expr->unary.operand);
-		break;
-
-	case EXPRESSION_TYPE_BINARY:
-		expr->binary.left  = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.left);
-		expr->binary.right = ast_optimizer_optimize_expression(optimizer, pass, expr->binary.right);
-		break;
-
-	case EXPRESSION_TYPE_GROUP:
-		return ast_optimizer_optimize_expression(optimizer, pass, expr->group.inner);
-
-	case EXPRESSION_TYPE_CONSTANT:
-	case EXPRESSION_TYPE_COUNT:
-	default:
-		break;
-
-	case EXPRESSION_TYPE_IDENTIFIER:
-		if (pass == AST_OPTIMIZATION_PASS_CONSTANT_PROPAGATION)
-		{
-			// If this identifier refers to a variable whose initializer has already
-			// been folded down to an integer constant, replace the identifier with that constant.
-			Declaration* decl = expr->identifier.declaration_ref;
-			if (decl && decl->type == DECLARATION_TYPE_VARIABLE && decl->variable.initializer &&
-			    decl->variable.initializer->type == EXPRESSION_TYPE_CONSTANT)
-			{
-				expr->type     = EXPRESSION_TYPE_CONSTANT;
-				expr->constant = decl->variable.initializer->constant;
-			}
-		}
-		break;
-
-	case EXPRESSION_TYPE_CAST:
-		expr->cast.expression = ast_optimizer_optimize_expression(optimizer, pass, expr->cast.expression);
-		break;
+		if (used[i] == decl)
+			return true;
 	}
 
-	switch (pass)
-	{
-	case AST_OPTIMIZATION_PASS_CONSTANT_PROPAGATION:
-		return expr;
-
-	case AST_OPTIMIZATION_PASS_CONSTANT_FOLDING:
-		return ast_optimizer_constant_fold_expression_pass(optimizer, expr);
-
-	default:
-		return expr;
-	}
-}
-
-static Expression* ast_optimizer_fold_cast(Expression* expr)
-{
-	ASSERT(expr->type == EXPRESSION_TYPE_CAST);
-
-	Expression* inner = expr->cast.expression;
-	if (inner->type != EXPRESSION_TYPE_CONSTANT)
-		return expr;
-
-	Type* target    = expr->cast.target_type;
-	ConstantKind ck = inner->constant.kind;
-
-	i64 as_i64 = 0;
-	f64 as_f64 = 0.0;
-
-	switch (ck)
-	{
-	case CONSTANT_KIND_BOOLEAN:
-		as_i64 = inner->constant.boolean_value ? 1 : 0;
-		as_f64 = (f64)as_i64;
-		break;
-	case CONSTANT_KIND_INTEGER:
-		as_i64 = (i64)inner->constant.integer_value;
-		as_f64 = (f64)as_i64;
-		break;
-	case CONSTANT_KIND_FLOAT:
-		as_f64 = (f64)inner->constant.float_value;
-		as_i64 = (i64)as_f64;
-		break;
-	case CONSTANT_KIND_DOUBLE:
-		as_f64 = inner->constant.double_value;
-		as_i64 = (i64)as_f64;
-		break;
-	default:
-		return expr;
-	}
-
-	expr->type = EXPRESSION_TYPE_CONSTANT;
-
-	if (type_is_integer(target))
-	{
-		expr->constant.kind          = CONSTANT_KIND_INTEGER;
-		expr->constant.integer_value = (u64)as_i64;
-	}
-	else if (target->kind == TYPE_KIND_FLOAT)
-	{
-		expr->constant.kind        = CONSTANT_KIND_FLOAT;
-		expr->constant.float_value = (float)as_f64;
-	}
-	else if (target->kind == TYPE_KIND_DOUBLE)
-	{
-		expr->constant.kind         = CONSTANT_KIND_DOUBLE;
-		expr->constant.double_value = as_f64;
-	}
-	else if (target->kind == TYPE_KIND_BOOL)
-	{
-		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
-		expr->constant.boolean_value = as_i64 != 0;
-	}
-	else
-	{
-		return expr; // unknown target, leave as-is
-	}
-
-	expr->resolved_type = target;
-	return expr;
-}
-
-static Expression* ast_optimizer_fold_unary(Expression* expr)
-{
-	ASSERT(expr->type == EXPRESSION_TYPE_UNARY);
-	Expression* operand = expr->unary.operand;
-	if (operand->type != EXPRESSION_TYPE_CONSTANT)
-		return expr;
-
-	if (expr->unary.operator != UNARY_OPERATOR_NEGATE)
-		return expr;
-
-	switch (operand->constant.kind)
-	{
-	case CONSTANT_KIND_INTEGER:
-		expr->type                   = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind          = CONSTANT_KIND_INTEGER;
-		expr->constant.integer_value = (u64)(-(i64)operand->constant.integer_value);
-		return expr;
-	case CONSTANT_KIND_FLOAT:
-		expr->type                 = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind        = CONSTANT_KIND_FLOAT;
-		expr->constant.float_value = -operand->constant.float_value;
-		return expr;
-	case CONSTANT_KIND_DOUBLE:
-		expr->type                  = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind         = CONSTANT_KIND_DOUBLE;
-		expr->constant.double_value = -operand->constant.double_value;
-		return expr;
-	default:
-		return expr;
-	}
-}
-
-static Expression* ast_optimizer_fold_integer_binary(Expression* expr, i64 lval, i64 rval)
-{
-	if (binary_operator_is_comparison(expr->binary.operator))
-	{
-		bool result = false;
-
-		switch (expr->binary.operator)
-		{
-		case BINARY_OPERATOR_EQ:
-			result = lval == rval;
-			break;
-		case BINARY_OPERATOR_NEQ:
-			result = lval != rval;
-			break;
-		case BINARY_OPERATOR_LT:
-			result = lval < rval;
-			break;
-		case BINARY_OPERATOR_GT:
-			result = lval > rval;
-			break;
-		case BINARY_OPERATOR_LEQ:
-			result = lval <= rval;
-			break;
-		case BINARY_OPERATOR_GEQ:
-			result = lval >= rval;
-			break;
-		default:
-			ASSERT(false, "Not a comparison operator");
-			break;
-		}
-
-		expr->type                   = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
-		expr->constant.boolean_value = result;
-		return expr;
-	}
-
-	i64 result;
-	switch (expr->binary.operator)
-	{
-	case BINARY_OPERATOR_ADD:
-		result = lval + rval;
-		break;
-	case BINARY_OPERATOR_SUB:
-		result = lval - rval;
-		break;
-	case BINARY_OPERATOR_MUL:
-		result = lval * rval;
-		break;
-	case BINARY_OPERATOR_DIV:
-		ASSERT(rval != 0);
-		result = lval / rval;
-		break;
-	default:
-		return expr;
-	}
-	expr->type                   = EXPRESSION_TYPE_CONSTANT;
-	expr->constant.kind          = CONSTANT_KIND_INTEGER;
-	expr->constant.integer_value = (u64)result;
-	return expr;
-}
-
-static Expression* ast_optimizer_fold_float_binary(Expression* expr, float lval, float rval)
-{
-	if (binary_operator_is_comparison(expr->binary.operator))
-	{
-		bool result = false;
-
-		switch (expr->binary.operator)
-		{
-		case BINARY_OPERATOR_EQ:
-			result = lval == rval;
-			break;
-		case BINARY_OPERATOR_NEQ:
-			result = lval != rval;
-			break;
-		case BINARY_OPERATOR_LT:
-			result = lval < rval;
-			break;
-		case BINARY_OPERATOR_GT:
-			result = lval > rval;
-			break;
-		case BINARY_OPERATOR_LEQ:
-			result = lval <= rval;
-			break;
-		case BINARY_OPERATOR_GEQ:
-			result = lval >= rval;
-			break;
-		default:
-			ASSERT(false, "Not a comparison operator");
-			break;
-		}
-
-		expr->type                   = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
-		expr->constant.boolean_value = result;
-		return expr;
-	}
-
-	float result;
-	switch (expr->binary.operator)
-	{
-	case BINARY_OPERATOR_ADD:
-		result = lval + rval;
-		break;
-	case BINARY_OPERATOR_SUB:
-		result = lval - rval;
-		break;
-	case BINARY_OPERATOR_MUL:
-		result = lval * rval;
-		break;
-	case BINARY_OPERATOR_DIV:
-		ASSERT(rval != 0.0f);
-		result = lval / rval;
-		break;
-	default:
-		return expr;
-	}
-	expr->type                 = EXPRESSION_TYPE_CONSTANT;
-	expr->constant.kind        = CONSTANT_KIND_FLOAT;
-	expr->constant.float_value = result;
-	return expr;
-}
-
-static Expression* ast_optimizer_fold_double_binary(Expression* expr, double lval, double rval)
-{
-	if (binary_operator_is_comparison(expr->binary.operator))
-	{
-		bool result = false;
-
-		switch (expr->binary.operator)
-		{
-		case BINARY_OPERATOR_EQ:
-			result = lval == rval;
-			break;
-		case BINARY_OPERATOR_NEQ:
-			result = lval != rval;
-			break;
-		case BINARY_OPERATOR_LT:
-			result = lval < rval;
-			break;
-		case BINARY_OPERATOR_GT:
-			result = lval > rval;
-			break;
-		case BINARY_OPERATOR_LEQ:
-			result = lval <= rval;
-			break;
-		case BINARY_OPERATOR_GEQ:
-			result = lval >= rval;
-			break;
-		default:
-			ASSERT(false, "Not a comparison operator");
-			break;
-		}
-
-		expr->type                   = EXPRESSION_TYPE_CONSTANT;
-		expr->constant.kind          = CONSTANT_KIND_BOOLEAN;
-		expr->constant.boolean_value = result;
-		return expr;
-	}
-
-	double result;
-	switch (expr->binary.operator)
-	{
-	case BINARY_OPERATOR_ADD:
-		result = lval + rval;
-		break;
-	case BINARY_OPERATOR_SUB:
-		result = lval - rval;
-		break;
-	case BINARY_OPERATOR_MUL:
-		result = lval * rval;
-		break;
-	case BINARY_OPERATOR_DIV:
-		ASSERT(rval != 0.0);
-		result = lval / rval;
-		break;
-	default:
-		return expr;
-	}
-	expr->type                  = EXPRESSION_TYPE_CONSTANT;
-	expr->constant.kind         = CONSTANT_KIND_DOUBLE;
-	expr->constant.double_value = result;
-	return expr;
-}
-
-Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer, Expression* expr)
-{
-	(void)optimizer;
-	static_assert(BINARY_OPERATOR_COUNT == 11, "Update this function when adding new binary operators");
-
-	if (expr->type == EXPRESSION_TYPE_UNARY)
-		return ast_optimizer_fold_unary(expr);
-
-	if (expr->type == EXPRESSION_TYPE_CAST)
-		return ast_optimizer_fold_cast(expr);
-
-	if (expr->type != EXPRESSION_TYPE_BINARY)
-		return expr;
-
-	Expression* left  = expr->binary.left;
-	Expression* right = expr->binary.right;
-
-	if (left->type != EXPRESSION_TYPE_CONSTANT || right->type != EXPRESSION_TYPE_CONSTANT)
-		return expr;
-
-	// Both operands must be the same constant kind (sema ensures type promotion)
-	if (left->constant.kind != right->constant.kind)
-		return expr;
-
-	switch (left->constant.kind)
-	{
-	case CONSTANT_KIND_INTEGER:
-		return ast_optimizer_fold_integer_binary(expr, (i64)left->constant.integer_value,
-		                                         (i64)right->constant.integer_value);
-	case CONSTANT_KIND_FLOAT:
-		return ast_optimizer_fold_float_binary(expr, left->constant.float_value, right->constant.float_value);
-
-	case CONSTANT_KIND_DOUBLE:
-		return ast_optimizer_fold_double_binary(expr, left->constant.double_value, right->constant.double_value);
-
-	default:
-		return expr;
-	}
+	return false;
 }

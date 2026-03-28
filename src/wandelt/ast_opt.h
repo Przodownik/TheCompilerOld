@@ -14,17 +14,36 @@ typedef struct AstOptimizer
 	Allocator* expr_alloc;
 } AstOptimizer;
 
-typedef enum AstOptimizationPass
-{
-	AST_OPTIMIZATION_PASS_CONSTANT_PROPAGATION,
-	AST_OPTIMIZATION_PASS_CONSTANT_FOLDING,
-	AST_OPTIMIZATION_PASS_COUNT
-} AstOptimizationPass;
-
 AstOptimizer ast_optimizer_create(Allocator* expr_alloc);
 void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu);
 
-void ast_optimizer_optimize_statement(AstOptimizer* optimizer, AstOptimizationPass pass, Statement* stmt);
+bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_fold_declaration_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_fold_expression_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_fold_return_statement(AstOptimizer* optimizer, Statement* stmt);
 
-Expression* ast_optimizer_optimize_expression(AstOptimizer* optimizer, AstOptimizationPass pass, Expression* expr);
-Expression* ast_optimizer_constant_fold_expression_pass(AstOptimizer* optimizer, Expression* expr);
+bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_constant_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_unary_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_binary_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_group_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_identifier_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_fold_cast_expression(AstOptimizer* optimizer, Expression** expr);
+
+bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_propagate_declaration_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_propagate_expression_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_propagate_return_statement(AstOptimizer* optimizer, Statement* stmt);
+
+bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_constant_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_unary_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_binary_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_group_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_identifier_expression(AstOptimizer* optimizer, Expression** expr);
+bool ast_optimizer_propagate_cast_expression(AstOptimizer* optimizer, Expression** expr);
+
+void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu);
+void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used);
+void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used);
+bool ast_optimizer_dce_is_used(Declaration* decl, Declaration** used);
