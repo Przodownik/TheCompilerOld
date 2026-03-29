@@ -375,6 +375,137 @@ TEST(e2e_comparison_with_vars)
 	                   1);
 }
 
+// ---------------------------------------------------------------------------
+// Assignments and increments/decrements
+// ---------------------------------------------------------------------------
+
+TEST(simple_assignment)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "x = 10;\n"
+	                  "return x;",
+	                  10);
+}
+
+TEST(compound_add_assign)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "x += 3;\n"
+	                  "return x;",
+	                  8);
+}
+
+TEST(compound_sub_assign)
+{
+
+	EXPECT_RETURN_I64("var int x = 10;\n"
+	                  "x -= 4;\n"
+	                  "return x;",
+	                  6);
+}
+
+TEST(compound_mul_assign)
+{
+	EXPECT_RETURN_I64("var int x = 3;\n"
+	                  "x *= 4;\n"
+	                  "return x;",
+	                  12);
+}
+
+TEST(compound_div_assign)
+{
+	EXPECT_RETURN_I64("var int x = 20;\n"
+	                  "x /= 5;\n"
+	                  "return x;",
+	                  4);
+}
+
+TEST(e2e_prefix_increment)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "return ++x;",
+	                  6);
+}
+
+TEST(e2e_postfix_increment)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "return x++;",
+	                  5);
+}
+
+TEST(e2e_prefix_decrement)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "return --x;",
+	                  4);
+}
+
+TEST(e2e_postfix_decrement)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "return x--;",
+	                  5);
+}
+
+TEST(e2e_increment_as_statement)
+{
+	EXPECT_RETURN_I64("var int x = 0;\n"
+	                  "++x;\n"
+	                  "++x;\n"
+	                  "++x;\n"
+	                  "return x;",
+	                  3);
+}
+
+TEST(e2e_postfix_increment_then_return)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "x++;\n"
+	                  "return x;",
+	                  6);
+}
+
+TEST(e2e_float_compound_assign)
+{
+	EXPECT_RETURN_F32("var float f = 1.0f;\n"
+	                  "f += 0.5f;\n"
+	                  "return f;",
+	                  1.5f, 0.001f);
+}
+
+TEST(e2e_multiple_reassignments)
+{
+	EXPECT_RETURN_I64("var int x = 1;\n"
+	                  "x = 2;\n"
+	                  "x = 3;\n"
+	                  "x = 4;\n"
+	                  "return x;",
+	                  4);
+}
+
+TEST(e2e_mixed_assignment_and_incdec)
+{
+	EXPECT_RETURN_I64("var int x = 10;\n"
+	                  "x += 5;\n"
+	                  "++x;\n"
+	                  "x -= 2;\n"
+	                  "x--;\n"
+	                  "return x;",
+	                  13);
+}
+
+TEST(e2e_all_compound_operators)
+{
+	EXPECT_RETURN_I64("var int a = 10;\n"
+	                  "a += 5;\n"
+	                  "a -= 3;\n"
+	                  "a *= 2;\n"
+	                  "a /= 6;\n"
+	                  "return a;",
+	                  4);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -453,6 +584,23 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_bool_var);
 	RUN_TEST(e2e_bool_false_var);
 	RUN_TEST(e2e_comparison_with_vars);
+
+	print_section("Assignments and increments/decrements");
+	RUN_TEST(simple_assignment);
+	RUN_TEST(compound_add_assign);
+	RUN_TEST(compound_sub_assign);
+	RUN_TEST(compound_mul_assign);
+	RUN_TEST(compound_div_assign);
+	RUN_TEST(e2e_prefix_increment);
+	RUN_TEST(e2e_postfix_increment);
+	RUN_TEST(e2e_prefix_decrement);
+	RUN_TEST(e2e_postfix_decrement);
+	RUN_TEST(e2e_increment_as_statement);
+	RUN_TEST(e2e_postfix_increment_then_return);
+	RUN_TEST(e2e_float_compound_assign);
+	RUN_TEST(e2e_multiple_reassignments);
+	RUN_TEST(e2e_mixed_assignment_and_incdec);
+	RUN_TEST(e2e_all_compound_operators);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

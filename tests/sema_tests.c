@@ -175,8 +175,51 @@ TEST(sema_error_negate_bool)
 	SemaTestResult r = run_sema(alloc, "var bool b = true;\n"
 	                                   "var bool c = -b;\n");
 	ASSERT_FALSE(r.sema_ok);
+
 	DiagnosticEntry* e = diagnostics_get_captured(0);
 	ASSERT_STR_CONTAINS(e->message, "Cannot negate non-arithmetic type 'bool'");
+}
+
+TEST(sema_error_increment_literal)
+{
+	SemaTestResult r = run_sema(alloc, "++5;\n"
+	                                   "return 0;");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_STR_CONTAINS(e->message, "Increment operand must be a variable");
+}
+
+TEST(sema_error_increment_bool)
+{
+	SemaTestResult r = run_sema(alloc, "var bool b = true;\n"
+	                                   "++b;\n"
+	                                   "return 0;");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_STR_CONTAINS(e->message, "Cannot increment 'bool' type");
+}
+
+TEST(sema_error_decrement_bool)
+{
+	SemaTestResult r = run_sema(alloc, "var bool b = true;\n"
+	                                   "--b;\n"
+	                                   "return 0;");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_STR_CONTAINS(e->message, "Cannot decrement 'bool' type");
+}
+
+TEST(sema_error_assign_undefined_variable)
+{
+	SemaTestResult r = run_sema(alloc, "y = 5;\n"
+	                                   "return 0;");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_STR_CONTAINS(e->message, "Undefined variable 'y'");
 }
 
 // ---------------------------------------------------------------------------
@@ -389,6 +432,10 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_error_implicit_float_to_int);
 	RUN_TEST(sema_error_implicit_signed_to_unsigned);
 	RUN_TEST(sema_error_negate_bool);
+	RUN_TEST(sema_error_increment_literal);
+	RUN_TEST(sema_error_increment_bool);
+	RUN_TEST(sema_error_decrement_bool);
+	RUN_TEST(sema_error_assign_undefined_variable);
 
 	print_section("Warning tests");
 	RUN_TEST(sema_warning_unused_variable);

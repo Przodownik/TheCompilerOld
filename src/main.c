@@ -40,6 +40,12 @@ int main(int argc, char* argv[])
 	double dt_bytecode       = 0.0;
 	double dt_vm             = 0.0;
 
+	printf("Flags:");
+	if (debug) printf(" -debug");
+	if (optimize) printf(" -o");
+	if (!debug && !optimize) printf(" (none)");
+	printf("\n");
+
 	String demo_filepath = string_from_cstr(&string_arena, DEMO_PATH "main.wdt");
 	File demo_file       = file_create(&string_arena, demo_filepath);
 
