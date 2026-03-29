@@ -8,3 +8,7 @@ Sema:
 
 Bytecode:
 - How to call like external functions?
+
+Tests:
+- Ensure tests stop when any part of the pipeline returns errors
+specificaly ast optimizer tests can crash since they dont care about sema errors - should be fixed

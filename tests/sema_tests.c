@@ -216,7 +216,7 @@ TEST(sema_warning_redundant_cast)
 	ASSERT_EQ(diagnostics_captured_count(), 1);
 	DiagnosticEntry* e = diagnostics_get_captured(0);
 	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_WARN);
-	ASSERT_STR_CONTAINS(e->message, "Redundant cast from 'int' to 'int'");
+	ASSERT_STR_CONTAINS(e->message, "Unnecessary cast: 'char' is implicitly convertible to 'int'");
 }
 
 TEST(sema_warning_unnecessary_cast)

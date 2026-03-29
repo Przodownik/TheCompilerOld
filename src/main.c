@@ -57,6 +57,12 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	if (debug)
+	{
+		printf("======== Before sema: =======\n");
+		ast_dump_statements(tu.statements);
+	}
+
 	// Semantic Analysis
 	platform_timer_start(&timer);
 	Sema sema    = sema_create(&expr_arena, &decl_arena, &demo_file);
@@ -72,8 +78,8 @@ int main(int argc, char* argv[])
 
 	if (debug)
 	{
-		printf("======== Before optimization: =======\n");
-		ast_dump_statements(tu.statements);
+	    printf("======== Before optimization: =======\n");
+	    ast_dump_statements(tu.statements);
 	}
 
 	// AST Optimization

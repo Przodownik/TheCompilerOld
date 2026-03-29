@@ -43,7 +43,6 @@ TEST(fold_integer_sub)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 7);
 }
@@ -57,7 +56,6 @@ TEST(fold_integer_mul)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 20);
 }
@@ -71,7 +69,6 @@ TEST(fold_integer_div)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 5);
 }
@@ -85,7 +82,6 @@ TEST(fold_nested_arithmetic)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 15);
 }
@@ -99,7 +95,6 @@ TEST(fold_unary_negation)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, -5);
 }
@@ -113,9 +108,75 @@ TEST(fold_double_negation)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 5);
+}
+
+TEST(fold_unary_negate_grouped_constant)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = -(42);\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_INTEGER);
+	ASSERT_EQ((i64)ret->constant.integer_value, -42);
+}
+
+TEST(fold_unary_negate_nested_group)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = -((7));\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ((i64)ret->constant.integer_value, -7);
+}
+
+TEST(fold_binary_add_grouped_operands)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = (2) + (3);\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_INTEGER);
+	ASSERT_EQ((i64)ret->constant.integer_value, 5);
+}
+
+TEST(fold_binary_mul_left_grouped)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = (4) * 5;\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ((i64)ret->constant.integer_value, 20);
+}
+
+TEST(fold_binary_sub_right_grouped)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = 10 - (3);\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ((i64)ret->constant.integer_value, 7);
 }
 
 TEST(fold_comparison_gt)
@@ -127,7 +188,6 @@ TEST(fold_comparison_gt)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_BOOLEAN);
 	ASSERT_TRUE(init->constant.boolean_value);
@@ -155,7 +215,6 @@ TEST(fold_comparison_eq_false)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ(init->constant.kind, CONSTANT_KIND_BOOLEAN);
 	ASSERT_FALSE(init->constant.boolean_value);
@@ -243,7 +302,6 @@ TEST(fold_float_div)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_FLOAT_EQ(init->constant.float_value, 2.5f, 0.001f);
 }
 
@@ -255,7 +313,6 @@ TEST(fold_float_mul)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_FLOAT_EQ(init->constant.float_value, 6.0f, 0.001f);
 }
 
@@ -267,7 +324,6 @@ TEST(fold_float_negation)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_FLOAT_EQ(init->constant.float_value, -3.14f, 0.001f);
 }
@@ -280,7 +336,6 @@ TEST(fold_double_add)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_FLOAT_EQ(init->constant.double_value, 4.0, 0.001);
 }
 
@@ -292,7 +347,6 @@ TEST(fold_double_sub)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_FLOAT_EQ(init->constant.double_value, 3.0, 0.001);
 }
 
@@ -304,8 +358,155 @@ TEST(fold_double_div)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_FLOAT_EQ(init->constant.double_value, 2.5, 0.001);
+}
+
+TEST(fold_float_comparison_grouped)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var bool x = (1.5f) < (2.5f);\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_BOOLEAN);
+	ASSERT_TRUE(ret->constant.boolean_value);
+}
+
+TEST(fold_cast_grouped_float_to_int)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = (5.0f) as int;\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_INTEGER);
+	ASSERT_EQ((i64)ret->constant.integer_value, 5);
+}
+
+TEST(fold_signed_comparison_lt_negative)
+{
+	const char* src = "var int a = -1;\n"
+	                  "var int b = 5;\n"
+	                  "var bool r = a < b;\n"
+	                  "return r;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(fold_signed_comparison_gt_negatives)
+{
+	const char* src = "var int a = -1;\n"
+	                  "var int b = -5;\n"
+	                  "var bool r = a > b;\n"
+	                  "return r;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(fold_signed_comparison_leq_negative)
+{
+	const char* src = "var int a = -3;\n"
+	                  "var int b = -3;\n"
+	                  "var bool r = a <= b;\n"
+	                  "return r;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(fold_signed_division_negative)
+{
+	const char* src = "var int a = -10;\n"
+	                  "var int b = 2;\n"
+	                  "var int r = a / b;\n"
+	                  "return r;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(fold_signed_division_negative_divisor)
+{
+	const char* src = "var int a = 10;\n"
+	                  "var int b = -2;\n"
+	                  "var int r = a / b;\n"
+	                  "return r;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(fold_negative_lt_positive_ast)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int a = -1;\n"
+	                                                "var int b = 5;\n"
+	                                                "var bool r = a < b;\n"
+	                                                "return r;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_BOOLEAN);
+	ASSERT_TRUE(ret->constant.boolean_value);
+}
+
+TEST(fold_cast_already_constant_returns_true)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = 5.0f as int;\n"
+	                                                "return x;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_INTEGER);
+	ASSERT_EQ((i64)ret->constant.integer_value, 5);
+}
+
+TEST(fold_cast_constant_then_propagate)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc, "var int x = 5.0f as int;\n"
+	                                                "var int y = x + 1;\n"
+	                                                "return y;\n");
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
+
+	Expression* ret = stmt->return_stmt.expression;
+	ASSERT_EQ(ret->type, EXPRESSION_TYPE_CONSTANT);
+	ASSERT_EQ(ret->constant.kind, CONSTANT_KIND_INTEGER);
+	ASSERT_EQ((i64)ret->constant.integer_value, 6);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +523,6 @@ TEST(propagate_simple_variable)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 6);
 }
@@ -338,7 +538,6 @@ TEST(propagate_chain)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 5);
 }
@@ -353,7 +552,6 @@ TEST(dce_removes_unused_after_propagation)
 	ASSERT_EQ(stmt->type, STATEMENT_TYPE_RETURN);
 
 	Expression* init = stmt->return_stmt.expression;
-
 	ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
 	ASSERT_EQ((i64)init->constant.integer_value, 5);
 }
@@ -435,6 +633,56 @@ TEST(differential_double_arithmetic)
 	ASSERT_FLOAT_EQ(no_opt.return_value.f64_val, with_opt.return_value.f64_val, 0.001);
 }
 
+TEST(differential_unary_negate_grouped)
+{
+	const char* src = "return -(10);";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(differential_binary_grouped_operands)
+{
+	const char* src = "return (2) + (3) * (4);";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(differential_cast_grouped_expression)
+{
+	const char* src = "return (3.14f) as int;";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
+TEST(differential_chained_cast_propagation)
+{
+	const char* src = "var int x = 5.0f as int;\n"
+	                  "var int y = x + 1;\n"
+	                  "return y;\n";
+
+	PipelineResult no_opt   = run_pipeline(alloc, src, false);
+	PipelineResult with_opt = run_pipeline(alloc, src, true);
+
+	ASSERT_EQ(no_opt.vm_result, VM_OK);
+	ASSERT_EQ(with_opt.vm_result, VM_OK);
+	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
+}
+
 TestResults run_ast_optimizer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -453,6 +701,11 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(fold_nested_arithmetic);
 	RUN_TEST(fold_unary_negation);
 	RUN_TEST(fold_double_negation);
+	RUN_TEST(fold_unary_negate_grouped_constant);
+	RUN_TEST(fold_unary_negate_nested_group);
+	RUN_TEST(fold_binary_add_grouped_operands);
+	RUN_TEST(fold_binary_mul_left_grouped);
+	RUN_TEST(fold_binary_sub_right_grouped);
 	RUN_TEST(fold_comparison_gt);
 	RUN_TEST(fold_comparison_lt_true);
 	RUN_TEST(fold_comparison_eq_false);
@@ -468,6 +721,16 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(fold_double_add);
 	RUN_TEST(fold_double_sub);
 	RUN_TEST(fold_double_div);
+	RUN_TEST(fold_float_comparison_grouped);
+	RUN_TEST(fold_cast_grouped_float_to_int);
+	RUN_TEST(fold_signed_comparison_lt_negative);
+	RUN_TEST(fold_signed_comparison_gt_negatives);
+	RUN_TEST(fold_signed_comparison_leq_negative);
+	RUN_TEST(fold_signed_division_negative);
+	RUN_TEST(fold_signed_division_negative_divisor);
+	RUN_TEST(fold_negative_lt_positive_ast);
+	RUN_TEST(fold_cast_already_constant_returns_true);
+	RUN_TEST(fold_cast_constant_then_propagate);
 
 	print_section("Variable propagation");
 	RUN_TEST(propagate_simple_variable);
@@ -481,6 +744,10 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(differential_cast_expression);
 	RUN_TEST(differential_comparison);
 	RUN_TEST(differential_double_arithmetic);
+	RUN_TEST(differential_unary_negate_grouped);
+	RUN_TEST(differential_binary_grouped_operands);
+	RUN_TEST(differential_cast_grouped_expression);
+	RUN_TEST(differential_chained_cast_propagation);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

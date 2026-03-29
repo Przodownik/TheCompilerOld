@@ -497,8 +497,8 @@ bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint)
 	Type* target = expr->cast.target_type;
 	ASSERT(target != nullptr && target->kind != TYPE_KIND_INVALID);
 
-	// Resolve inner expression with target type as hint
-	if (!sema_check_expression(sema, expr->cast.expression, target))
+	// without hint - the cast itself handles conversion
+	if (!sema_check_expression(sema, expr->cast.expression, nullptr))
 		return false;
 
 	Type* source = expr->cast.expression->resolved_type;
