@@ -22,10 +22,11 @@ typedef struct VectorHeader
 void* vector_create(Allocator* allocator, u64 initial_capacity, u64 stride);
 void vector_destroy(void* vector);
 
-#define vector_push(vector, value)                                            \
-	{                                                                         \
-		typeof(value) __temp_value__ = value;                                 \
-		vector                       = _vector_push(vector, &__temp_value__); \
+#define vector_push(vector, value)                       \
+	{                                                    \
+		char __temp_value__[sizeof(value)];              \
+		memcpy(__temp_value__, &(value), sizeof(value)); \
+		vector = _vector_push(vector, __temp_value__);   \
 	}
 
 #define vector_push_cstr(vector, str_literal)                           \
@@ -34,10 +35,11 @@ void vector_destroy(void* vector);
 		vector                   = _vector_push(vector, &__temp_str__); \
 	}
 
-#define vector_insert_at(vector, index, value)                                         \
-	{                                                                                  \
-		typeof(value) __temp_value__ = value;                                          \
-		vector                       = _vector_insert(vector, index, &__temp_value__); \
+#define vector_insert_at(vector, index, value)                   \
+	{                                                            \
+		char __temp_value__[sizeof(value)];                      \
+		memcpy(__temp_value__, &(value), sizeof(value));         \
+		vector = _vector_insert(vector, index, &__temp_value__); \
 	}
 
 u64 vector_get_capacity(void* vector);

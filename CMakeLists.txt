@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.30...4.0 FATAL_ERROR)
 project(Wandelt VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_SUPPRESS_REGENERATION ON)
-set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
@@ -32,6 +32,7 @@ if(MSVC)
         /Zc:preprocessor
         /utf-8
         /MP
+        /wd4201
     )
 
     add_compile_options(
