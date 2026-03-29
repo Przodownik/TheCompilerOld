@@ -78,8 +78,8 @@ int main(int argc, char* argv[])
 
 	if (debug)
 	{
-	    printf("======== Before optimization: =======\n");
-	    ast_dump_statements(tu.statements);
+		printf("======== Before optimization: =======\n");
+		ast_dump_statements(tu.statements);
 	}
 
 	// AST Optimization
@@ -129,15 +129,22 @@ int main(int argc, char* argv[])
 	printf("Total:                 %.3fms\n", dt_total);
 	printf("\n");
 
-	if (result == VM_OK)
+	if (vm.return_value.kind == VALUE_KIND_INVALID)
 	{
-		printf("Program returned: ");
-		value_print(vm.return_value, stdout);
-		printf("\n");
+		printf(ANSI_COLOR_RED ANSI_COLOR_BOLD "Program did not return a correct value.\n" ANSI_COLOR_RESET);
 	}
 	else
 	{
-		printf("Runtime error occurred!\n");
+		if (result == VM_OK)
+		{
+			printf("Program returned: ");
+			value_print(vm.return_value, stdout);
+			printf("\n");
+		}
+		else
+		{
+			printf("Runtime error occurred!\n");
+		}
 	}
 
 	bytecode_arena.release(bytecode_arena.ctx);

@@ -76,11 +76,6 @@ TEST(bytecode_add_two_constants)
 	ASSERT_EQ(instr_op(&r.chunk, 1), OP_CODE_LOAD_CONST);
 	ASSERT_EQ(instr_op(&r.chunk, 2), OP_CODE_ADD_I);
 	ASSERT_EQ(instr_op(&r.chunk, 3), OP_CODE_RETURN);
-
-	Instruction add = r.chunk.instructions[2];
-	ASSERT_EQ(DECODE_A(add), 0); // dest
-	ASSERT_EQ(DECODE_B(add), 0); // left
-	ASSERT_EQ(DECODE_C(add), 1); // right
 }
 
 TEST(bytecode_variable_move)

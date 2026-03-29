@@ -11,11 +11,13 @@
 #include "wandelt/memory.h"
 
 // Each instruction is a 32-bit word. Three encoding formats:
-//     [opcode:8][A:8][B:8][C:8]     3-register  (arithmetic)
-//     [opcode:8][A:8][Bx:16]        reg+imm16   (load, jump)
+//     [opcode:8][A:8][B:8][C:8]
+//     [opcode:8][A:8][Bx:16]
+//     [opcode:8][Ax:24]
 // A = destination register
 // B, C = source registers
-// Bx = 16-bit unsigned immediate (constant index or jump offset)
+// Bx = 16-bit unsigned immediate
+// Ax = 24-bit unsigned immediate
 
 typedef u32 Instruction;
 
@@ -87,17 +89,23 @@ typedef enum OpCode
 
 const char* op_code_to_cstr(OpCode op);
 
+#define UNUSED_REG 0
+#define UNUSED_IMM 0
+
 #define ENCODE_ABC(op, a, b, c) \
 	((Instruction)(op) | ((Instruction)(a) << 8) | ((Instruction)(b) << 16) | ((Instruction)(c) << 24))
 #define ENCODE_ABx(op, a, bx) ((Instruction)(op) | ((Instruction)(a) << 8) | ((Instruction)(bx) << 16))
+#define ENCODE_Ax(op, ax)     ((Instruction)(op) | ((Instruction)(ax) << 8))
 #define DECODE_OP(inst)       ((inst) & 0xFF)
 #define DECODE_A(inst)        (((inst) >> 8) & 0xFF)
 #define DECODE_B(inst)        (((inst) >> 16) & 0xFF)
 #define DECODE_C(inst)        (((inst) >> 24) & 0xFF)
 #define DECODE_Bx(inst)       (((inst) >> 16) & 0xFFFF)
+#define DECODE_Ax(inst)       (((inst) >> 8) & 0xFFFFFF)
 
 typedef enum ValueKind
 {
+	VALUE_KIND_INVALID,
 	VALUE_KIND_BOOL,
 	VALUE_KIND_I8,
 	VALUE_KIND_U8,
@@ -115,6 +123,7 @@ typedef enum ValueKind
 typedef struct Value
 {
 	ValueKind kind;
+
 	union {
 		i64 i64_val; // bool, char, short, int, long
 		u64 u64_val; // uchar, ushort, uint, ulong
@@ -123,60 +132,17 @@ typedef struct Value
 	};
 } Value;
 
-static inline Value value_bool(bool v)
-{
-	return (Value){.kind = VALUE_KIND_BOOL, .i64_val = (i64)v};
-}
-
-static inline Value value_i8(i8 v)
-{
-	return (Value){.kind = VALUE_KIND_I8, .i64_val = (i64)v};
-}
-
-static inline Value value_u8(u8 v)
-{
-	return (Value){.kind = VALUE_KIND_U8, .u64_val = (u64)v};
-}
-
-static inline Value value_i16(i16 v)
-{
-	return (Value){.kind = VALUE_KIND_I16, .i64_val = (i64)v};
-}
-
-static inline Value value_u16(u16 v)
-{
-	return (Value){.kind = VALUE_KIND_U16, .u64_val = (u64)v};
-}
-
-static inline Value value_i32(i32 v)
-{
-	return (Value){.kind = VALUE_KIND_I32, .i64_val = (i64)v};
-}
-
-static inline Value value_u32(u32 v)
-{
-	return (Value){.kind = VALUE_KIND_U32, .u64_val = (u64)v};
-}
-
-static inline Value value_i64(i64 v)
-{
-	return (Value){.kind = VALUE_KIND_I64, .i64_val = v};
-}
-
-static inline Value value_u64(u64 v)
-{
-	return (Value){.kind = VALUE_KIND_U64, .u64_val = v};
-}
-
-static inline Value value_f32(f32 v)
-{
-	return (Value){.kind = VALUE_KIND_F32, .f32_val = v};
-}
-
-static inline Value value_f64(f64 v)
-{
-	return (Value){.kind = VALUE_KIND_F64, .f64_val = v};
-}
+#define value_bool(v) ((Value){.kind = VALUE_KIND_BOOL, .i64_val = (i64)(v)})
+#define value_i8(v)   ((Value){.kind = VALUE_KIND_I8, .i64_val = (i64)(v)})
+#define value_u8(v)   ((Value){.kind = VALUE_KIND_U8, .u64_val = (u64)(v)})
+#define value_i16(v)  ((Value){.kind = VALUE_KIND_I16, .i64_val = (i64)(v)})
+#define value_u16(v)  ((Value){.kind = VALUE_KIND_U16, .u64_val = (u64)(v)})
+#define value_i32(v)  ((Value){.kind = VALUE_KIND_I32, .i64_val = (i64)(v)})
+#define value_u32(v)  ((Value){.kind = VALUE_KIND_U32, .u64_val = (u64)(v)})
+#define value_i64(v)  ((Value){.kind = VALUE_KIND_I64, .i64_val = (v)})
+#define value_u64(v)  ((Value){.kind = VALUE_KIND_U64, .u64_val = (v)})
+#define value_f32(v)  ((Value){.kind = VALUE_KIND_F32, .f32_val = (v)})
+#define value_f64(v)  ((Value){.kind = VALUE_KIND_F64, .f64_val = (v)})
 
 ValueKind value_kind_from_type_kind(TypeKind tk);
 const char* value_kind_to_cstr(ValueKind kind);
@@ -189,31 +155,48 @@ typedef struct Chunk
 	Value* constants;
 	u32* lines;       // parallel to instructions: source line number
 	u32 current_line; // set by compiler before emitting
-	u32 registers_needed;
 } Chunk;
 
 Chunk chunk_create(Allocator* alloc);
 u32 chunk_emit(Chunk* chunk, Instruction inst);
 u32 chunk_add_constant(Chunk* chunk, Value val);
 
-typedef struct LocalVariable
+typedef struct Variable
 {
 	StringView name;
 	u8 reg;
-	u8 scope_depth;
-} LocalVariable;
+} Variable;
 
 typedef struct BytecodeCompiler
 {
 	Allocator* alloc;
 	const File* source;
-	Chunk chunk;
-	u8 next_reg; // next free register (max 255)
-	u8 max_reg;  // high-water mark of registers used
-	LocalVariable variables[128];
+	Chunk current_chunk;
+	u8 next_free_reg_idx;
+	Variable variables[128];
 	u8 local_count;
-	u8 scope_depth;
+	// u8 max_reg;  // high-water mark of registers used
+	// u8 scope_depth;
 } BytecodeCompiler;
 
 BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);
 Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_statements);
+
+u8 bytecode_compiler_allocate_register(BytecodeCompiler* compiler);
+void bytecode_compiler_set_line_from_span(BytecodeCompiler* c, Span span); // for disassembly
+OpCode bytecode_compiler_select_negate_opcode(Type* type);
+bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to);
+OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type);
+
+void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt);
+
+u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_unary_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_binary_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_group_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_identifier_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Expression* expr);

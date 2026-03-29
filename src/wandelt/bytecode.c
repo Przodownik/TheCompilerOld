@@ -127,7 +127,7 @@ const char* op_code_to_cstr(OpCode op)
 	ASSERT(false, "Invalid OpCode");
 }
 
-ValueKind value_kind_from_type_kind(TypeKind tk)
+ValueKind value_kind_forom_type_kind(TypeKind tk)
 {
 	switch (tk)
 	{
@@ -195,6 +195,10 @@ void value_print(Value v, FILE* out)
 {
 	switch (v.kind)
 	{
+	case VALUE_KIND_INVALID:
+		ASSERT(false, "Invalid value.");
+		break;
+
 	case VALUE_KIND_BOOL:
 		fprintf(out, "%s", v.i64_val ? "true" : "false");
 		break;
@@ -232,36 +236,6 @@ void value_print(Value v, FILE* out)
 		fprintf(out, "???");
 		break;
 	}
-}
-
-static OpCode select_typed_opcode(BinaryOperator bin_op, Type* type)
-{
-	// Family: 0=I, 1=U, 2=F, 3=D
-	int family;
-	if (type->kind == TYPE_KIND_DOUBLE)
-		family = 3;
-	else if (type->kind == TYPE_KIND_FLOAT)
-		family = 2;
-	else if (type_is_unsigned(type))
-		family = 1;
-	else
-		family = 0;
-
-	// Bool equality uses the I (signed) family — bool is stored in i64_val
-	if (type_is_bool(type))
-		family = 0;
-
-	// Opcodes are laid out in groups of 4: I, U, F, D
-	OpCode bases[] = {
-	    [BINARY_OPERATOR_ADD] = OP_CODE_ADD_I, [BINARY_OPERATOR_SUB] = OP_CODE_SUB_I,
-	    [BINARY_OPERATOR_MUL] = OP_CODE_MUL_I, [BINARY_OPERATOR_DIV] = OP_CODE_DIV_I,
-	    [BINARY_OPERATOR_EQ] = OP_CODE_EQ_I,   [BINARY_OPERATOR_NEQ] = OP_CODE_NEQ_I,
-	    [BINARY_OPERATOR_LT] = OP_CODE_LT_I,   [BINARY_OPERATOR_GT] = OP_CODE_GT_I,
-	    [BINARY_OPERATOR_LEQ] = OP_CODE_LEQ_I, [BINARY_OPERATOR_GEQ] = OP_CODE_GEQ_I,
-	};
-	ASSERT(bin_op < sizeof(bases) / sizeof(bases[0]), "Invalid BinaryOperator");
-
-	return (OpCode)(bases[bin_op] + family);
 }
 
 Value value_convert(Value src, TypeKind target)
@@ -334,18 +308,81 @@ Value value_convert(Value src, TypeKind target)
 	}
 }
 
-static bool cast_needs_instruction(TypeKind from, TypeKind to)
+Chunk chunk_create(Allocator* alloc)
 {
+	return (Chunk){
+	    .instructions = (Instruction*)vector_create(alloc, 32, sizeof(Instruction)),
+	    .constants    = (Value*)vector_create(alloc, 8, sizeof(Value)),
+	    .lines        = (u32*)vector_create(alloc, 32, sizeof(u32)),
+	    .current_line = 0,
+	};
+}
+
+u32 chunk_emit(Chunk* chunk, Instruction inst)
+{
+	u32 offset = (u32)vector_get_length(chunk->instructions);
+	vector_push(chunk->instructions, inst);
+	vector_push(chunk->lines, chunk->current_line);
+	return offset;
+}
+
+u32 chunk_add_constant(Chunk* chunk, Value val)
+{
+	u32 index = (u32)vector_get_length(chunk->constants);
+	vector_push(chunk->constants, val);
+	return index;
+}
+
+BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source)
+{
+	return (BytecodeCompiler){
+	    .alloc = alloc, .source = source, .current_chunk = chunk_create(alloc), .local_count = 0u};
+}
+
+u8 bytecode_compiler_allocate_register(BytecodeCompiler* compiler)
+{
+	ASSERT(compiler->next_free_reg_idx < 255, "Exceeded maximum register count");
+	return compiler->next_free_reg_idx++;
+}
+
+void bytecode_compiler_set_line_from_span(BytecodeCompiler* c, Span span)
+{
+	ASSERT(c->source, "Source file is required to set line from span");
+
+	FileLocation loc              = file_resolve_location(c->source, span.begin);
+	c->current_chunk.current_line = loc.row;
+}
+
+OpCode bytecode_compiler_select_negate_opcode(Type* type)
+{
+	static_assert(TYPE_KIND_COUNT == 12, "Update this function when adding new TypeKinds");
+
+	if (type->kind == TYPE_KIND_DOUBLE)
+		return OP_CODE_NEG_D;
+
+	if (type->kind == TYPE_KIND_FLOAT)
+		return OP_CODE_NEG_F;
+
+	return OP_CODE_NEG_I;
+}
+
+bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to)
+{
+	static_assert(TYPE_KIND_COUNT == 12, "Update this function when adding new TypeKinds");
+
 	if (from == to)
 		return false;
 
-	bool from_signed = (from == TYPE_KIND_BOOL || from == TYPE_KIND_CHAR || from == TYPE_KIND_SHORT ||
-	                    from == TYPE_KIND_INT || from == TYPE_KIND_LONG);
-	bool to_signed   = (to == TYPE_KIND_BOOL || to == TYPE_KIND_CHAR || to == TYPE_KIND_SHORT || to == TYPE_KIND_INT ||
-                      to == TYPE_KIND_LONG);
-	bool from_unsigned =
+	const bool from_signed = (from == TYPE_KIND_BOOL || from == TYPE_KIND_CHAR || from == TYPE_KIND_SHORT ||
+	                          from == TYPE_KIND_INT || from == TYPE_KIND_LONG);
+
+	const bool to_signed = (to == TYPE_KIND_BOOL || to == TYPE_KIND_CHAR || to == TYPE_KIND_SHORT ||
+	                        to == TYPE_KIND_INT || to == TYPE_KIND_LONG);
+
+	const bool from_unsigned =
 	    (from == TYPE_KIND_UCHAR || from == TYPE_KIND_USHORT || from == TYPE_KIND_UINT || from == TYPE_KIND_ULONG);
-	bool to_unsigned =
+
+	const bool to_unsigned =
 	    (to == TYPE_KIND_UCHAR || to == TYPE_KIND_USHORT || to == TYPE_KIND_UINT || to == TYPE_KIND_ULONG);
 
 	// Same-family widening: no instruction needed
@@ -361,42 +398,36 @@ static bool cast_needs_instruction(TypeKind from, TypeKind to)
 	return true;
 }
 
-static u8 bytecode_compiler_compile_node(BytecodeCompiler* c, Statement* statement);
-static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expression);
+OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type)
+{
+	static_assert(BINARY_OPERATOR_COUNT == 11, "Update this function when adding new binary operators");
 
-BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source)
-{
-	return (BytecodeCompiler){
-	    .alloc    = alloc,
-	    .source   = source,
-	    .chunk    = chunk_create(alloc),
-	    .next_reg = 0,
-	    .max_reg  = 0,
-	};
-}
+	// Family: 0=I, 1=U, 2=F, 3=D
+	int family;
+	if (type->kind == TYPE_KIND_DOUBLE)
+		family = 3;
+	else if (type->kind == TYPE_KIND_FLOAT)
+		family = 2;
+	else if (type_is_unsigned(type))
+		family = 1;
+	else
+		family = 0;
 
-Chunk chunk_create(Allocator* alloc)
-{
-	return (Chunk){
-	    .instructions     = (Instruction*)vector_create(alloc, 32, sizeof(Instruction)),
-	    .constants        = (Value*)vector_create(alloc, 8, sizeof(Value)),
-	    .lines            = (u32*)vector_create(alloc, 32, sizeof(u32)),
-	    .current_line     = 0,
-	    .registers_needed = 0,
+	// Bool equality uses the I (signed) family — bool is stored in i64_val
+	if (type_is_bool(type))
+		family = 0;
+
+	// Opcodes are laid out in groups of 4: I, U, F, D
+	OpCode bases[] = {
+	    [BINARY_OPERATOR_ADD] = OP_CODE_ADD_I, [BINARY_OPERATOR_SUB] = OP_CODE_SUB_I,
+	    [BINARY_OPERATOR_MUL] = OP_CODE_MUL_I, [BINARY_OPERATOR_DIV] = OP_CODE_DIV_I,
+	    [BINARY_OPERATOR_EQ] = OP_CODE_EQ_I,   [BINARY_OPERATOR_NEQ] = OP_CODE_NEQ_I,
+	    [BINARY_OPERATOR_LT] = OP_CODE_LT_I,   [BINARY_OPERATOR_GT] = OP_CODE_GT_I,
+	    [BINARY_OPERATOR_LEQ] = OP_CODE_LEQ_I, [BINARY_OPERATOR_GEQ] = OP_CODE_GEQ_I,
 	};
-}
-u32 chunk_emit(Chunk* chunk, Instruction inst)
-{
-	u32 offset = (u32)vector_get_length(chunk->instructions);
-	vector_push(chunk->instructions, inst);
-	vector_push(chunk->lines, chunk->current_line);
-	return offset;
-}
-u32 chunk_add_constant(Chunk* chunk, Value val)
-{
-	u32 index = (u32)vector_get_length(chunk->constants);
-	vector_push(chunk->constants, val);
-	return index;
+	ASSERT(bin_op < sizeof(bases) / sizeof(bases[0]), "Invalid BinaryOperator");
+
+	return (OpCode)(bases[bin_op] + family);
 }
 
 Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_statements)
@@ -404,215 +435,198 @@ Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_
 	for (u64 i = 0; i < vector_get_length(program_statements); i++)
 	{
 		Statement* stmt = program_statements[i];
-		bytecode_compiler_compile_node(compiler, stmt);
+		bytecode_compiler_compile_statement(compiler, stmt);
 	}
 
-	chunk_emit(&compiler->chunk, ENCODE_ABx(OP_CODE_HALT, 0, 0));
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_HALT, 1, 0));
 
-	compiler->chunk.registers_needed = compiler->max_reg;
-
-	return compiler->chunk;
+	return compiler->current_chunk;
 }
 
-static void set_line_from_span(BytecodeCompiler* c, Span span)
+void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	if (c->source)
+	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+
+	bytecode_compiler_set_line_from_span(compiler, stmt->span);
+
+	switch (stmt->type)
 	{
-		FileLocation loc      = file_resolve_location(c->source, span.begin);
-		c->chunk.current_line = loc.row;
-	}
-}
+	case STATEMENT_TYPE_INVALID:
+		ASSERT(false, "Invalid statement.");
+		break;
 
-static u8 bytecode_compiler_compile_node(BytecodeCompiler* c, Statement* statement)
-{
-	set_line_from_span(c, statement->span);
+	case STATEMENT_TYPE_DECLARATION:
+		bytecode_compiler_compile_declaration_statement(compiler, stmt);
+		break;
 
-	switch (statement->type)
-	{
-	case STATEMENT_TYPE_DECLARATION: {
-		if (statement->decl_stmt.declaration->type == DECLARATION_TYPE_VARIABLE)
-		{
-			VariableDeclaration* var_decl = &statement->decl_stmt.declaration->variable;
-			if (var_decl->initializer)
-			{
-				u8 reg               = bytecode_compiler_compile_expr(c, var_decl->initializer);
-				LocalVariable* local = &c->variables[c->local_count++];
-				local->name          = var_decl->name;
-				local->reg           = reg;
-				local->scope_depth   = c->scope_depth;
-				return reg;
-			}
-		}
-		return 0;
-	}
+	case STATEMENT_TYPE_EXPRESSION:
+		bytecode_compiler_compile_expression_statement(compiler, stmt);
+		break;
 
-	case STATEMENT_TYPE_RETURN: {
-		u8 reg = bytecode_compiler_compile_expr(c, statement->return_stmt.expression);
-		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_RETURN, reg, 0));
-		return reg;
-	}
+	case STATEMENT_TYPE_RETURN:
+		bytecode_compiler_compile_return_statement(compiler, stmt);
+		break;
+
+	case STATEMENT_TYPE_COUNT:
 	default:
-		ASSERT(false, "Cannot compile node kind %d", statement->type);
-		return 0;
+		ASSERT(false, "Invalid statement.");
+		break;
 	}
 }
 
-static bool is_local_register(BytecodeCompiler* c, u8 reg)
+void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	for (u8 i = 0; i < c->local_count; i++)
+	static_assert(DECLARATION_TYPE_COUNT == 3, "Update this function when adding new declaration types");
+
+	Declaration* decl = stmt->decl_stmt.declaration;
+
+	if (decl->type == DECLARATION_TYPE_VARIABLE)
 	{
-		if (c->variables[i].reg == reg)
-			return true;
+		VariableDeclaration* var_decl = &stmt->decl_stmt.declaration->variable;
+
+		u8 reg = bytecode_compiler_compile_expression(compiler, var_decl->initializer);
+
+		Variable* local = &compiler->variables[compiler->local_count++];
+		local->name     = var_decl->name;
+		local->reg      = reg;
 	}
-	return false;
 }
 
-static OpCode select_negate_opcode(Type* type)
+void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	if (type->kind == TYPE_KIND_DOUBLE)
-		return OP_CODE_NEG_D;
-	else if (type->kind == TYPE_KIND_FLOAT)
-		return OP_CODE_NEG_F;
-	else
-		return OP_CODE_NEG_I;
+	bytecode_compiler_compile_expression(compiler, stmt->expr_stmt.expression);
 }
 
-static u8 bytecode_compiler_compile_expr(BytecodeCompiler* c, Expression* expression)
+void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	const u8 reg = bytecode_compiler_compile_expression(compiler, stmt->return_stmt.expression);
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_RETURN, reg, UNUSED_REG));
+}
+
+u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr)
 {
 	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
 
-	set_line_from_span(c, expression->span);
+	bytecode_compiler_set_line_from_span(compiler, expr->span);
 
-	switch (expression->type)
+	switch (expr->type)
 	{
-	case EXPRESSION_TYPE_CONSTANT: {
-		u8 dest = c->next_reg++;
-		if (c->next_reg > c->max_reg)
-			c->max_reg = c->next_reg;
+	case EXPRESSION_TYPE_INVALID:
+		ASSERT(false, "Invalid statement.");
+		break;
 
-		Value val;
-		switch (expression->constant.kind)
-		{
-		case CONSTANT_KIND_BOOLEAN:
-			val = value_bool(expression->constant.boolean_value);
-			break;
-		case CONSTANT_KIND_INTEGER:
-			val = value_i64((i64)expression->constant.integer_value);
-			break;
-		case CONSTANT_KIND_FLOAT:
-			val = value_f32(expression->constant.float_value);
-			break;
-		case CONSTANT_KIND_DOUBLE:
-			val = value_f64(expression->constant.double_value);
-			break;
-		default:
-			ASSERT(false, "Invalid constant kind");
-			break;
-		}
+	case EXPRESSION_TYPE_CONSTANT:
+		return bytecode_compiler_compile_constant_expression(compiler, expr);
 
-		// If resolved_type differs from the natural constant type perform an implicit conversion now
-		TypeKind target    = expression->resolved_type->kind;
-		ValueKind natural  = val.kind;
-		ValueKind expected = value_kind_from_type_kind(target);
-		if (natural != expected)
-		{
-			val = value_convert(val, target);
-		}
+	case EXPRESSION_TYPE_UNARY:
+		return bytecode_compiler_compile_unary_expression(compiler, expr);
 
-		u32 k = chunk_add_constant(&c->chunk, val);
-		chunk_emit(&c->chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, dest, k));
-		return dest;
-	}
-
-	case EXPRESSION_TYPE_UNARY: {
-		u8 src  = bytecode_compiler_compile_expr(c, expression->unary.operand);
-		u8 dest = src;
-		if (is_local_register(c, src))
-		{
-			dest = c->next_reg++;
-			if (c->next_reg > c->max_reg)
-				c->max_reg = c->next_reg;
-		}
-
-		OpCode op = select_negate_opcode(expression->resolved_type);
-		chunk_emit(&c->chunk, ENCODE_ABC(op, dest, src, 0));
-
-		return dest;
-	}
-
-	case EXPRESSION_TYPE_BINARY: {
-		u8 save_next = c->next_reg;
-		u8 left      = bytecode_compiler_compile_expr(c, expression->binary.left);
-		u8 right     = bytecode_compiler_compile_expr(c, expression->binary.right);
-
-		// reuse a temporary register, never overwrite a local
-		u8 dest;
-		bool left_is_local  = is_local_register(c, left);
-		bool right_is_local = is_local_register(c, right);
-
-		if (!left_is_local)
-			dest = left;
-		else if (!right_is_local)
-			dest = right;
-		else
-		{
-			// Both operands are locals — allocate a fresh register
-			dest = c->next_reg++;
-			if (c->next_reg > c->max_reg)
-				c->max_reg = c->next_reg;
-		}
-
-		Type* opcode_type = binary_operator_is_comparison(expression->binary.operator)
-		                        ? expression->binary.left->resolved_type
-		                        : expression->resolved_type;
-		OpCode op         = select_typed_opcode(expression->binary.operator, opcode_type);
-		chunk_emit(&c->chunk, ENCODE_ABC(op, dest, left, right));
-
-		// Reclaim temporaries above dest, but never below the save point
-		u8 new_next = (u8)(dest + 1);
-		c->next_reg = (new_next > save_next) ? new_next : save_next;
-
-		return dest;
-	}
+	case EXPRESSION_TYPE_BINARY:
+		return bytecode_compiler_compile_binary_expression(compiler, expr);
 
 	case EXPRESSION_TYPE_GROUP:
-		return bytecode_compiler_compile_expr(c, expression->group.inner);
+		return bytecode_compiler_compile_group_expression(compiler, expr);
 
-	case EXPRESSION_TYPE_IDENTIFIER: {
-		for (i64 i = c->local_count - 1; i >= 0; i--)
-		{
-			LocalVariable* local = &c->variables[i];
-			if (string_view_equals(local->name, expression->identifier.name))
-			{
-				return local->reg;
-			}
-		}
-		ASSERT(false, "Undefined variable");
-	}
+	case EXPRESSION_TYPE_IDENTIFIER:
+		return bytecode_compiler_compile_identifier_expression(compiler, expr);
 
-	case EXPRESSION_TYPE_CAST: {
-		u8 src        = bytecode_compiler_compile_expr(c, expression->cast.expression);
-		TypeKind from = expression->cast.expression->resolved_type->kind;
-		TypeKind to   = expression->resolved_type->kind;
+	case EXPRESSION_TYPE_CAST:
+		return bytecode_compiler_compile_cast_expression(compiler, expr);
 
-		if (cast_needs_instruction(from, to))
-		{
-			u8 dest = src;
-			if (is_local_register(c, src))
-			{
-				dest = c->next_reg++;
-				if (c->next_reg > c->max_reg)
-					c->max_reg = c->next_reg;
-			}
-			chunk_emit(&c->chunk, ENCODE_ABC(OP_CODE_CAST, dest, src, (u8)to));
-			return dest;
-		}
-		return src;
-	}
-
+	case EXPRESSION_TYPE_COUNT:
 	default:
+		ASSERT(false, "Invalid expression.");
+		break;
+	}
+}
+
+u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	u8 dest = bytecode_compiler_allocate_register(compiler);
+
+	Value val;
+	switch (expr->constant.kind)
+	{
+	case CONSTANT_KIND_BOOLEAN:
+		val = value_bool(expr->constant.boolean_value);
+		break;
+	case CONSTANT_KIND_INTEGER:
+		val = value_i64((i64)expr->constant.integer_value);
+		break;
+	case CONSTANT_KIND_FLOAT:
+		val = value_f32(expr->constant.float_value);
+		break;
+	case CONSTANT_KIND_DOUBLE:
+		val = value_f64(expr->constant.double_value);
+		break;
+	default:
+		ASSERT(false, "Invalid constant kind");
 		break;
 	}
 
-	ASSERT(false, "Cannot compile expression kind %d", expression->type);
+	u32 k = chunk_add_constant(&compiler->current_chunk, val);
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, dest, k));
+
+	return dest;
+}
+
+u8 bytecode_compiler_compile_unary_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	u8 src  = bytecode_compiler_compile_expression(compiler, expr->unary.operand);
+	u8 dest = bytecode_compiler_allocate_register(compiler);
+
+	OpCode op = bytecode_compiler_select_negate_opcode(expr->resolved_type);
+	chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, dest, src, 0));
+
+	return dest;
+}
+
+u8 bytecode_compiler_compile_binary_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	u8 left  = bytecode_compiler_compile_expression(compiler, expr->binary.left);
+	u8 right = bytecode_compiler_compile_expression(compiler, expr->binary.right);
+	u8 dest  = bytecode_compiler_allocate_register(compiler);
+
+	Type* opcode_type =
+	    binary_operator_is_comparison(expr->binary.operator) ? expr->binary.left->resolved_type : expr->resolved_type;
+
+	OpCode op = bytecode_compiler_select_binary_opcode(expr->binary.operator, opcode_type);
+	chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, dest, left, right));
+
+	return dest;
+}
+
+u8 bytecode_compiler_compile_group_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	return bytecode_compiler_compile_expression(compiler, expr->group.inner);
+}
+
+u8 bytecode_compiler_compile_identifier_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	for (i64 i = compiler->local_count - 1; i >= 0; i--)
+	{
+		Variable* local = &compiler->variables[i];
+
+		if (string_view_equals(local->name, expr->identifier.name))
+			return local->reg;
+	}
+
+	ASSERT(false, "Undefined variable");
+}
+
+u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	u8 src        = bytecode_compiler_compile_expression(compiler, expr->cast.expression);
+	TypeKind from = expr->cast.expression->resolved_type->kind;
+	TypeKind to   = expr->resolved_type->kind;
+
+	if (bytecode_compiler_cast_needs_instruction(from, to))
+	{
+		u8 dest = bytecode_compiler_allocate_register(compiler);
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(OP_CODE_CAST, dest, src, (u8)to));
+
+		return dest;
+	}
+
+	return src;
 }

@@ -259,7 +259,6 @@ static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File*
 	for (int i = 0; i < DISASM_LINE_WIDTH - 5 - name_len; i++) fputc('=', out);
 	fputc('\n', out);
 
-	fprintf(out, "  Registers    : %u\n", chunk->registers_needed);
 	fprintf(out, "  Constants    : %u\n", num_constants);
 	fprintf(out, "  Instructions : %u\n", num_instructions);
 
@@ -319,13 +318,6 @@ static void disassemble_chunk_readable(Chunk* chunk, const char* name, const Fil
 
 	// Header
 	fprintf(out, "=== %s ===\n\n", name);
-
-	// Register declarations
-	fprintf(out, ".registers %u\n\n", chunk->registers_needed);
-	for (u32 i = 0; i < chunk->registers_needed; i++)
-	{
-		fprintf(out, ".local R%-24u; long\n", i);
-	}
 
 	// Constants as typed directives
 	if (num_constants > 0)
