@@ -75,7 +75,7 @@ void parser_eat_token(Parser* parser)
 
 Statement* parser_parse_top_level_statement(Parser* parser)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4,
+	static_assert(STATEMENT_TYPE_COUNT == 5,
 	              "parser_parse_top_level_statement needs to be updated to handle new statement types");
 
 	Token tok = parser_peek_token(parser);
@@ -90,6 +90,20 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return parser_parse_declaration_statement(parser);
+
+	case TOKEN_TYPE_IDENTIFIER: {
+		// if next token is an assignment operator, parse as assignment
+		Token next = lexer_peek_token_at_offset(parser->lexer, 1);
+		if (is_assignment_token(next.type))
+			return parser_parse_assignment_statement(parser);
+
+		// Otherwise expression statement
+		return parser_parse_expression_statement(parser);
+	}
+
+	case TOKEN_TYPE_PLUS_PLUS:
+	case TOKEN_TYPE_MINUS_MINUS:
+		return parser_parse_expression_statement(parser);
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
@@ -186,6 +200,35 @@ Statement* parser_parse_return_statement(Parser* parser)
 		return &invalid_statement;
 
 	stmt->span = span_extend(returnToken.span, semicolonToken.span);
+
+	return stmt;
+}
+
+Statement* parser_parse_assignment_statement(Parser* parser)
+{
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_ASSIGNMENT;
+
+	const Token identToken = parser_peek_token(parser);
+	ASSERT(identToken.type == TOKEN_TYPE_IDENTIFIER);
+	stmt->assign_stmt.target_identifier = file_get_part_of_content(parser->lexer->file_to_lex, identToken.span.begin,
+	                                                               identToken.span.end - identToken.span.begin);
+	parser_eat_token(parser); // eat identifier
+
+	const Token opToken        = parser_peek_token(parser);
+	stmt->assign_stmt.operator = token_type_to_assignment_operator(opToken.type);
+
+	parser_eat_token(parser); // eat operator
+
+	stmt->assign_stmt.value = parser_parse_expression(parser);
+	if (stmt->assign_stmt.value->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	const Token semicolonToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
+		return &invalid_statement;
+
+	stmt->span = span_extend(identToken.span, semicolonToken.span);
 
 	return stmt;
 }
@@ -506,6 +549,44 @@ Expression* parser_parse_cast_expression(Parser* parser, Expression* left)
 	return expr;
 }
 
+Expression* parser_parse_prefix_incdec_expression(Parser* parser)
+{
+	Token opToken = parser_peek_token(parser);
+	ASSERT(opToken.type == TOKEN_TYPE_PLUS_PLUS || opToken.type == TOKEN_TYPE_MINUS_MINUS);
+
+	parser_eat_token(parser); // eat op
+
+	Expression* expr          = new_expression(parser);
+	expr->type                = EXPRESSION_TYPE_INCDEC;
+	expr->incdec.is_increment = (opToken.type == TOKEN_TYPE_PLUS_PLUS);
+	expr->incdec.is_postfix   = false;
+
+	expr->incdec.operand = parser_parse_expression_with_precedence(parser, PRECEDENCE_UNARY);
+	if (expr->incdec.operand->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_expression;
+
+	expr->span = span_extend(opToken.span, expr->incdec.operand->span);
+
+	return expr;
+}
+
+Expression* parser_parse_postfix_incdec_expression(Parser* parser, Expression* left)
+{
+	Token opToken = parser_peek_token(parser);
+	ASSERT(opToken.type == TOKEN_TYPE_PLUS_PLUS || opToken.type == TOKEN_TYPE_MINUS_MINUS);
+
+	parser_eat_token(parser); // eat op
+
+	Expression* expr          = new_expression(parser);
+	expr->type                = EXPRESSION_TYPE_INCDEC;
+	expr->incdec.is_increment = (opToken.type == TOKEN_TYPE_PLUS_PLUS);
+	expr->incdec.is_postfix   = true;
+	expr->incdec.operand      = left;
+	expr->span                = span_extend(left->span, opToken.span);
+
+	return expr;
+}
+
 bool parser_parse_token(Parser* parser, TokenType expected_type)
 {
 	Token tok = parser_peek_token(parser);
@@ -597,6 +678,12 @@ bool parser_parse_type(Parser* parser, Type** out_type)
 	return true;
 }
 
+bool is_assignment_token(TokenType type)
+{
+	return type == TOKEN_TYPE_EQUALS || type == TOKEN_TYPE_PLUS_EQUAL || type == TOKEN_TYPE_MINUS_EQUAL ||
+	       type == TOKEN_TYPE_STAR_EQUAL || type == TOKEN_TYPE_SLASH_EQUAL;
+}
+
 static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_AS_KEYWORD]    = {nullptr, parser_parse_cast_expression, PRECEDENCE_CAST},
     [TOKEN_TYPE_OPEN_PAREN]    = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
@@ -616,6 +703,10 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_TRUE_KEYWORD]  = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_FALSE_KEYWORD] = {parser_parse_constant_expression, nullptr, PRECEDENCE_NONE},
     [TOKEN_TYPE_IDENTIFIER]    = {parser_parse_identifier_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_PLUS_PLUS]     = {parser_parse_prefix_incdec_expression, parser_parse_postfix_incdec_expression,
+                                  PRECEDENCE_POSTFIX},
+    [TOKEN_TYPE_MINUS_MINUS]   = {parser_parse_prefix_incdec_expression, parser_parse_postfix_incdec_expression,
+                                  PRECEDENCE_POSTFIX},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 41, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 47, "Update parse_rules when adding new token types");

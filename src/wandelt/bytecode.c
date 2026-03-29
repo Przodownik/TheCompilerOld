@@ -345,6 +345,18 @@ u8 bytecode_compiler_allocate_register(BytecodeCompiler* compiler)
 	return compiler->next_free_reg_idx++;
 }
 
+u8 bytecode_compiler_find_variable_register(BytecodeCompiler* compiler, StringView name)
+{
+	for (i64 i = compiler->local_count - 1; i >= 0; i--)
+	{
+		Variable* local = &compiler->variables[i];
+		if (string_view_equals(local->name, name))
+			return local->reg;
+	}
+
+	ASSERT(false, "Undefined variable in bytecode compiler");
+}
+
 void bytecode_compiler_set_line_from_span(BytecodeCompiler* c, Span span)
 {
 	ASSERT(c->source, "Source file is required to set line from span");
@@ -445,7 +457,7 @@ Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_
 
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
 
 	bytecode_compiler_set_line_from_span(compiler, stmt->span);
 
@@ -465,6 +477,10 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 
 	case STATEMENT_TYPE_RETURN:
 		bytecode_compiler_compile_return_statement(compiler, stmt);
+		break;
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		bytecode_compiler_compile_assignment_statement(compiler, stmt);
 		break;
 
 	case STATEMENT_TYPE_COUNT:
@@ -503,9 +519,28 @@ void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Stat
 	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_RETURN, reg, UNUSED_REG));
 }
 
+void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	AssignmentStatement* assign = &stmt->assign_stmt;
+	u8 target_reg               = bytecode_compiler_find_variable_register(compiler, assign->target_identifier);
+
+	if (assign->operator == ASSIGNMENT_OPERATOR_PURE)
+	{
+		u8 value_reg = bytecode_compiler_compile_expression(compiler, assign->value);
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(OP_CODE_MOVE, target_reg, value_reg, 0));
+	}
+	else
+	{
+		u8 value_reg          = bytecode_compiler_compile_expression(compiler, assign->value);
+		BinaryOperator bin_op = assignment_operator_to_binary_operator(assign->operator);
+		OpCode op             = bytecode_compiler_select_binary_opcode(bin_op, assign->target_type);
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, target_reg, target_reg, value_reg));
+	}
+}
+
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
 
 	bytecode_compiler_set_line_from_span(compiler, expr->span);
 
@@ -532,6 +567,9 @@ u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* 
 
 	case EXPRESSION_TYPE_CAST:
 		return bytecode_compiler_compile_cast_expression(compiler, expr);
+
+	case EXPRESSION_TYPE_INCDEC:
+		return bytecode_compiler_compile_incdec_expression(compiler, expr);
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -603,15 +641,7 @@ u8 bytecode_compiler_compile_group_expression(BytecodeCompiler* compiler, Expres
 
 u8 bytecode_compiler_compile_identifier_expression(BytecodeCompiler* compiler, Expression* expr)
 {
-	for (i64 i = compiler->local_count - 1; i >= 0; i--)
-	{
-		Variable* local = &compiler->variables[i];
-
-		if (string_view_equals(local->name, expr->identifier.name))
-			return local->reg;
-	}
-
-	ASSERT(false, "Undefined variable");
+	return bytecode_compiler_find_variable_register(compiler, expr->identifier.name);
 }
 
 u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Expression* expr)
@@ -629,4 +659,44 @@ u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Express
 	}
 
 	return src;
+}
+
+u8 bytecode_compiler_compile_incdec_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	ASSERT(expr->incdec.operand->type == EXPRESSION_TYPE_IDENTIFIER);
+
+	u8 var_reg = bytecode_compiler_find_variable_register(compiler, expr->incdec.operand->identifier.name);
+
+	Value one_val;
+	Type* var_type = expr->resolved_type;
+	if (var_type->kind == TYPE_KIND_FLOAT)
+		one_val = value_f32(1.0f);
+	else if (var_type->kind == TYPE_KIND_DOUBLE)
+		one_val = value_f64(1.0);
+	else if (type_is_unsigned(var_type))
+		one_val = value_u64(1);
+	else
+		one_val = value_i64(1);
+
+	u8 one_reg = bytecode_compiler_allocate_register(compiler);
+	u32 k      = chunk_add_constant(&compiler->current_chunk, one_val);
+
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_LOAD_CONST, one_reg, k));
+
+	BinaryOperator bin_op = expr->incdec.is_increment ? BINARY_OPERATOR_ADD : BINARY_OPERATOR_SUB;
+	OpCode op             = bytecode_compiler_select_binary_opcode(bin_op, var_type);
+	if (expr->incdec.is_postfix)
+	{
+		// save old value, modify, return old
+		u8 old_reg = bytecode_compiler_allocate_register(compiler);
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(OP_CODE_MOVE, old_reg, var_reg, 0));
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, var_reg, var_reg, one_reg));
+		return old_reg;
+	}
+	else
+	{
+		// modify, return new value
+		chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, var_reg, var_reg, one_reg));
+		return var_reg;
+	}
 }

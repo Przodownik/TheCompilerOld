@@ -22,7 +22,7 @@ const char* resolve_status_to_cstr(ResolveStatus status)
 
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
@@ -40,6 +40,8 @@ const char* expression_type_to_cstr(ExpressionType type)
 		return "IdentifierExpression";
 	case EXPRESSION_TYPE_CAST:
 		return "CastExpression";
+	case EXPRESSION_TYPE_INCDEC:
+		return "IncDecExpression";
 	default:
 		break;
 	}
@@ -190,6 +192,7 @@ bool binary_operator_is_ordering(BinaryOperator op)
 const char* unary_operator_to_cstr(UnaryOperator op)
 {
 	static_assert(UNARY_OPERATOR_COUNT == 2, "Update unary_operator_to_cstr when adding new unary operators");
+
 	switch (op)
 	{
 	case UNARY_OPERATOR_INVALID:
@@ -200,6 +203,100 @@ const char* unary_operator_to_cstr(UnaryOperator op)
 		break;
 	}
 	ASSERT(false, "Unknown unary operator");
+}
+
+const char* assignment_operator_to_cstr(AssignmentOperator op)
+{
+	static_assert(ASSIGNMENT_OPERATOR_COUNT == 6, "Update assignment_operator_to_cstr");
+
+	switch (op)
+	{
+	case ASSIGNMENT_OPERATOR_INVALID:
+		return "InvalidAssignmentOperator";
+	case ASSIGNMENT_OPERATOR_PURE:
+		return "Assign";
+	case ASSIGNMENT_OPERATOR_ADD:
+		return "AddAssign";
+	case ASSIGNMENT_OPERATOR_SUB:
+		return "SubAssign";
+	case ASSIGNMENT_OPERATOR_MUL:
+		return "MulAssign";
+	case ASSIGNMENT_OPERATOR_DIV:
+		return "DivAssign";
+	default:
+		break;
+	}
+
+	ASSERT(false, "Unknown assignment operator");
+}
+
+const char* assignment_operator_to_token_cstr(AssignmentOperator op)
+{
+	static_assert(ASSIGNMENT_OPERATOR_COUNT == 6, "Update assignment_operator_to_token_cstr");
+
+	switch (op)
+	{
+	case ASSIGNMENT_OPERATOR_INVALID:
+		return "???";
+	case ASSIGNMENT_OPERATOR_PURE:
+		return "=";
+	case ASSIGNMENT_OPERATOR_ADD:
+		return "+=";
+	case ASSIGNMENT_OPERATOR_SUB:
+		return "-=";
+	case ASSIGNMENT_OPERATOR_MUL:
+		return "*=";
+	case ASSIGNMENT_OPERATOR_DIV:
+		return "/=";
+	default:
+		break;
+	}
+
+	ASSERT(false, "Unknown assignment operator");
+}
+
+AssignmentOperator token_type_to_assignment_operator(TokenType type)
+{
+	static_assert(ASSIGNMENT_OPERATOR_COUNT == 6, "Update token_type_to_assignment_operator");
+
+	switch (type)
+	{
+	case TOKEN_TYPE_EQUALS:
+		return ASSIGNMENT_OPERATOR_PURE;
+	case TOKEN_TYPE_PLUS_EQUAL:
+		return ASSIGNMENT_OPERATOR_ADD;
+	case TOKEN_TYPE_MINUS_EQUAL:
+		return ASSIGNMENT_OPERATOR_SUB;
+	case TOKEN_TYPE_STAR_EQUAL:
+		return ASSIGNMENT_OPERATOR_MUL;
+	case TOKEN_TYPE_SLASH_EQUAL:
+		return ASSIGNMENT_OPERATOR_DIV;
+	default:
+		break;
+	}
+
+	ASSERT(false, "Token '%s' is not an assignment operator", token_type_to_cstr(type));
+}
+
+BinaryOperator assignment_operator_to_binary_operator(AssignmentOperator op)
+{
+	static_assert(ASSIGNMENT_OPERATOR_COUNT == 6, "Update assignment_operator_to_binary_operator");
+
+	switch (op)
+	{
+	case ASSIGNMENT_OPERATOR_ADD:
+		return BINARY_OPERATOR_ADD;
+	case ASSIGNMENT_OPERATOR_SUB:
+		return BINARY_OPERATOR_SUB;
+	case ASSIGNMENT_OPERATOR_MUL:
+		return BINARY_OPERATOR_MUL;
+	case ASSIGNMENT_OPERATOR_DIV:
+		return BINARY_OPERATOR_DIV;
+	default:
+		break;
+	}
+
+	ASSERT(false, "Assignment operator '%s' has no binary equivalent", assignment_operator_to_cstr(op));
 }
 
 const char* declaration_type_to_cstr(DeclarationType type)
@@ -223,7 +320,7 @@ const char* declaration_type_to_cstr(DeclarationType type)
 
 const char* statement_type_to_cstr(StatementType type)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update statement_type_to_cstr when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update statement_type_to_cstr when adding new statement types");
 
 	switch (type)
 	{
@@ -235,6 +332,8 @@ const char* statement_type_to_cstr(StatementType type)
 		return "ExpressionStatement";
 	case STATEMENT_TYPE_RETURN:
 		return "ReturnStatement";
+	case STATEMENT_TYPE_ASSIGNMENT:
+		return "AssignmentStatement";
 	default:
 		break;
 	}
@@ -244,7 +343,7 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
@@ -300,6 +399,17 @@ static void dump_expression(Expression* expr, int indent)
 		printf("%*sExpression:\n", indent + 2, "");
 		dump_expression(expr->cast.expression, indent + 4);
 	}
+	else if (expr->type == EXPRESSION_TYPE_INCDEC)
+	{
+		printf("%*s%s %s\n", indent + 2, "", expr->incdec.is_increment ? "Increment" : "Decrement",
+		       expr->incdec.is_postfix ? "(postfix)" : "(prefix)");
+		printf("%*sOperand:\n", indent + 2, "");
+		dump_expression(expr->incdec.operand, indent + 4);
+	}
+	else
+	{
+		ASSERT(false);
+	}
 }
 
 static void dump_declaration(Declaration* decl, int indent)
@@ -320,11 +430,15 @@ static void dump_declaration(Declaration* decl, int indent)
 		printf("%*sInitializer:\n", indent + 2, "");
 		dump_expression(decl->variable.initializer, indent + 4);
 	}
+	else
+	{
+		ASSERT(false);
+	}
 }
 
 static void dump_statement(Statement* stmt, int indent)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update dump_statement when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update dump_statement when adding new statement types");
 
 	if (!stmt)
 		return;
@@ -342,7 +456,14 @@ static void dump_statement(Statement* stmt, int indent)
 	case STATEMENT_TYPE_RETURN:
 		dump_expression(stmt->return_stmt.expression, indent + 2);
 		break;
+	case STATEMENT_TYPE_ASSIGNMENT:
+		printf("%*sAssignment: %s\n", indent + 2, "", assignment_operator_to_cstr(stmt->assign_stmt.operator));
+		printf("%*sTarget: %.*s\n", indent + 2, "", FMT_STR_ARG(stmt->assign_stmt.target_identifier));
+		printf("%*sValue:\n", indent + 2, "");
+		dump_expression(stmt->assign_stmt.value, indent + 4);
+		break;
 	default:
+		ASSERT(false);
 		break;
 	}
 }

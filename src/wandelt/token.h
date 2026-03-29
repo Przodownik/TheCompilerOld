@@ -53,6 +53,12 @@ typedef enum TokenType
 	TOKEN_TYPE_LESS_EQUAL,    //  <=
 	TOKEN_TYPE_EQUAL_EQUAL,   //  ==
 	TOKEN_TYPE_BANG_EQUAL,    //  !=
+	TOKEN_TYPE_PLUS_EQUAL,    //  +=
+	TOKEN_TYPE_MINUS_EQUAL,   //  -=
+	TOKEN_TYPE_STAR_EQUAL,    //  *=
+	TOKEN_TYPE_SLASH_EQUAL,   //  /=
+	TOKEN_TYPE_PLUS_PLUS,     //  ++
+	TOKEN_TYPE_MINUS_MINUS,   //  --
 
 	// Other
 	TOKEN_TYPE_IDENTIFIER, //  ident

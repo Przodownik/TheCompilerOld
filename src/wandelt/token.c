@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 41, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 47, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -82,6 +82,18 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_EQUAL_EQUAL";
 	case TOKEN_TYPE_BANG_EQUAL:
 		return "TOKEN_TYPE_BANG_EQUAL";
+	case TOKEN_TYPE_PLUS_EQUAL:
+		return "TOKEN_TYPE_PLUS_EQUAL";
+	case TOKEN_TYPE_MINUS_EQUAL:
+		return "TOKEN_TYPE_MINUS_EQUAL";
+	case TOKEN_TYPE_STAR_EQUAL:
+		return "TOKEN_TYPE_STAR_EQUAL";
+	case TOKEN_TYPE_SLASH_EQUAL:
+		return "TOKEN_TYPE_SLASH_EQUAL";
+	case TOKEN_TYPE_PLUS_PLUS:
+		return "TOKEN_TYPE_PLUS_PLUS";
+	case TOKEN_TYPE_MINUS_MINUS:
+		return "TOKEN_TYPE_MINUS_MINUS";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "TOKEN_TYPE_IDENTIFIER";
@@ -103,7 +115,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 41, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 47, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -183,6 +195,18 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "==";
 	case TOKEN_TYPE_BANG_EQUAL:
 		return "!=";
+	case TOKEN_TYPE_PLUS_EQUAL:
+		return "+=";
+	case TOKEN_TYPE_MINUS_EQUAL:
+		return "-=";
+	case TOKEN_TYPE_STAR_EQUAL:
+		return "*=";
+	case TOKEN_TYPE_SLASH_EQUAL:
+		return "/=";
+	case TOKEN_TYPE_PLUS_PLUS:
+		return "++";
+	case TOKEN_TYPE_MINUS_MINUS:
+		return "--";
 
 	case TOKEN_TYPE_IDENTIFIER:
 		return "identifier";

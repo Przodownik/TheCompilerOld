@@ -36,7 +36,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 41, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 47, "Update lexer tests when adding new token types");
 
 // ---------------------------------------------------------------------------
 // Empty / whitespace-only inputs
@@ -255,6 +255,65 @@ TEST(bang_equal)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_BANG_EQUAL);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "!=");
+}
+
+TEST(plus_equal)
+{
+	const char* src = "+=";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_PLUS_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "+=");
+}
+
+TEST(minus_equal)
+{
+	const char* src = "-=";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_MINUS_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "-=");
+}
+
+TEST(star_equal)
+{
+	const char* src = "*=";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_STAR_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "*=");
+}
+
+TEST(slash_equal)
+{
+	const char* src = "/=";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_SLASH_EQUAL);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "/=");
+}
+TEST(plus_plus)
+{
+	const char* src = "++";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_PLUS_PLUS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "++");
+}
+
+TEST(minus_minus)
+{
+	const char* src = "--";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_MINUS_MINUS);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "--");
 }
 
 // ---------------------------------------------------------------------------
@@ -911,6 +970,12 @@ TestResults run_lexer_tests(void)
 	RUN_TEST(less_equal);
 	RUN_TEST(equal_equal);
 	RUN_TEST(bang_equal);
+	RUN_TEST(plus_equal);
+	RUN_TEST(minus_equal);
+	RUN_TEST(star_equal);
+	RUN_TEST(slash_equal);
+	RUN_TEST(plus_plus);
+	RUN_TEST(minus_minus);
 
 	print_section("Identifiers");
 	RUN_TEST(simple_identifier);

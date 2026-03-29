@@ -38,7 +38,7 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 
 bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -54,6 +54,9 @@ bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_RETURN:
 		return ast_optimizer_fold_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		return ast_optimizer_fold_assignment_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_COUNT:
 	default:
@@ -85,8 +88,15 @@ bool ast_optimizer_fold_return_statement(AstOptimizer* optimizer, Statement* stm
 	return ast_optimizer_fold_expression(optimizer, &stmt->return_stmt.expression);
 }
 
+bool ast_optimizer_fold_assignment_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_fold_expression(optimizer, &stmt->assign_stmt.value);
+}
+
 bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr)
 {
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+
 	const Expression* expression = *expr;
 
 	switch (expression->type)
@@ -112,6 +122,9 @@ bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr)
 
 	case EXPRESSION_TYPE_CAST:
 		return ast_optimizer_fold_cast_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_INCDEC:
+		return ast_optimizer_fold_incdec_expression(optimizer, expr);
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -563,9 +576,18 @@ bool ast_optimizer_fold_cast_expression(AstOptimizer* optimizer, Expression** ex
 	return changed;
 }
 
+bool ast_optimizer_fold_incdec_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+	(void)expr;
+
+	// Cannot fold has a side effect, data flow analysis needed
+	return false;
+}
+
 bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 4, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -581,6 +603,9 @@ bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_RETURN:
 		return ast_optimizer_propagate_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		return ast_optimizer_propagate_assignment_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_COUNT:
 	default:
@@ -609,8 +634,15 @@ bool ast_optimizer_propagate_return_statement(AstOptimizer* optimizer, Statement
 	return ast_optimizer_propagate_expression(optimizer, &stmt->return_stmt.expression);
 }
 
+bool ast_optimizer_propagate_assignment_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	return ast_optimizer_propagate_expression(optimizer, &stmt->assign_stmt.value);
+}
+
 bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** expr)
 {
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+
 	const Expression* expression = *expr;
 
 	switch (expression->type)
@@ -636,6 +668,9 @@ bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** ex
 
 	case EXPRESSION_TYPE_CAST:
 		return ast_optimizer_propagate_cast_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_INCDEC:
+		return ast_optimizer_propagate_incdec_expression(optimizer, expr);
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -685,6 +720,10 @@ bool ast_optimizer_propagate_identifier_expression(AstOptimizer* optimizer, Expr
 	if (decl->type != DECLARATION_TYPE_VARIABLE)
 		return false;
 
+	// Do not propagate if the variable has been assigned to
+	if (decl->variable.is_ever_assigned)
+		return false;
+
 	Expression* init = decl->variable.initializer;
 	if (init->type != EXPRESSION_TYPE_CONSTANT)
 		return false;
@@ -700,6 +739,15 @@ bool ast_optimizer_propagate_cast_expression(AstOptimizer* optimizer, Expression
 	Expression* expression = *expr;
 
 	return ast_optimizer_propagate_expression(optimizer, &expression->cast.expression);
+}
+
+bool ast_optimizer_propagate_incdec_expression(AstOptimizer* optimizer, Expression** expr)
+{
+	(void)optimizer;
+	(void)expr;
+
+	// Cannot fold has a side effect, data flow analysis needed
+	return false;
 }
 
 void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
@@ -734,6 +782,8 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 
 void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 {
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
@@ -758,6 +808,10 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 		ast_optimizer_dce_mark_expression(expr->cast.expression, used);
 		break;
 
+	case EXPRESSION_TYPE_INCDEC:
+		ast_optimizer_dce_mark_expression(expr->incdec.operand, used);
+		break;
+
 	case EXPRESSION_TYPE_CONSTANT:
 	default:
 		break;
@@ -766,6 +820,8 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 
 void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 {
+	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
+
 	switch (stmt->type)
 	{
 	case STATEMENT_TYPE_EXPRESSION:
@@ -778,6 +834,13 @@ void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 
 	case STATEMENT_TYPE_DECLARATION:
 		// Don't mark declarations' own initializers — only non-decl uses count
+		break;
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		if (stmt->assign_stmt.target_decl_ref)
+			vector_push(used, stmt->assign_stmt.target_decl_ref);
+
+		ast_optimizer_dce_mark_expression(stmt->assign_stmt.value, used);
 		break;
 
 	default:

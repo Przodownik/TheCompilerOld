@@ -40,9 +40,10 @@ typedef enum Precedence
 	PRECEDENCE_COMPARISON, // == != < > <= >=
 	PRECEDENCE_ADDITIVE,   // + -
 	PRECEDENCE_MULTIPLY,   // * /
-	PRECEDENCE_UNARY,
-	PRECEDENCE_CAST,    // as
-	PRECEDENCE_PRIMARY, // literals, identifiers
+	PRECEDENCE_UNARY,      // prefix -, prefix ++/--
+	PRECEDENCE_CAST,       // as
+	PRECEDENCE_POSTFIX,    // postfix ++/--
+	PRECEDENCE_PRIMARY,    // literals, identifiers
 } Precedence;
 
 typedef Expression* (*PrefixParseFn)(Parser* parser);
@@ -62,6 +63,7 @@ Statement* parser_parse_statement(Parser* parser);
 Statement* parser_parse_declaration_statement(Parser* parser);
 Statement* parser_parse_expression_statement(Parser* parser);
 Statement* parser_parse_return_statement(Parser* parser);
+Statement* parser_parse_assignment_statement(Parser* parser);
 
 Declaration* parser_parse_declaration(Parser* parser);
 Declaration* parser_parse_namespace_declaration(Parser* parser);
@@ -79,7 +81,11 @@ Expression* parser_parse_binary_expression(Parser* parser, Expression* left);
 Expression* parser_parse_group_expression(Parser* parser);
 Expression* parser_parse_identifier_expression(Parser* parser);
 Expression* parser_parse_cast_expression(Parser* parser, Expression* left);
+Expression* parser_parse_prefix_incdec_expression(Parser* parser);
+Expression* parser_parse_postfix_incdec_expression(Parser* parser, Expression* left);
 
 bool parser_parse_token(Parser* parser, TokenType expected_type);
 bool parser_parse_identifier(Parser* parser, StringView* out_identifier);
 bool parser_parse_type(Parser* parser, Type** out_type);
+
+bool is_assignment_token(TokenType type);

@@ -1,14 +1,15 @@
-Lexer:
 
-Parser:
-- add tests
-
-Sema:
-- add tests
-
-Bytecode:
+1) Bytecode:
 - How to call like external functions?
 
-Tests:
+2) Tests:
 - Ensure tests stop when any part of the pipeline returns errors
 specificaly ast optimizer tests can crash since they dont care about sema errors - should be fixed
+
+3) Ast dump - compact the output to like:
+    -astcompact flag
+e.g.
+AST:
+    [0] DeclarationStatement: var int x = 5
+    [1] AssignmentStatement: target='x', op=ADD, value=3
+    [2] ReturnStatement: IdentifierExpression('x')

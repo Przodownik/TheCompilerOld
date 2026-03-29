@@ -1,5 +1,5 @@
-#include "diagnostics.h"
 #include "lexer.h"
+#include "diagnostics.h"
 #include "wandelt/string.h"
 #include "wandelt/token.h"
 #include <assert.h>
@@ -283,7 +283,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 41, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 47, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -315,16 +315,58 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SEMICOLON);
 		break;
 	case '+':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_PLUS);
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_PLUS_EQUAL);
+		}
+		else if (lexer_get_current_char(lexer) == '+')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_PLUS_PLUS);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_PLUS);
+		}
 		break;
 	case '-':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_MINUS);
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_MINUS_EQUAL);
+		}
+		else if (lexer_get_current_char(lexer) == '-')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_MINUS_MINUS);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_MINUS);
+		}
 		break;
 	case '*':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_STAR);
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_STAR_EQUAL);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_STAR);
+		}
 		break;
 	case '/':
-		token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH);
+		if (lexer_get_current_char(lexer) == '=')
+		{
+			_lexer_advance(lexer);
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH_EQUAL);
+		}
+		else
+		{
+			token = _lexer_create_new_token(lexer, TOKEN_TYPE_SLASH);
+		}
 		break;
 	case '=':
 		if (lexer_get_current_char(lexer) == '=')

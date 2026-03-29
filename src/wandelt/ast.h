@@ -28,6 +28,7 @@ typedef enum ExpressionType
 	EXPRESSION_TYPE_GROUP,
 	EXPRESSION_TYPE_IDENTIFIER,
 	EXPRESSION_TYPE_CAST,
+	EXPRESSION_TYPE_INCDEC,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
 
@@ -119,6 +120,29 @@ typedef struct CastExpression
 	struct Expression* expression;
 } CastExpression;
 
+typedef enum AssignmentOperator
+{
+	ASSIGNMENT_OPERATOR_INVALID = 0,
+	ASSIGNMENT_OPERATOR_PURE, // =
+	ASSIGNMENT_OPERATOR_ADD,  // +=
+	ASSIGNMENT_OPERATOR_SUB,  // -=
+	ASSIGNMENT_OPERATOR_MUL,  // *=
+	ASSIGNMENT_OPERATOR_DIV,  // /=
+	ASSIGNMENT_OPERATOR_COUNT,
+} AssignmentOperator;
+
+const char* assignment_operator_to_cstr(AssignmentOperator op);
+const char* assignment_operator_to_token_cstr(AssignmentOperator op);
+AssignmentOperator token_type_to_assignment_operator(TokenType type);
+BinaryOperator assignment_operator_to_binary_operator(AssignmentOperator op);
+
+typedef struct IncDecExpression
+{
+	struct Expression* operand;
+	bool is_increment;
+	bool is_postfix;
+} IncDecExpression;
+
 typedef struct Expression
 {
 	ExpressionType type;
@@ -134,6 +158,7 @@ typedef struct Expression
 		GroupExpression group;
 		IdentifierExpression identifier;
 		CastExpression cast;
+		IncDecExpression incdec;
 	};
 } Expression;
 
@@ -157,6 +182,7 @@ typedef struct VariableDeclaration
 	StringView name;
 	Type* type;
 	Expression* initializer;
+	bool is_ever_assigned;
 } VariableDeclaration;
 
 typedef struct Declaration
@@ -177,6 +203,7 @@ typedef enum StatementType
 	STATEMENT_TYPE_DECLARATION,
 	STATEMENT_TYPE_EXPRESSION,
 	STATEMENT_TYPE_RETURN,
+	STATEMENT_TYPE_ASSIGNMENT,
 	STATEMENT_TYPE_COUNT,
 } StatementType;
 
@@ -197,6 +224,15 @@ typedef struct ReturnStatement
 	Expression* expression;
 } ReturnStatement;
 
+typedef struct AssignmentStatement
+{
+	AssignmentOperator operator;
+	StringView target_identifier;
+	Declaration* target_decl_ref;
+	Type* target_type;
+	Expression* value;
+} AssignmentStatement;
+
 typedef struct Statement
 {
 	StatementType type;
@@ -207,6 +243,7 @@ typedef struct Statement
 		DeclarationStatement decl_stmt;
 		ExpressionStatement expr_stmt;
 		ReturnStatement return_stmt;
+		AssignmentStatement assign_stmt;
 	};
 } Statement;
 

@@ -133,14 +133,23 @@ bool sema_analyze_pass_unused_variables(Sema* sema, TranslationUnit* tu)
 
 bool sema_analyze_statement(Sema* sema, Statement* stmt)
 {
+	static_assert(STATEMENT_TYPE_COUNT == 5,
+	              "sema_analyze_statement needs to be updated to handle new statement types");
+
 	switch (stmt->type)
 	{
 	case STATEMENT_TYPE_DECLARATION:
 		return sema_analyze_declaration_statement(sema, stmt);
+
 	case STATEMENT_TYPE_EXPRESSION:
 		return sema_analyze_expression_statement(sema, stmt);
+
 	case STATEMENT_TYPE_RETURN:
 		return sema_analyze_return_statement(sema, stmt);
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		return sema_analyze_assignment_statement(sema, stmt);
+
 	case STATEMENT_TYPE_INVALID:
 	case STATEMENT_TYPE_COUNT:
 		break;
@@ -154,6 +163,85 @@ bool sema_analyze_return_statement(Sema* sema, Statement* stmt)
 {
 	if (!sema_check_expression(sema, stmt->return_stmt.expression, nullptr))
 		return false;
+
+	return true;
+}
+
+bool sema_analyze_assignment_statement(Sema* sema, Statement* stmt)
+{
+	AssignmentStatement* assign = &stmt->assign_stmt;
+
+	Symbol* sym = symtab_lookup(&sema->symbol_table, assign->target_identifier, true);
+	if (sym == nullptr)
+	{
+		diagnostics_verror_along_span(stmt->span, sema->source, "Undefined variable '%.*s'",
+		                              FMT_STR_ARG(assign->target_identifier));
+		return false;
+	}
+
+	if (sym->kind != SYMBOL_KIND_VARIABLE)
+	{
+		diagnostics_verror_along_span(stmt->span, sema->source, "'%.*s' is not a variable, so it cannot be assigned to",
+		                              FMT_STR_ARG(assign->target_identifier));
+		return false;
+	}
+
+	ASSERT(sym->declaration_ref->type == DECLARATION_TYPE_VARIABLE);
+
+	sym->declaration_ref->variable.is_ever_assigned = true;
+
+	assign->target_decl_ref = sym->declaration_ref;
+	assign->target_type     = sym->type;
+
+	Type* target_type = sym->type;
+	if (assign->operator == ASSIGNMENT_OPERATOR_PURE)
+	{
+		if (!sema_check_expression(sema, assign->value, target_type))
+			return false;
+
+		Type* value_type = assign->value->resolved_type;
+		if (target_type != value_type)
+		{
+			if (!type_is_implicitly_convertible(value_type, target_type))
+			{
+				diagnostics_verror_along_span(
+				    stmt->span, sema->source, "Cannot implicitly cast value of type '%s' to variable type '%s'",
+				    type_kind_to_cstr(value_type->kind), type_kind_to_cstr(target_type->kind));
+				return false;
+			}
+
+			assign->value = sema_insert_cast(sema, assign->value, target_type);
+		}
+	}
+	else
+	{
+		if (!sema_check_expression(sema, assign->value, target_type))
+			return false;
+
+		Type* value_type = assign->value->resolved_type;
+		if (!type_is_arithmetic(target_type))
+		{
+			diagnostics_verror_along_span(
+			    stmt->span, sema->source, "Cannot use compound assignment '%s' on non-arithmetic type '%s'",
+			    assignment_operator_to_token_cstr(assign->operator), type_kind_to_cstr(target_type->kind));
+			return false;
+		}
+
+		if (value_type != target_type)
+		{
+			if (assign->value->type == EXPRESSION_TYPE_CONSTANT)
+				sema_promote_constant(assign->value, target_type);
+			else if (type_is_implicitly_convertible(value_type, target_type))
+				assign->value = sema_insert_cast(sema, assign->value, target_type);
+			else
+			{
+				diagnostics_verror_along_span(
+				    stmt->span, sema->source, "Incompatible types '%s' and '%s' in compound assignment",
+				    type_kind_to_cstr(target_type->kind), type_kind_to_cstr(value_type->kind));
+				return false;
+			}
+		}
+	}
 
 	return true;
 }
@@ -265,26 +353,33 @@ bool sema_check_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hint)
 {
-	(void)type_hint;
-
-	static_assert(EXPRESSION_TYPE_COUNT == 7, "Update sema_check_expression_internal when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update sema_check_expression_internal when adding new expression types");
 
 	switch (expr->type)
 	{
 	case EXPRESSION_TYPE_CONSTANT:
 		return sema_check_constant_expression(sema, expr, type_hint);
+
 	case EXPRESSION_TYPE_UNARY:
 		return sema_check_unary_expression(sema, expr, type_hint);
+
 	case EXPRESSION_TYPE_BINARY:
 		return sema_check_binary_expression(sema, expr, type_hint);
+
 	case EXPRESSION_TYPE_GROUP:
 		return sema_check_group_expression(sema, expr, type_hint);
 		break;
+
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return sema_check_identifier_expression(sema, expr, type_hint);
 		break;
+
 	case EXPRESSION_TYPE_CAST:
 		return sema_check_cast_expression(sema, expr, type_hint);
+
+	case EXPRESSION_TYPE_INCDEC:
+		return sema_check_incdec_expression(sema, expr, type_hint);
+
 	case EXPRESSION_TYPE_INVALID:
 	case EXPRESSION_TYPE_COUNT:
 		break;
@@ -528,6 +623,49 @@ bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint)
 	}
 
 	expr->resolved_type = target;
+	return true;
+}
+
+bool sema_check_incdec_expression(Sema* sema, Expression* expr, Type* type_hint)
+{
+	(void)type_hint;
+
+	// lvalue check
+	if (expr->incdec.operand->type != EXPRESSION_TYPE_IDENTIFIER)
+	{
+		diagnostics_verror_along_span(expr->incdec.operand->span, sema->source, "%s operand must be a variable",
+		                              expr->incdec.is_increment ? "Increment" : "Decrement");
+		return false;
+	}
+
+	if (!sema_check_expression(sema, expr->incdec.operand, nullptr))
+		return false;
+
+	Type* operand_type = expr->incdec.operand->resolved_type;
+	if (type_is_bool(operand_type))
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "Cannot %s 'bool' type",
+		                              expr->incdec.is_increment ? "increment" : "decrement");
+		return false;
+	}
+
+	if (!type_is_arithmetic(operand_type))
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "Cannot %s non-arithmetic type '%s'",
+		                              expr->incdec.is_increment ? "increment" : "decrement",
+		                              type_kind_to_cstr(operand_type->kind));
+		return false;
+	}
+
+	// Mark variable as "assigned"
+	Symbol* sym = symtab_lookup(&sema->symbol_table, expr->incdec.operand->identifier.name, true);
+	ASSERT(sym != nullptr); // for safety, should be handled by check_identifier_expression
+
+	if (sym->declaration_ref->type == DECLARATION_TYPE_VARIABLE)
+		sym->declaration_ref->variable.is_ever_assigned = true;
+
+	expr->resolved_type = operand_type;
+
 	return true;
 }
 

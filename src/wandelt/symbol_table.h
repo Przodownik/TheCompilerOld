@@ -9,7 +9,6 @@
 #include "wandelt/file.h"
 #include "wandelt/string.h"
 
-
 #define SYMTAB_BUCKETS 128
 
 typedef enum SymbolKind

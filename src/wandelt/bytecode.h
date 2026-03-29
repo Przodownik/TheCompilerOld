@@ -183,6 +183,8 @@ BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);
 Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_statements);
 
 u8 bytecode_compiler_allocate_register(BytecodeCompiler* compiler);
+u8 bytecode_compiler_find_variable_register(BytecodeCompiler* compiler, StringView name);
+
 void bytecode_compiler_set_line_from_span(BytecodeCompiler* c, Span span); // for disassembly
 OpCode bytecode_compiler_select_negate_opcode(Type* type);
 bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to);
@@ -192,6 +194,7 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt);
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr);
@@ -200,3 +203,4 @@ u8 bytecode_compiler_compile_binary_expression(BytecodeCompiler* compiler, Expre
 u8 bytecode_compiler_compile_group_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_identifier_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_incdec_expression(BytecodeCompiler* compiler, Expression* expr);
