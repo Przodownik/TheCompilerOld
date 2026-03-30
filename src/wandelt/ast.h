@@ -203,6 +203,8 @@ typedef enum StatementType
 	STATEMENT_TYPE_DECLARATION,
 	STATEMENT_TYPE_EXPRESSION,
 	STATEMENT_TYPE_RETURN,
+	STATEMENT_TYPE_BLOCK,
+	STATEMENT_TYPE_IF,
 	STATEMENT_TYPE_ASSIGNMENT,
 	STATEMENT_TYPE_COUNT,
 } StatementType;
@@ -224,6 +226,18 @@ typedef struct ReturnStatement
 	Expression* expression;
 } ReturnStatement;
 
+typedef struct BlockStatement
+{
+	struct Statement** statements;
+} BlockStatement;
+
+typedef struct IfStatement
+{
+	Expression* condition;
+	struct Statement* then_block;
+	struct Statement* else_block;
+} IfStatement;
+
 typedef struct AssignmentStatement
 {
 	AssignmentOperator operator;
@@ -243,6 +257,8 @@ typedef struct Statement
 		DeclarationStatement decl_stmt;
 		ExpressionStatement expr_stmt;
 		ReturnStatement return_stmt;
+		BlockStatement block_stmt;
+		IfStatement if_stmt;
 		AssignmentStatement assign_stmt;
 	};
 } Statement;

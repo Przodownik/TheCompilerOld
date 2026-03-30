@@ -320,7 +320,7 @@ const char* declaration_type_to_cstr(DeclarationType type)
 
 const char* statement_type_to_cstr(StatementType type)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update statement_type_to_cstr when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 7, "Update statement_type_to_cstr when adding new statement types");
 
 	switch (type)
 	{
@@ -332,6 +332,10 @@ const char* statement_type_to_cstr(StatementType type)
 		return "ExpressionStatement";
 	case STATEMENT_TYPE_RETURN:
 		return "ReturnStatement";
+	case STATEMENT_TYPE_BLOCK:
+		return "BlockStatement";
+	case STATEMENT_TYPE_IF:
+		return "IfStatement";
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return "AssignmentStatement";
 	default:
@@ -438,7 +442,7 @@ static void dump_declaration(Declaration* decl, int indent)
 
 static void dump_statement(Statement* stmt, int indent)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update dump_statement when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 7, "Update dump_statement when adding new statement types");
 
 	if (!stmt)
 		return;
@@ -455,6 +459,25 @@ static void dump_statement(Statement* stmt, int indent)
 		break;
 	case STATEMENT_TYPE_RETURN:
 		dump_expression(stmt->return_stmt.expression, indent + 2);
+		break;
+	case STATEMENT_TYPE_BLOCK:
+		printf("%*sStatements:\n", indent + 2, "");
+		for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+		{
+			printf("%*s[%llu] ", indent + 4, "", i);
+			dump_statement(stmt->block_stmt.statements[i], indent + 6);
+		}
+		break;
+	case STATEMENT_TYPE_IF:
+		printf("%*sCondition:\n", indent + 2, "");
+		dump_expression(stmt->if_stmt.condition, indent + 4);
+		printf("%*sThen branch:\n", indent + 2, "");
+		dump_statement(stmt->if_stmt.then_block, indent + 4);
+		if (stmt->if_stmt.else_block)
+		{
+			printf("%*sElse branch:\n", indent + 2, "");
+			dump_statement(stmt->if_stmt.else_block, indent + 4);
+		}
 		break;
 	case STATEMENT_TYPE_ASSIGNMENT:
 		printf("%*sAssignment: %s\n", indent + 2, "", assignment_operator_to_cstr(stmt->assign_stmt.operator));

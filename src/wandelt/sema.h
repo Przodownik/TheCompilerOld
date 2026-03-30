@@ -37,6 +37,8 @@ bool sema_analyze_pass_unused_variables(Sema* sema, TranslationUnit* tu);
 bool sema_analyze_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_return_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_assignment_statement(Sema* sema, Statement* stmt);
+bool sema_analyze_block_statement(Sema* sema, Statement* stmt);
+bool sema_analyze_if_statement(Sema* sema, Statement* stmt);
 
 bool sema_analyze_declaration_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_declaration(Sema* sema, Declaration* decl);

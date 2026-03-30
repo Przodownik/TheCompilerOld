@@ -82,6 +82,9 @@ typedef enum OpCode
 
 	OP_CODE_CAST, //        ABC     R(A) = convert(R(B), TypeKind(C))
 
+	OP_CODE_JUMP,       //  ABx     ip += Ax
+	OP_CODE_JUMP_FALSE, //  ABx     if !R(A) then ip += Bx
+
 	OP_CODE_RETURN, // return R(A)
 	OP_CODE_HALT,   // stop execution
 	OP_CODE_COUNT,

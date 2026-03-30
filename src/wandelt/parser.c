@@ -75,7 +75,7 @@ void parser_eat_token(Parser* parser)
 
 Statement* parser_parse_top_level_statement(Parser* parser)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5,
+	static_assert(STATEMENT_TYPE_COUNT == 7,
 	              "parser_parse_top_level_statement needs to be updated to handle new statement types");
 
 	Token tok = parser_peek_token(parser);
@@ -91,6 +91,13 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return parser_parse_declaration_statement(parser);
 
+	case TOKEN_TYPE_IF_KEYWORD:
+		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_PLUS_PLUS:
+	case TOKEN_TYPE_MINUS_MINUS:
+		return parser_parse_expression_statement(parser);
+
 	case TOKEN_TYPE_IDENTIFIER: {
 		// if next token is an assignment operator, parse as assignment
 		Token next = lexer_peek_token_at_offset(parser->lexer, 1);
@@ -101,16 +108,40 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 		return parser_parse_expression_statement(parser);
 	}
 
-	case TOKEN_TYPE_PLUS_PLUS:
-	case TOKEN_TYPE_MINUS_MINUS:
-		return parser_parse_expression_statement(parser);
-
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
 		                              "Expected a top-level statement, but found '%.*s'",
 		                              FMT_STR_ARG(get_token_lexeme(parser, tok)));
 		break;
 	};
+
+	return &invalid_statement;
+}
+
+Statement* parser_parse_inner_statement(Parser* parser)
+{
+	static_assert(STATEMENT_TYPE_COUNT == 7,
+	              "parser_parse_inner_statement needs to be updated to handle new statement types");
+
+	Token tok = parser_peek_token(parser);
+
+	switch (tok.type)
+	{
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return parser_parse_declaration_statement(parser);
+
+	case TOKEN_TYPE_RETURN_KEYWORD:
+		return parser_parse_return_statement(parser);
+
+	case TOKEN_TYPE_IF_KEYWORD:
+		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_OPEN_BRACE:
+		return parser_parse_block_statement(parser);
+
+	default:
+		return parser_parse_expression_statement(parser);
+	}
 
 	return &invalid_statement;
 }
@@ -200,6 +231,71 @@ Statement* parser_parse_return_statement(Parser* parser)
 		return &invalid_statement;
 
 	stmt->span = span_extend(returnToken.span, semicolonToken.span);
+
+	return stmt;
+}
+
+Statement* parser_parse_block_statement(Parser* parser)
+{
+	const Token openBrace = parser_peek_token(parser);
+	ASSERT(openBrace.type == TOKEN_TYPE_OPEN_BRACE);
+
+	parser_eat_token(parser); // eat '{'
+
+	Statement* stmt             = new_statement(parser);
+	stmt->type                  = STATEMENT_TYPE_BLOCK;
+	stmt->block_stmt.statements = vector_create(parser->stmt_allocator, 4, sizeof(Statement*));
+
+	while (parser_peek_token(parser).type != TOKEN_TYPE_CLOSE_BRACE)
+	{
+		Statement* inner = parser_parse_inner_statement(parser);
+		if (inner->type == STATEMENT_TYPE_INVALID)
+			return &invalid_statement;
+
+		vector_push(stmt->block_stmt.statements, inner);
+	}
+
+	const Token closeBrace = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_CLOSE_BRACE))
+		return &invalid_statement;
+
+	stmt->span = span_extend(openBrace.span, closeBrace.span);
+
+	return stmt;
+}
+
+Statement* parser_parse_if_statement(Parser* parser)
+{
+	const Token ifToken = parser_peek_token(parser);
+	ASSERT(ifToken.type == TOKEN_TYPE_IF_KEYWORD);
+
+	parser_eat_token(parser); // eat 'if'
+
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_IF;
+
+	stmt->if_stmt.condition = parser_parse_expression(parser);
+	if (stmt->if_stmt.condition->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	if (!parser_parse_token(parser, TOKEN_TYPE_OPEN_BRACE))
+		return &invalid_statement;
+
+	stmt->if_stmt.then_block = parser_parse_block_statement(parser);
+	if (stmt->if_stmt.then_block->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	if (parser_peek_token(parser).type == TOKEN_TYPE_ELSE_KEYWORD)
+	{
+		parser_eat_token(parser); // eat 'else'
+
+		stmt->if_stmt.else_block = parser_parse_block_statement(parser);
+		if (stmt->if_stmt.else_block->type == STATEMENT_TYPE_INVALID)
+			return &invalid_statement;
+	}
+
+	Span end_span = stmt->if_stmt.else_block ? stmt->if_stmt.else_block->span : stmt->if_stmt.then_block->span;
+	stmt->span    = span_extend(ifToken.span, end_span);
 
 	return stmt;
 }
@@ -709,4 +805,4 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
                                   PRECEDENCE_POSTFIX},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 47, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 49, "Update parse_rules when adding new token types");

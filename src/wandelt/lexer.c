@@ -177,6 +177,10 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 		if (ident.len == 6 && strncmp(ident.data, "double", 6) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_DOUBLE_KEYWORD);
 		break;
+	case 'e':
+		if (length == 4 && strncmp(ident.data, "else", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_ELSE_KEYWORD);
+		break;
 	case 'f':
 		if (ident.len == 2 && strncmp(ident.data, "fn", 2) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_FUNCTION_KEYWORD);
@@ -188,6 +192,8 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 	case 'i':
 		if (ident.len == 3 && strncmp(ident.data, "int", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_INT_KEYWORD);
+		if (length == 2 && strncmp(ident.data, "if", 2) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_IF_KEYWORD);
 		break;
 	case 'l':
 		if (ident.len == 4 && strncmp(ident.data, "long", 4) == 0)
@@ -283,7 +289,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 47, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 49, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 

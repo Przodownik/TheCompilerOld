@@ -133,7 +133,7 @@ bool sema_analyze_pass_unused_variables(Sema* sema, TranslationUnit* tu)
 
 bool sema_analyze_statement(Sema* sema, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5,
+	static_assert(STATEMENT_TYPE_COUNT == 7,
 	              "sema_analyze_statement needs to be updated to handle new statement types");
 
 	switch (stmt->type)
@@ -149,6 +149,12 @@ bool sema_analyze_statement(Sema* sema, Statement* stmt)
 
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return sema_analyze_assignment_statement(sema, stmt);
+
+	case STATEMENT_TYPE_BLOCK:
+		return sema_analyze_block_statement(sema, stmt);
+
+	case STATEMENT_TYPE_IF:
+		return sema_analyze_if_statement(sema, stmt);
 
 	case STATEMENT_TYPE_INVALID:
 	case STATEMENT_TYPE_COUNT:
@@ -241,6 +247,54 @@ bool sema_analyze_assignment_statement(Sema* sema, Statement* stmt)
 				return false;
 			}
 		}
+	}
+
+	return true;
+}
+
+bool sema_analyze_block_statement(Sema* sema, Statement* stmt)
+{
+	symtab_push_scope(&sema->symbol_table);
+
+	for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+	{
+		if (!sema_analyze_statement(sema, stmt->block_stmt.statements[i]))
+			return false;
+	}
+
+	symtab_pop_scope(&sema->symbol_table);
+
+	return true;
+}
+
+bool sema_analyze_if_statement(Sema* sema, Statement* stmt)
+{
+	if (!sema_check_expression(sema, stmt->if_stmt.condition, nullptr))
+		return false;
+
+	Type* cond_type = stmt->if_stmt.condition->resolved_type;
+	if (!type_is_bool(cond_type))
+	{
+		if (type_is_implicitly_convertible(cond_type, type_get_builtin(TYPE_KIND_BOOL)))
+		{
+			stmt->if_stmt.condition = sema_insert_cast(sema, stmt->if_stmt.condition, type_get_builtin(TYPE_KIND_BOOL));
+		}
+		else
+		{
+			diagnostics_verror_along_span(stmt->if_stmt.condition->span, sema->source,
+			                              "Condition in 'if' statement must be a boolean expression, got '%s'",
+			                              type_kind_to_cstr(cond_type->kind));
+			return false;
+		}
+	}
+
+	if (!sema_analyze_block_statement(sema, stmt->if_stmt.then_block))
+		return false;
+
+	if (stmt->if_stmt.else_block)
+	{
+		if (!sema_analyze_block_statement(sema, stmt->if_stmt.else_block))
+			return false;
 	}
 
 	return true;
