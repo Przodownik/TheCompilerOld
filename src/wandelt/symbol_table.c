@@ -1,8 +1,11 @@
 #include "symbol_table.h"
 
+#include <stdio.h>
+
 #include "wandelt/defines.h"
 #include "wandelt/hash.h"
 #include "wandelt/string.h"
+#include "wandelt/type.h"
 
 SymbolTable symtab_create(Allocator* allocator)
 {
@@ -92,5 +95,52 @@ Symbol* symtab_lookup(SymbolTable* tab, StringView name, bool is_used)
 		sym = sym->next_in_bucket;
 	}
 
+	symtab_debug_print(tab);
+
 	return nullptr;
+}
+
+void symtab_debug_print(const SymbolTable* tab)
+{
+	printf("Symbol Table ");
+	for (int i = 0; i < 51; i++) putchar('=');
+	putchar('\n');
+	printf("  Scope depth : %u\n", tab->scope_depth);
+
+	const Scope* scope = tab->current_scope;
+	while (scope != nullptr)
+	{
+		printf("\n  Scope (depth %u)\n", scope->depth);
+		printf("  ");
+		for (int i = 0; i < 66; i++) putchar('-');
+		putchar('\n');
+
+		const Symbol* sym = scope->first_symbol;
+		if (sym == nullptr)
+		{
+			printf("    (empty)\n");
+		}
+
+		while (sym != nullptr)
+		{
+			const char* kind_str = sym->kind == SYMBOL_KIND_VARIABLE ? "var" : "???";
+			const char* type_str = sym->type ? type_kind_to_cstr(sym->type->kind) : "???";
+
+			printf("    %-4s %-8s %.*s", kind_str, type_str, FMT_STR_ARG(sym->name));
+
+			if (sym->is_used)
+				printf("  (used)");
+			else
+				printf("  (unused)");
+
+			putchar('\n');
+			sym = sym->next_in_scope;
+		}
+
+		scope = scope->parent;
+	}
+
+	printf("\n");
+	for (int i = 0; i < 68; i++) putchar('=');
+	putchar('\n');
 }

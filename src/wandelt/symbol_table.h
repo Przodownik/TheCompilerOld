@@ -52,3 +52,5 @@ void symtab_pop_scope(SymbolTable* tab);
 
 Symbol* symtab_insert(SymbolTable* tab, StringView name, SymbolKind kind, Type* type, Declaration* decl);
 Symbol* symtab_lookup(SymbolTable* tab, StringView name, bool is_used);
+
+void symtab_debug_print(const SymbolTable* tab);

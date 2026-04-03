@@ -409,6 +409,96 @@ TEST(sema_valid_comparison_mixed_types)
 	ASSERT_EQ(r.error_count, 0);
 }
 
+// ---------------------------------------------------------------------------
+// If statement and inner scope declarations
+// ---------------------------------------------------------------------------
+
+TEST(sema_valid_if_with_inner_var)
+{
+	SemaTestResult r = run_sema(alloc, "var int a = 10;\n"
+	                                   "var int b = 10;\n"
+	                                   "if a == b {\n"
+	                                   "    var int c = 10;\n"
+	                                   "    a += b;\n"
+	                                   "    a += c;\n"
+	                                   "} else {\n"
+	                                   "    a -= b;\n"
+	                                   "}\n"
+	                                   "return a;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_if_no_else)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "if x == 5 {\n"
+	                                   "    var int y = 10;\n"
+	                                   "    x += y;\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_if_vars_in_both_branches)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "if x > 0 {\n"
+	                                   "    var int a = 10;\n"
+	                                   "    x += a;\n"
+	                                   "} else {\n"
+	                                   "    var int b = 20;\n"
+	                                   "    x += b;\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_nested_if_with_inner_vars)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "if x > 0 {\n"
+	                                   "    var int a = 1;\n"
+	                                   "    if x > 3 {\n"
+	                                   "        var int b = 2;\n"
+	                                   "        x += a;\n"
+	                                   "        x += b;\n"
+	                                   "    }\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_error_duplicate_var_in_block)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "if x == 5 {\n"
+	                                   "    var int a = 1;\n"
+	                                   "    var int a = 2;\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_FALSE(r.sema_ok);
+	ASSERT_STR_CONTAINS(diagnostics_get_captured(0)->message, "Variable 'a' already declared in this scope");
+}
+
+TEST(sema_valid_same_name_different_scopes)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "if x > 0 {\n"
+	                                   "    var int a = 10;\n"
+	                                   "    x += a;\n"
+	                                   "} else {\n"
+	                                   "    var int a = 20;\n"
+	                                   "    x += a;\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
 TestResults run_sema_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -457,6 +547,14 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_valid_implicit_widening_uchar_to_short);
 	RUN_TEST(sema_valid_explicit_cast_bool_to_int);
 	RUN_TEST(sema_valid_comparison_mixed_types);
+
+	print_section("If statement and inner scope declarations");
+	RUN_TEST(sema_valid_if_with_inner_var);
+	RUN_TEST(sema_valid_if_no_else);
+	RUN_TEST(sema_valid_if_vars_in_both_branches);
+	RUN_TEST(sema_valid_nested_if_with_inner_vars);
+	RUN_TEST(sema_error_duplicate_var_in_block);
+	RUN_TEST(sema_valid_same_name_different_scopes);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

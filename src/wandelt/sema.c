@@ -59,8 +59,6 @@ bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 	static_assert(DECLARATION_TYPE_COUNT == 3,
 	              "Update sema_pass_register_declarations when adding new declaration types");
 
-	bool success = true;
-
 	for (u64 i = 0; i < vector_get_length(tu->statements); i++)
 	{
 		Statement* stmt = tu->statements[i];
@@ -71,20 +69,8 @@ bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 
 		switch (decl->type)
 		{
-		case DECLARATION_TYPE_VARIABLE: {
-			Symbol* sym = symtab_insert(&sema->symbol_table, decl->variable.name, SYMBOL_KIND_VARIABLE,
-			                            decl->variable.type, decl);
-
-			if (sym == nullptr)
-			{
-				diagnostics_verror_along_span(decl->span, sema->source,
-				                              "Variable '%.*s' already declared in this scope",
-				                              FMT_STR_ARG(decl->variable.name));
-				return false;
-			}
-
-			break;
-		}
+		case DECLARATION_TYPE_VARIABLE:
+			break; // variables register themselves when encountered during analysis
 
 		case DECLARATION_TYPE_NAMESPACE:
 			break;
@@ -94,7 +80,7 @@ bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 		}
 	}
 
-	return success;
+	return true;
 }
 
 bool sema_analyze_pass_details(Sema* sema, TranslationUnit* tu)
@@ -352,6 +338,17 @@ bool sema_analyze_declaration_internal(Sema* sema, Declaration* decl)
 
 bool sema_analyze_variable_declaration(Sema* sema, Declaration* decl)
 {
+	Symbol* sym = symtab_insert(&sema->symbol_table, decl->variable.name, SYMBOL_KIND_VARIABLE,
+	                            decl->variable.type, decl);
+
+	if (sym == nullptr)
+	{
+		diagnostics_verror_along_span(decl->span, sema->source,
+		                              "Variable '%.*s' already declared in this scope",
+		                              FMT_STR_ARG(decl->variable.name));
+		return false;
+	}
+
 	if (!sema_check_expression(sema, decl->variable.initializer, decl->variable.type))
 		return false;
 
