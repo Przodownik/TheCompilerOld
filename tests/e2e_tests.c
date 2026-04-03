@@ -636,6 +636,121 @@ TEST(e2e_if_compound_assign_both_branches)
 	                  200);
 }
 
+// ---------------------------------------------------------------------------
+// While loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_while_basic_sum)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 10 {\n"
+	                  "    sum += i;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  45);
+}
+
+TEST(e2e_while_zero_iterations)
+{
+	EXPECT_RETURN_I64("var int x = 42;\n"
+	                  "while x < 0 {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  42);
+}
+
+TEST(e2e_while_single_iteration)
+{
+	EXPECT_RETURN_I64("var int x = 0;\n"
+	                  "while x == 0 {\n"
+	                  "    x = 99;\n"
+	                  "}\n"
+	                  "return x;",
+	                  99);
+}
+
+TEST(e2e_while_countdown)
+{
+	EXPECT_RETURN_I64("var int n = 5;\n"
+	                  "var int result = 1;\n"
+	                  "while n > 0 {\n"
+	                  "    result *= n;\n"
+	                  "    n -= 1;\n"
+	                  "}\n"
+	                  "return result;",
+	                  120);
+}
+
+TEST(e2e_while_multiply)
+{
+	EXPECT_RETURN_I64("var int x = 1;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 8 {\n"
+	                  "    x *= 2;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return x;",
+	                  256);
+}
+
+TEST(e2e_while_nested)
+{
+	EXPECT_RETURN_I64("var int total = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 3 {\n"
+	                  "    var int j = 0;\n"
+	                  "    while j < 3 {\n"
+	                  "        total += 1;\n"
+	                  "        j += 1;\n"
+	                  "    }\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return total;",
+	                  9);
+}
+
+TEST(e2e_while_with_inner_var)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 5 {\n"
+	                  "    var int tmp = i * 2;\n"
+	                  "    sum += tmp;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  20);
+}
+
+TEST(e2e_while_with_if)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 10 {\n"
+	                  "    if i == 5 {\n"
+	                  "        sum += 100;\n"
+	                  "    } else {\n"
+	                  "        sum += 1;\n"
+	                  "    }\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  109);
+}
+
+TEST(e2e_while_compound_condition)
+{
+	EXPECT_RETURN_I64("var int x = 100;\n"
+	                  "while x > 1 {\n"
+	                  "    x /= 2;\n"
+	                  "}\n"
+	                  "return x;",
+	                  1);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -743,6 +858,17 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_if_after_if);
 	RUN_TEST(e2e_if_nested);
 	RUN_TEST(e2e_if_compound_assign_both_branches);
+
+	print_section("While loops");
+	RUN_TEST(e2e_while_basic_sum);
+	RUN_TEST(e2e_while_zero_iterations);
+	RUN_TEST(e2e_while_single_iteration);
+	RUN_TEST(e2e_while_countdown);
+	RUN_TEST(e2e_while_multiply);
+	RUN_TEST(e2e_while_nested);
+	RUN_TEST(e2e_while_with_inner_var);
+	RUN_TEST(e2e_while_with_if);
+	RUN_TEST(e2e_while_compound_condition);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

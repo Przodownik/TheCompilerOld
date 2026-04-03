@@ -11,6 +11,9 @@ typedef struct BytecodeTestResult
 static BytecodeTestResult compile_to_bytecode(Allocator* alloc, const char* source)
 {
 	BytecodeTestResult r = {0};
+	
+	diagnostics_reset();
+
 	File file            = make_test_file(alloc, source);
 	Lexer lexer          = lexer_create(&file);
 	Parser parser        = parser_create(alloc, alloc, alloc, &lexer);

@@ -36,7 +36,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 49, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 50, "Update lexer tests when adding new token types");
 
 // ---------------------------------------------------------------------------
 // Empty / whitespace-only inputs
@@ -452,6 +452,16 @@ TEST(else_keyword)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_ELSE_KEYWORD);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "else");
+}
+
+TEST(while_keyword)
+{
+	const char* src = "while";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_WHILE_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "while");
 }
 
 TEST(bool_keyword)
@@ -1013,6 +1023,7 @@ TestResults run_lexer_tests(void)
 	RUN_TEST(as_keyword);
 	RUN_TEST(if_keyword);
 	RUN_TEST(else_keyword);
+	RUN_TEST(while_keyword);
 
 	RUN_TEST(bool_keyword);
 	RUN_TEST(char_keyword);

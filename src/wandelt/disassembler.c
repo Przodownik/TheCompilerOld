@@ -49,7 +49,7 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 
 static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
 {
-	static_assert(OP_CODE_COUNT == 50, "format_instruction needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 51, "format_instruction needs to be updated for new opcodes");
 
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -224,6 +224,14 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		u32 target = offset + 1 + bx + 1; // +1 for IP advance, +1 for 1-based display
 		snprintf(operands, op_size, "%u", bx);
 		snprintf(comment, cm_size, "jump to %04u", target);
+		break;
+	}
+
+	case OP_CODE_JUMP_BACK: {
+		u32 bx     = DECODE_Bx(inst);
+		u32 target = offset + 1 - bx + 1; // +1 for IP advance, +1 for 1-based display
+		snprintf(operands, op_size, "%u", bx);
+		snprintf(comment, cm_size, "jump back to %04u", target);
 		break;
 	}
 

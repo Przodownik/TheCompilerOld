@@ -75,7 +75,7 @@ void parser_eat_token(Parser* parser)
 
 Statement* parser_parse_top_level_statement(Parser* parser)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7,
+	static_assert(STATEMENT_TYPE_COUNT == 8,
 	              "parser_parse_top_level_statement needs to be updated to handle new statement types");
 
 	Token tok = parser_peek_token(parser);
@@ -93,6 +93,9 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 	case TOKEN_TYPE_IF_KEYWORD:
 		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return parser_parse_while_statement(parser);
 
 	case TOKEN_TYPE_PLUS_PLUS:
 	case TOKEN_TYPE_MINUS_MINUS:
@@ -120,7 +123,7 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 
 Statement* parser_parse_inner_statement(Parser* parser)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7,
+	static_assert(STATEMENT_TYPE_COUNT == 8,
 	              "parser_parse_inner_statement needs to be updated to handle new statement types");
 
 	Token tok = parser_peek_token(parser);
@@ -135,6 +138,9 @@ Statement* parser_parse_inner_statement(Parser* parser)
 
 	case TOKEN_TYPE_IF_KEYWORD:
 		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return parser_parse_while_statement(parser);
 
 	case TOKEN_TYPE_OPEN_BRACE:
 		return parser_parse_block_statement(parser);
@@ -307,6 +313,30 @@ Statement* parser_parse_if_statement(Parser* parser)
 
 	Span end_span = stmt->if_stmt.else_block ? stmt->if_stmt.else_block->span : stmt->if_stmt.then_block->span;
 	stmt->span    = span_extend(ifToken.span, end_span);
+
+	return stmt;
+}
+
+Statement* parser_parse_while_statement(Parser* parser)
+{
+	const Token whileToken = parser_peek_token(parser);
+	ASSERT(whileToken.type == TOKEN_TYPE_WHILE_KEYWORD, "Expected 'while' keyword, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, whileToken)));
+
+	parser_eat_token(parser); // eat 'while'
+
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_WHILE;
+
+	stmt->while_stmt.condition = parser_parse_expression(parser);
+	if (stmt->while_stmt.condition->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->while_stmt.body = parser_parse_block_statement(parser);
+	if (stmt->while_stmt.body->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->span = span_extend(whileToken.span, stmt->while_stmt.body->span);
 
 	return stmt;
 }
@@ -816,4 +846,4 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
                                   PRECEDENCE_POSTFIX},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 49, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 50, "Update parse_rules when adding new token types");

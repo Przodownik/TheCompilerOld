@@ -66,6 +66,7 @@ Statement* parser_parse_expression_statement(Parser* parser);
 Statement* parser_parse_return_statement(Parser* parser);
 Statement* parser_parse_block_statement(Parser* parser);
 Statement* parser_parse_if_statement(Parser* parser);
+Statement* parser_parse_while_statement(Parser* parser);
 Statement* parser_parse_assignment_statement(Parser* parser);
 
 Declaration* parser_parse_declaration(Parser* parser);

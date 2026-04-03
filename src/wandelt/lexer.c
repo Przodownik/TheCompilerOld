@@ -225,6 +225,10 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 		if (ident.len == 5 && strncmp(ident.data, "ulong", 5) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_ULONG_KEYWORD);
 		break;
+	case 'w':
+		if (length == 5 && strncmp(ident.data, "while", 5) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_WHILE_KEYWORD);
+		break;
 	case 'v':
 		if (ident.len == 3 && strncmp(ident.data, "var", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_VAR_KEYWORD);
@@ -289,7 +293,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 49, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 50, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 

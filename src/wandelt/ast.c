@@ -320,24 +320,34 @@ const char* declaration_type_to_cstr(DeclarationType type)
 
 const char* statement_type_to_cstr(StatementType type)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7, "Update statement_type_to_cstr when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 8, "Update statement_type_to_cstr when adding new statement types");
 
 	switch (type)
 	{
 	case STATEMENT_TYPE_INVALID:
 		return "InvalidStatement";
+
 	case STATEMENT_TYPE_DECLARATION:
 		return "DeclarationStatement";
+
 	case STATEMENT_TYPE_EXPRESSION:
 		return "ExpressionStatement";
+
 	case STATEMENT_TYPE_RETURN:
 		return "ReturnStatement";
+
 	case STATEMENT_TYPE_BLOCK:
 		return "BlockStatement";
+
 	case STATEMENT_TYPE_IF:
 		return "IfStatement";
+
+	case STATEMENT_TYPE_WHILE:
+		return "WhileStatement";
+
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return "AssignmentStatement";
+
 	default:
 		break;
 	}
@@ -442,7 +452,7 @@ static void dump_declaration(Declaration* decl, int indent)
 
 static void dump_statement(Statement* stmt, int indent)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7, "Update dump_statement when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 8, "Update dump_statement when adding new statement types");
 
 	if (!stmt)
 		return;
@@ -478,6 +488,12 @@ static void dump_statement(Statement* stmt, int indent)
 			printf("%*sElse branch:\n", indent + 2, "");
 			dump_statement(stmt->if_stmt.else_block, indent + 4);
 		}
+		break;
+	case STATEMENT_TYPE_WHILE:
+		printf("%*sCondition:\n", indent + 2, "");
+		dump_expression(stmt->while_stmt.condition, indent + 4);
+		printf("%*sBody:\n", indent + 2, "");
+		dump_statement(stmt->while_stmt.body, indent + 4);
 		break;
 	case STATEMENT_TYPE_ASSIGNMENT:
 		printf("%*sAssignment: %s\n", indent + 2, "", assignment_operator_to_cstr(stmt->assign_stmt.operator));

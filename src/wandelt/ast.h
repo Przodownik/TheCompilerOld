@@ -205,6 +205,7 @@ typedef enum StatementType
 	STATEMENT_TYPE_RETURN,
 	STATEMENT_TYPE_BLOCK,
 	STATEMENT_TYPE_IF,
+	STATEMENT_TYPE_WHILE,
 	STATEMENT_TYPE_ASSIGNMENT,
 	STATEMENT_TYPE_COUNT,
 } StatementType;
@@ -238,6 +239,12 @@ typedef struct IfStatement
 	struct Statement* else_block;
 } IfStatement;
 
+typedef struct WhileStatement
+{
+	Expression* condition;
+	struct Statement* body;
+} WhileStatement;
+
 typedef struct AssignmentStatement
 {
 	AssignmentOperator operator;
@@ -259,6 +266,7 @@ typedef struct Statement
 		ReturnStatement return_stmt;
 		BlockStatement block_stmt;
 		IfStatement if_stmt;
+		WhileStatement while_stmt;
 		AssignmentStatement assign_stmt;
 	};
 } Statement;

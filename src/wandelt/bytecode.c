@@ -6,7 +6,7 @@
 
 const char* op_code_to_cstr(OpCode op)
 {
-	static_assert(OP_CODE_COUNT == 50, "Update this function when adding new opcodes");
+	static_assert(OP_CODE_COUNT == 51, "Update this function when adding new opcodes");
 
 	switch (op)
 	{
@@ -117,6 +117,8 @@ const char* op_code_to_cstr(OpCode op)
 
 	case OP_CODE_JUMP:
 		return "JUMP";
+	case OP_CODE_JUMP_BACK:
+		return "JUMP_BACK";
 	case OP_CODE_JUMP_IF_FALSE:
 		return "JUMP_NE";
 
@@ -447,6 +449,25 @@ OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type)
 	return (OpCode)(bases[bin_op] + family);
 }
 
+u32 bytecode_compiler_emit_jump(BytecodeCompiler* compiler, OpCode op, u8 reg)
+{
+	u32 offset = chunk_emit(&compiler->current_chunk, ENCODE_ABx(op, reg, 0xFFFF)); // placeholder for patching
+
+	return offset;
+}
+
+void bytecode_compiler_patch_jump(BytecodeCompiler* compiler, u32 jump_offset)
+{
+	u32 current_offset = (u32)vector_get_length(compiler->current_chunk.instructions);
+	u32 jump_distance = current_offset - jump_offset - 1; // -1 because IP is already advanced past the jump instruction
+
+	ASSERT(jump_distance <= 0xFFFF, "Jump distance exceeds maximum");
+
+	Instruction* inst = &compiler->current_chunk.instructions[jump_offset];
+	u8 reg            = DECODE_A(*inst);
+	*inst             = ENCODE_ABx((OpCode)(*inst & 0xFF), reg, jump_distance);
+}
+
 Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_statements)
 {
 	for (u64 i = 0; i < vector_get_length(program_statements); i++)
@@ -462,7 +483,7 @@ Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_
 
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 8, "Update this function when adding new statement types");
 
 	bytecode_compiler_set_line_from_span(compiler, stmt->span);
 
@@ -490,6 +511,10 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 
 	case STATEMENT_TYPE_IF:
 		bytecode_compiler_compile_if_statement(compiler, stmt);
+		break;
+
+	case STATEMENT_TYPE_WHILE:
+		bytecode_compiler_compile_while_statement(compiler, stmt);
 		break;
 
 	case STATEMENT_TYPE_ASSIGNMENT:
@@ -547,44 +572,43 @@ void bytecode_compiler_compile_block_statement(BytecodeCompiler* compiler, State
 	compiler->local_count = current_local_count;
 }
 
-static u32 bytecode_emit_jump(BytecodeCompiler* compiler, OpCode op, u8 reg)
-{
-	u32 offset = chunk_emit(&compiler->current_chunk, ENCODE_ABx(op, reg, 0xFFFF)); // placeholder for patching
-
-	return offset;
-}
-
-static void bytecode_patch_jump(BytecodeCompiler* compiler, u32 jump_offset)
-{
-	u32 current_offset = (u32)vector_get_length(compiler->current_chunk.instructions);
-	u32 jump_distance  = current_offset - jump_offset - 1; // -1 because IP is already advanced past the jump instruction
-
-	ASSERT(jump_distance <= 0xFFFF, "Jump distance exceeds maximum");
-
-	Instruction* inst = &compiler->current_chunk.instructions[jump_offset];
-	u8 reg            = DECODE_A(*inst);
-	*inst             = ENCODE_ABx((OpCode)(*inst & 0xFF), reg, jump_distance);
-}
-
 void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
 	const u8 cond_reg      = bytecode_compiler_compile_expression(compiler, stmt->if_stmt.condition);
-	const u32 jump_to_else = bytecode_emit_jump(compiler, OP_CODE_JUMP_IF_FALSE, cond_reg);
+	const u32 jump_to_else = bytecode_compiler_emit_jump(compiler, OP_CODE_JUMP_IF_FALSE, cond_reg);
 
 	bytecode_compiler_compile_statement(compiler, stmt->if_stmt.then_block);
 
 	if (stmt->if_stmt.else_block)
 	{
-		const u32 jump_past_else = bytecode_emit_jump(compiler, OP_CODE_JUMP, 0);
-		bytecode_patch_jump(compiler, jump_to_else);
+		const u32 jump_past_else = bytecode_compiler_emit_jump(compiler, OP_CODE_JUMP, 0);
+		bytecode_compiler_patch_jump(compiler, jump_to_else);
 
 		bytecode_compiler_compile_statement(compiler, stmt->if_stmt.else_block);
-		bytecode_patch_jump(compiler, jump_past_else);
+		bytecode_compiler_patch_jump(compiler, jump_past_else);
 	}
 	else
 	{
-		bytecode_patch_jump(compiler, jump_to_else);
+		bytecode_compiler_patch_jump(compiler, jump_to_else);
 	}
+}
+
+void bytecode_compiler_compile_while_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	const u32 loop_start = (u32)vector_get_length(compiler->current_chunk.instructions);
+	const u8 cond_reg    = bytecode_compiler_compile_expression(compiler, stmt->while_stmt.condition);
+
+	const u32 exit_jump = bytecode_compiler_emit_jump(compiler, OP_CODE_JUMP_IF_FALSE, cond_reg);
+
+	bytecode_compiler_compile_statement(compiler, stmt->while_stmt.body);
+
+	const u32 current     = (u32)vector_get_length(compiler->current_chunk.instructions);
+	const u32 back_offset = current - loop_start + 1; // +1 because this instruction itself takes a slot
+	ASSERT(back_offset <= 0xFFFF, "Loop too large");
+
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_JUMP_BACK, 0, (u16)back_offset));
+
+	bytecode_compiler_patch_jump(compiler, exit_jump);
 }
 
 void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt)

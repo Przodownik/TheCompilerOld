@@ -119,7 +119,7 @@ bool sema_analyze_pass_unused_variables(Sema* sema, TranslationUnit* tu)
 
 bool sema_analyze_statement(Sema* sema, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 7,
+	static_assert(STATEMENT_TYPE_COUNT == 8,
 	              "sema_analyze_statement needs to be updated to handle new statement types");
 
 	switch (stmt->type)
@@ -141,6 +141,9 @@ bool sema_analyze_statement(Sema* sema, Statement* stmt)
 
 	case STATEMENT_TYPE_IF:
 		return sema_analyze_if_statement(sema, stmt);
+
+	case STATEMENT_TYPE_WHILE:
+		return sema_analyze_while_statement(sema, stmt);
 
 	case STATEMENT_TYPE_INVALID:
 	case STATEMENT_TYPE_COUNT:
@@ -286,6 +289,34 @@ bool sema_analyze_if_statement(Sema* sema, Statement* stmt)
 	return true;
 }
 
+bool sema_analyze_while_statement(Sema* sema, Statement* stmt)
+{
+	if (!sema_check_expression(sema, stmt->while_stmt.condition, nullptr))
+		return false;
+
+	Type* cond_type = stmt->while_stmt.condition->resolved_type;
+	if (!type_is_bool(cond_type))
+	{
+		if (type_is_implicitly_convertible(cond_type, type_get_builtin(TYPE_KIND_BOOL)))
+		{
+			stmt->while_stmt.condition =
+			    sema_insert_cast(sema, stmt->while_stmt.condition, type_get_builtin(TYPE_KIND_BOOL));
+		}
+		else
+		{
+			diagnostics_verror_along_span(stmt->while_stmt.condition->span, sema->source,
+			                              "Condition in 'while' must be a boolean expression, got '%s'",
+			                              type_kind_to_cstr(cond_type->kind));
+			return false;
+		}
+	}
+
+	if (!sema_analyze_block_statement(sema, stmt->while_stmt.body))
+		return false;
+
+	return true;
+}
+
 bool sema_analyze_declaration_statement(Sema* sema, Statement* stmt)
 {
 	return sema_analyze_declaration(sema, stmt->decl_stmt.declaration);
@@ -338,13 +369,12 @@ bool sema_analyze_declaration_internal(Sema* sema, Declaration* decl)
 
 bool sema_analyze_variable_declaration(Sema* sema, Declaration* decl)
 {
-	Symbol* sym = symtab_insert(&sema->symbol_table, decl->variable.name, SYMBOL_KIND_VARIABLE,
-	                            decl->variable.type, decl);
+	Symbol* sym =
+	    symtab_insert(&sema->symbol_table, decl->variable.name, SYMBOL_KIND_VARIABLE, decl->variable.type, decl);
 
 	if (sym == nullptr)
 	{
-		diagnostics_verror_along_span(decl->span, sema->source,
-		                              "Variable '%.*s' already declared in this scope",
+		diagnostics_verror_along_span(decl->span, sema->source, "Variable '%.*s' already declared in this scope",
 		                              FMT_STR_ARG(decl->variable.name));
 		return false;
 	}

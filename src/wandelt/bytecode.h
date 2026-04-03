@@ -82,7 +82,8 @@ typedef enum OpCode
 
 	OP_CODE_CAST, //			ABC     R(A) = convert(R(B), TypeKind(C))
 
-	OP_CODE_JUMP,          //	ABx     ip += Ax
+	OP_CODE_JUMP,          //	ABx     ip += Bx
+	OP_CODE_JUMP_BACK,     //	ABx     ip -= Bx
 	OP_CODE_JUMP_IF_FALSE, //	ABx     if !R(A) then ip += Bx
 
 	OP_CODE_RETURN, // return R(A)
@@ -193,12 +194,16 @@ OpCode bytecode_compiler_select_negate_opcode(Type* type);
 bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to);
 OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type);
 
+u32 bytecode_compiler_emit_jump(BytecodeCompiler* compiler, OpCode op, u8 reg);
+void bytecode_compiler_patch_jump(BytecodeCompiler* compiler, u32 jump_offset);
+
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_block_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_while_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt);
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);

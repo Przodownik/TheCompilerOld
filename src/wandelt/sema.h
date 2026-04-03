@@ -39,6 +39,7 @@ bool sema_analyze_return_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_assignment_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_block_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_if_statement(Sema* sema, Statement* stmt);
+bool sema_analyze_while_statement(Sema* sema, Statement* stmt);
 
 bool sema_analyze_declaration_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_declaration(Sema* sema, Declaration* decl);

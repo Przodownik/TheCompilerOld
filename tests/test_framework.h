@@ -213,6 +213,8 @@ typedef struct PipelineResult
 static PipelineResult run_pipeline(Allocator* alloc, const char* source, bool optimize)
 {
 	PipelineResult r = {0};
+	
+	diagnostics_reset();
 
 	File file          = make_test_file(alloc, source);
 	Lexer lexer        = lexer_create(&file);

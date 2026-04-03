@@ -23,6 +23,7 @@ bool ast_optimizer_fold_expression_statement(AstOptimizer* optimizer, Statement*
 bool ast_optimizer_fold_return_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_fold_block_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_fold_if_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_fold_while_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_fold_assignment_statement(AstOptimizer* optimizer, Statement* stmt);
 
 bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr);
@@ -40,6 +41,7 @@ bool ast_optimizer_propagate_expression_statement(AstOptimizer* optimizer, State
 bool ast_optimizer_propagate_return_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_propagate_block_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_propagate_if_statement(AstOptimizer* optimizer, Statement* stmt);
+bool ast_optimizer_propagate_while_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_propagate_assignment_statement(AstOptimizer* optimizer, Statement* stmt);
 
 bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** expr);

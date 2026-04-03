@@ -499,6 +499,66 @@ TEST(sema_valid_same_name_different_scopes)
 	ASSERT_EQ(r.error_count, 0);
 }
 
+// ---------------------------------------------------------------------------
+// While loops
+// ---------------------------------------------------------------------------
+
+TEST(sema_valid_while_basic)
+{
+	SemaTestResult r = run_sema(alloc, "var int i = 0;\n"
+	                                   "while i < 10 {\n"
+	                                   "    i += 1;\n"
+	                                   "}\n"
+	                                   "return i;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_while_with_inner_var)
+{
+	SemaTestResult r = run_sema(alloc, "var int sum = 0;\n"
+	                                   "var int i = 0;\n"
+	                                   "while i < 5 {\n"
+	                                   "    var int tmp = i * 2;\n"
+	                                   "    sum += tmp;\n"
+	                                   "    i += 1;\n"
+	                                   "}\n"
+	                                   "return sum;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_while_nested)
+{
+	SemaTestResult r = run_sema(alloc, "var int total = 0;\n"
+	                                   "var int i = 0;\n"
+	                                   "while i < 3 {\n"
+	                                   "    var int j = 0;\n"
+	                                   "    while j < 3 {\n"
+	                                   "        total += 1;\n"
+	                                   "        j += 1;\n"
+	                                   "    }\n"
+	                                   "    i += 1;\n"
+	                                   "}\n"
+	                                   "return total;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_error_while_non_bool_condition)
+{
+	SemaTestResult r = run_sema(alloc, "var int x = 5;\n"
+	                                   "while x {\n"
+	                                   "    x -= 1;\n"
+	                                   "}\n"
+	                                   "return x;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "Condition in 'while' must be a boolean expression");
+}
+
 TestResults run_sema_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -555,6 +615,12 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_valid_nested_if_with_inner_vars);
 	RUN_TEST(sema_error_duplicate_var_in_block);
 	RUN_TEST(sema_valid_same_name_different_scopes);
+
+	print_section("While loops");
+	RUN_TEST(sema_valid_while_basic);
+	RUN_TEST(sema_valid_while_with_inner_var);
+	RUN_TEST(sema_valid_while_nested);
+	RUN_TEST(sema_error_while_non_bool_condition);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);
