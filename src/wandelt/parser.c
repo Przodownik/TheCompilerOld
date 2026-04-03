@@ -139,11 +139,23 @@ Statement* parser_parse_inner_statement(Parser* parser)
 	case TOKEN_TYPE_OPEN_BRACE:
 		return parser_parse_block_statement(parser);
 
-	default:
+	case TOKEN_TYPE_PLUS_PLUS:
+	case TOKEN_TYPE_MINUS_MINUS:
+		return parser_parse_expression_statement(parser);
+
+	case TOKEN_TYPE_IDENTIFIER: {
+		// if next token is an assignment operator, parse as assignment
+		Token next = lexer_peek_token_at_offset(parser->lexer, 1);
+		if (is_assignment_token(next.type))
+			return parser_parse_assignment_statement(parser);
+
+		// Otherwise expression statement
 		return parser_parse_expression_statement(parser);
 	}
 
-	return &invalid_statement;
+	default:
+		return parser_parse_expression_statement(parser);
+	}
 }
 
 void parser_recover_from_error(Parser* parser)
@@ -238,7 +250,8 @@ Statement* parser_parse_return_statement(Parser* parser)
 Statement* parser_parse_block_statement(Parser* parser)
 {
 	const Token openBrace = parser_peek_token(parser);
-	ASSERT(openBrace.type == TOKEN_TYPE_OPEN_BRACE);
+	ASSERT(openBrace.type == TOKEN_TYPE_OPEN_BRACE, "Expected '{' to start a block statement, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, openBrace)));
 
 	parser_eat_token(parser); // eat '{'
 
@@ -267,7 +280,8 @@ Statement* parser_parse_block_statement(Parser* parser)
 Statement* parser_parse_if_statement(Parser* parser)
 {
 	const Token ifToken = parser_peek_token(parser);
-	ASSERT(ifToken.type == TOKEN_TYPE_IF_KEYWORD);
+	ASSERT(ifToken.type == TOKEN_TYPE_IF_KEYWORD, "Expected 'if' keyword, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, ifToken)));
 
 	parser_eat_token(parser); // eat 'if'
 
@@ -276,9 +290,6 @@ Statement* parser_parse_if_statement(Parser* parser)
 
 	stmt->if_stmt.condition = parser_parse_expression(parser);
 	if (stmt->if_stmt.condition->type == EXPRESSION_TYPE_INVALID)
-		return &invalid_statement;
-
-	if (!parser_parse_token(parser, TOKEN_TYPE_OPEN_BRACE))
 		return &invalid_statement;
 
 	stmt->if_stmt.then_block = parser_parse_block_statement(parser);

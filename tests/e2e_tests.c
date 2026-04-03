@@ -506,6 +506,136 @@ TEST(e2e_all_compound_operators)
 	                  4);
 }
 
+// ---------------------------------------------------------------------------
+// If / Else
+// ---------------------------------------------------------------------------
+
+TEST(e2e_if_true_branch)
+{
+	EXPECT_RETURN_I64("var int a = 10;\n"
+	                  "var int b = 10;\n"
+	                  "if a == b {\n"
+	                  "    a += b;\n"
+	                  "} else {\n"
+	                  "    a -= b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  20);
+}
+
+TEST(e2e_if_false_branch)
+{
+	EXPECT_RETURN_I64("var int a = 10;\n"
+	                  "var int b = 20;\n"
+	                  "if a == b {\n"
+	                  "    a += b;\n"
+	                  "} else {\n"
+	                  "    a -= b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  -10);
+}
+
+TEST(e2e_if_no_else)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x == 5 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "return x;",
+	                  15);
+}
+
+TEST(e2e_if_no_else_false)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x == 99 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "return x;",
+	                  5);
+}
+
+TEST(e2e_if_less_than)
+{
+	EXPECT_RETURN_I64("var int x = 3;\n"
+	                  "var int y = 10;\n"
+	                  "if x < y {\n"
+	                  "    return x;\n"
+	                  "} else {\n"
+	                  "    return y;\n"
+	                  "}\n",
+	                  3);
+}
+
+TEST(e2e_if_greater_than)
+{
+	EXPECT_RETURN_I64("var int x = 3;\n"
+	                  "var int y = 10;\n"
+	                  "if x > y {\n"
+	                  "    return x;\n"
+	                  "} else {\n"
+	                  "    return y;\n"
+	                  "}\n",
+	                  10);
+}
+
+TEST(e2e_if_multiple_stmts_in_block)
+{
+	EXPECT_RETURN_I64("var int a = 1;\n"
+	                  "var int b = 2;\n"
+	                  "if a != b {\n"
+	                  "    a += 10;\n"
+	                  "    b += 20;\n"
+	                  "    a += b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  33);
+}
+
+TEST(e2e_if_after_if)
+{
+	EXPECT_RETURN_I64("var int x = 0;\n"
+	                  "if 1 == 1 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "if 2 == 2 {\n"
+	                  "    x += 20;\n"
+	                  "}\n"
+	                  "return x;",
+	                  30);
+}
+
+TEST(e2e_if_nested)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x > 0 {\n"
+	                  "    if x > 3 {\n"
+	                  "        x += 100;\n"
+	                  "    } else {\n"
+	                  "        x += 50;\n"
+	                  "    }\n"
+	                  "} else {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  105);
+}
+
+TEST(e2e_if_compound_assign_both_branches)
+{
+	EXPECT_RETURN_I64("var int r = 100;\n"
+	                  "var int a = 10;\n"
+	                  "var int b = 10;\n"
+	                  "if a == b {\n"
+	                  "    r *= 2;\n"
+	                  "} else {\n"
+	                  "    r /= 2;\n"
+	                  "}\n"
+	                  "return r;",
+	                  200);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -601,6 +731,18 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_multiple_reassignments);
 	RUN_TEST(e2e_mixed_assignment_and_incdec);
 	RUN_TEST(e2e_all_compound_operators);
+
+	print_section("If / Else");
+	RUN_TEST(e2e_if_true_branch);
+	RUN_TEST(e2e_if_false_branch);
+	RUN_TEST(e2e_if_no_else);
+	RUN_TEST(e2e_if_no_else_false);
+	RUN_TEST(e2e_if_less_than);
+	RUN_TEST(e2e_if_greater_than);
+	RUN_TEST(e2e_if_multiple_stmts_in_block);
+	RUN_TEST(e2e_if_after_if);
+	RUN_TEST(e2e_if_nested);
+	RUN_TEST(e2e_if_compound_assign_both_branches);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

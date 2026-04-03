@@ -11,7 +11,7 @@ VM vm_create(Chunk* chunk)
 
 VmResult vm_execute(VM* vm)
 {
-	static_assert(OP_CODE_COUNT == 48, "vm_execute needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 50, "vm_execute needs to be updated for new opcodes");
 
 	Value* R = vm->registers;
 	Value* K = vm->chunk->constants;
@@ -270,14 +270,30 @@ VmResult vm_execute(VM* vm)
 			break;
 		}
 
+		case OP_CODE_JUMP: {
+			u16 offset = DECODE_Bx(inst);
+			vm->ip += offset;
+			break;
+		}
+
+		case OP_CODE_JUMP_IF_FALSE: {
+			u8 a       = DECODE_A(inst);
+			u16 offset = DECODE_Bx(inst);
+			if (!R[a].i64_val)
+				vm->ip += offset;
+			break;
+		}
+
 		case OP_CODE_RETURN: {
 			u8 a             = DECODE_A(inst);
 			vm->return_value = R[a];
 			return VM_OK;
 		}
+
 		case OP_CODE_HALT: {
 			return VM_OK;
 		}
+
 		default:
 			ASSERT(false, "Unknown opcode: %d", DECODE_OP(inst));
 			return VM_ERROR;

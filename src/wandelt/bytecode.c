@@ -6,7 +6,7 @@
 
 const char* op_code_to_cstr(OpCode op)
 {
-	static_assert(OP_CODE_COUNT == 48, "Update this function when adding new opcodes");
+	static_assert(OP_CODE_COUNT == 50, "Update this function when adding new opcodes");
 
 	switch (op)
 	{
@@ -114,6 +114,11 @@ const char* op_code_to_cstr(OpCode op)
 
 	case OP_CODE_CAST:
 		return "CAST";
+
+	case OP_CODE_JUMP:
+		return "JUMP";
+	case OP_CODE_JUMP_IF_FALSE:
+		return "JUMP_NE";
 
 	case OP_CODE_RETURN:
 		return "RETURN";
@@ -457,7 +462,7 @@ Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_
 
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 7, "Update this function when adding new statement types");
 
 	bytecode_compiler_set_line_from_span(compiler, stmt->span);
 
@@ -477,6 +482,14 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 
 	case STATEMENT_TYPE_RETURN:
 		bytecode_compiler_compile_return_statement(compiler, stmt);
+		break;
+
+	case STATEMENT_TYPE_BLOCK:
+		bytecode_compiler_compile_block_statement(compiler, stmt);
+		break;
+
+	case STATEMENT_TYPE_IF:
+		bytecode_compiler_compile_if_statement(compiler, stmt);
 		break;
 
 	case STATEMENT_TYPE_ASSIGNMENT:
@@ -517,6 +530,61 @@ void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Stat
 {
 	const u8 reg = bytecode_compiler_compile_expression(compiler, stmt->return_stmt.expression);
 	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_RETURN, reg, UNUSED_REG));
+}
+
+void bytecode_compiler_compile_block_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	const u8 current_local_count = compiler->local_count;
+	const u8 current_scope_depth = compiler->scope_depth;
+
+	// todo add proper push/pop scope mechanic
+	compiler->scope_depth++;
+
+	for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+		bytecode_compiler_compile_statement(compiler, stmt->block_stmt.statements[i]);
+
+	compiler->scope_depth = current_scope_depth;
+	compiler->local_count = current_local_count;
+}
+
+static u32 bytecode_emit_jump(BytecodeCompiler* compiler, OpCode op, u8 reg)
+{
+	u32 offset = chunk_emit(&compiler->current_chunk, ENCODE_ABx(op, reg, 0xFFFF)); // placeholder for patching
+
+	return offset;
+}
+
+static void bytecode_patch_jump(BytecodeCompiler* compiler, u32 jump_offset)
+{
+	u32 current_offset = (u32)vector_get_length(compiler->current_chunk.instructions);
+	u32 jump_distance  = current_offset - jump_offset - 1; // -1 because IP is already advanced past the jump instruction
+
+	ASSERT(jump_distance <= 0xFFFF, "Jump distance exceeds maximum");
+
+	Instruction* inst = &compiler->current_chunk.instructions[jump_offset];
+	u8 reg            = DECODE_A(*inst);
+	*inst             = ENCODE_ABx((OpCode)(*inst & 0xFF), reg, jump_distance);
+}
+
+void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	const u8 cond_reg      = bytecode_compiler_compile_expression(compiler, stmt->if_stmt.condition);
+	const u32 jump_to_else = bytecode_emit_jump(compiler, OP_CODE_JUMP_IF_FALSE, cond_reg);
+
+	bytecode_compiler_compile_statement(compiler, stmt->if_stmt.then_block);
+
+	if (stmt->if_stmt.else_block)
+	{
+		const u32 jump_past_else = bytecode_emit_jump(compiler, OP_CODE_JUMP, 0);
+		bytecode_patch_jump(compiler, jump_to_else);
+
+		bytecode_compiler_compile_statement(compiler, stmt->if_stmt.else_block);
+		bytecode_patch_jump(compiler, jump_past_else);
+	}
+	else
+	{
+		bytecode_patch_jump(compiler, jump_to_else);
+	}
 }
 
 void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt)
