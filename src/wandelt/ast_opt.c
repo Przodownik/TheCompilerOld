@@ -104,7 +104,8 @@ void ast_optimizer_unroll_inline_for_statements(AstOptimizer* optimizer, Stateme
 
 			for (u64 j = 0; j < body_len; j++)
 			{
-				Statement* copy = ast_deep_copy_statement(&ctx, body->block_stmt.statements[j]);
+				Statement* original = body->block_stmt.statements[j];
+				Statement* copy     = ast_deep_copy_statement(&ctx, original);
 
 				vector_push(inner_block->block_stmt.statements, copy);
 			}

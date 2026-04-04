@@ -571,6 +571,7 @@ Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt)
 			Statement* child = ast_deep_copy_statement(ctx, stmt->block_stmt.statements[i]);
 			vector_push(copy->block_stmt.statements, child);
 		}
+		break;
 
 	case STATEMENT_TYPE_IF:
 		copy->if_stmt.condition  = ast_deep_copy_expression(ctx, stmt->if_stmt.condition);
@@ -589,8 +590,6 @@ Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt)
 	case STATEMENT_TYPE_WHILE:
 		copy->while_stmt.condition = ast_deep_copy_expression(ctx, stmt->while_stmt.condition);
 		copy->while_stmt.body      = ast_deep_copy_statement(ctx, stmt->while_stmt.body);
-		break;
-
 		break;
 	}
 
