@@ -11,11 +11,15 @@
 
 typedef struct AstOptimizer
 {
+	Allocator* stmt_alloc;
+	Allocator* decl_alloc;
 	Allocator* expr_alloc;
 } AstOptimizer;
 
-AstOptimizer ast_optimizer_create(Allocator* expr_alloc);
-void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu);
+AstOptimizer ast_optimizer_create(Allocator* stmt_alloc, Allocator* decl_alloc, Allocator* expr_alloc);
+void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu, bool optimize);
+
+void ast_optimizer_unroll_inline_for_statements(AstOptimizer* optimizer, Statement** stmts);
 
 bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt);
 bool ast_optimizer_fold_declaration_statement(AstOptimizer* optimizer, Statement* stmt);

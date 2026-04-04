@@ -11,8 +11,8 @@ static TranslationUnit parse_sema_optimize(Allocator* alloc, const char* src)
 	Sema sema          = sema_create(alloc, alloc, &file);
 
 	sema_analyze(&sema, &tu);
-	AstOptimizer opt = ast_optimizer_create(alloc);
-	ast_optimizer_run(&opt, &tu);
+	AstOptimizer opt = ast_optimizer_create(alloc, alloc, alloc);
+	ast_optimizer_run(&opt, &tu, true);
 
 	return tu;
 }

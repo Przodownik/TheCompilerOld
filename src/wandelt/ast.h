@@ -283,3 +283,17 @@ typedef struct Statement
 } Statement;
 
 void ast_dump_statements(Statement** statements);
+
+typedef struct AstCopyContext
+{
+	Allocator* stmt_alloc;
+	Allocator* expr_alloc;
+	Allocator* decl_alloc;
+	Declaration* subst_decl;
+	i64 subst_value;
+	Type* subst_type;
+} AstCopyContext;
+
+Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt);
+Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* decl);
+Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr);

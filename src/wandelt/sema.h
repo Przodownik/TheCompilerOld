@@ -60,3 +60,15 @@ bool sema_check_incdec_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 void sema_promote_constant(Expression* expr, Type* target);
 Expression* sema_insert_cast(Sema* sema, Expression* inner, Type* target);
+
+typedef struct LoopBounds
+{
+	i64 start;
+	i64 end;
+	i64 step;
+	BinaryOperator op;
+	i64 iteration_count;
+	bool is_valid;
+} LoopBounds;
+
+LoopBounds sema_check_loop_bounds(Statement* stmt);

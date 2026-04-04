@@ -56,6 +56,8 @@ bool sema_analyze_pass(Sema* sema, TranslationUnit* tu, AnalysisPass pass)
 
 bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 {
+	(void)sema;
+
 	static_assert(DECLARATION_TYPE_COUNT == 3,
 	              "Update sema_pass_register_declarations when adding new declaration types");
 
@@ -292,6 +294,50 @@ bool sema_analyze_if_statement(Sema* sema, Statement* stmt)
 	return true;
 }
 
+static bool sema_is_compile_time_constant_expr(Expression* expr, Declaration* loop_var)
+{
+	static_assert(EXPRESSION_TYPE_COUNT == 8,
+	              "Update sema_is_compile_time_constant_expr when adding new expression types");
+
+	switch (expr->type)
+	{
+	case EXPRESSION_TYPE_CONSTANT:
+		return true;
+
+	case EXPRESSION_TYPE_IDENTIFIER:
+		// The loop variable itself is known at unroll time
+		if (loop_var && expr->identifier.declaration_ref == loop_var)
+			return true;
+		// Other identifiers: only if never-assigned constants
+		if (expr->identifier.declaration_ref && expr->identifier.declaration_ref->type == DECLARATION_TYPE_VARIABLE &&
+		    !expr->identifier.declaration_ref->variable.is_ever_assigned &&
+		    expr->identifier.declaration_ref->variable.initializer->type == EXPRESSION_TYPE_CONSTANT)
+			return true;
+		return false;
+
+	case EXPRESSION_TYPE_BINARY:
+		return sema_is_compile_time_constant_expr(expr->binary.left, loop_var) &&
+		       sema_is_compile_time_constant_expr(expr->binary.right, loop_var);
+
+	case EXPRESSION_TYPE_UNARY:
+		return sema_is_compile_time_constant_expr(expr->unary.operand, loop_var);
+
+	case EXPRESSION_TYPE_GROUP:
+		return sema_is_compile_time_constant_expr(expr->group.inner, loop_var);
+
+	case EXPRESSION_TYPE_CAST:
+		return sema_is_compile_time_constant_expr(expr->cast.expression, loop_var);
+
+	case EXPRESSION_TYPE_INCDEC:
+		// i++ / i-- allowed if operand is the loop variable
+		return expr->incdec.operand->type == EXPRESSION_TYPE_IDENTIFIER && loop_var &&
+		       expr->incdec.operand->identifier.declaration_ref == loop_var;
+
+	default:
+		return false;
+	}
+}
+
 bool sema_analyze_for_statement(Sema* sema, Statement* stmt)
 {
 	symtab_push_scope(&sema->symbol_table);
@@ -340,8 +386,51 @@ bool sema_analyze_for_statement(Sema* sema, Statement* stmt)
 
 	if (stmt->for_stmt.is_inline)
 	{
-		// todo
+		Declaration* loop_var = stmt->for_stmt.initializer;
+		if (loop_var->variable.initializer->type != EXPRESSION_TYPE_CONSTANT)
+		{
+			diagnostics_verror_along_span(loop_var->variable.initializer->span, sema->source,
+			                              "'inline for' initializer must be a compile-time constant");
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+
+		if (!sema_is_compile_time_constant_expr(stmt->for_stmt.condition, loop_var))
+		{
+			diagnostics_verror_along_span(stmt->for_stmt.condition->span, sema->source,
+			                              "'inline for' condition must use compile-time constants");
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+
+		if (!sema_is_compile_time_constant_expr(stmt->for_stmt.update, loop_var))
+		{
+			diagnostics_verror_along_span(stmt->for_stmt.update->span, sema->source,
+			                              "'inline for' update must be a compile-time constant step");
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+
+		LoopBounds bounds = sema_check_loop_bounds(stmt);
+		if (!bounds.is_valid)
+		{
+			diagnostics_verror_along_span(stmt->span, sema->source,
+			                              "Cannot determine iteration count for 'inline for'");
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+
+		if (bounds.iteration_count > 1024)
+		{
+			diagnostics_verror_along_span(stmt->span, sema->source,
+			                              "'inline for' iteration count %lld exceeds limit of 1024",
+			                              bounds.iteration_count);
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
 	}
+
+	symtab_pop_scope(&sema->symbol_table);
 
 	return true;
 }
@@ -873,4 +962,79 @@ Expression* sema_insert_cast(Sema* sema, Expression* inner, Type* target)
 	cast_expr->resolved_type    = target;
 	cast_expr->resolve_status   = RESOLVE_STATUS_RESOLVED;
 	return cast_expr;
+}
+
+LoopBounds sema_check_loop_bounds(Statement* stmt)
+{
+	ASSERT(stmt->type == STATEMENT_TYPE_FOR);
+
+	LoopBounds bounds = {0};
+
+	Declaration* init     = stmt->for_stmt.initializer;
+	Expression* init_expr = init->variable.initializer;
+	if (init_expr->type != EXPRESSION_TYPE_CONSTANT || init_expr->constant.kind != CONSTANT_KIND_INTEGER)
+		return bounds; // for now just constants, in the future maybe folding of some sort will be added
+
+	bounds.start = (i64)init_expr->constant.integer_value;
+
+	Expression* update = stmt->for_stmt.update;
+	if (update->type != EXPRESSION_TYPE_INCDEC)
+		return bounds;
+	bounds.step = update->incdec.is_increment ? 1 : -1;
+
+	Expression* cond = stmt->for_stmt.condition;
+	if (cond->type != EXPRESSION_TYPE_BINARY)
+		return bounds;
+
+	BinaryOperator op = cond->binary.operator;
+
+	bool left_is_loop_var =
+	    cond->binary.left->type == EXPRESSION_TYPE_IDENTIFIER && cond->binary.left->identifier.declaration_ref == init;
+	bool right_is_loop_var = cond->binary.right->type == EXPRESSION_TYPE_IDENTIFIER &&
+	                         cond->binary.right->identifier.declaration_ref == init;
+
+	Expression* bound_expr;
+	if (left_is_loop_var)
+	{
+		bound_expr = cond->binary.right;
+	}
+	else if (right_is_loop_var)
+	{
+		bound_expr = cond->binary.left;
+
+		// Normalize so loop var is always on the left
+		if (op == BINARY_OPERATOR_LT)
+			op = BINARY_OPERATOR_GT;
+		else if (op == BINARY_OPERATOR_GT)
+			op = BINARY_OPERATOR_LT;
+		else if (op == BINARY_OPERATOR_LEQ)
+			op = BINARY_OPERATOR_GEQ;
+		else if (op == BINARY_OPERATOR_GEQ)
+			op = BINARY_OPERATOR_LEQ;
+	}
+	else
+	{
+		return bounds;
+	}
+
+	if (bound_expr->type != EXPRESSION_TYPE_CONSTANT || bound_expr->constant.kind != CONSTANT_KIND_INTEGER)
+		return bounds;
+
+	bounds.end = (i64)bound_expr->constant.integer_value;
+	bounds.op  = op;
+
+	bool ascending = (op == BINARY_OPERATOR_LT || op == BINARY_OPERATOR_LEQ);
+	bool inclusive = (op == BINARY_OPERATOR_LEQ || op == BINARY_OPERATOR_GEQ);
+	if (!ascending && op != BINARY_OPERATOR_GT && op != BINARY_OPERATOR_GEQ)
+		return bounds; // == or != are not safe to unroll
+
+	i64 range = ascending ? (bounds.end - bounds.start) : (bounds.start - bounds.end);
+	if (inclusive)
+		range++;
+
+	i64 abs_step           = bounds.step > 0 ? bounds.step : -bounds.step;
+	bounds.is_valid        = true;
+	bounds.iteration_count = range <= 0 ? 0 : (range + abs_step - 1) / abs_step;
+
+	return bounds;
 }

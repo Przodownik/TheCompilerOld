@@ -97,6 +97,9 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 	case TOKEN_TYPE_WHILE_KEYWORD:
 		return parser_parse_while_statement(parser);
 
+	case TOKEN_TYPE_OPEN_BRACE:
+		return parser_parse_block_statement(parser);
+
 	case TOKEN_TYPE_PLUS_PLUS:
 	case TOKEN_TYPE_MINUS_MINUS:
 		return parser_parse_expression_statement(parser);
@@ -221,8 +224,7 @@ void parser_recover_from_error(Parser* parser)
 			return;
 
 		// Skip over entire block and resume
-		case TOKEN_TYPE_OPEN_BRACE:
-		{
+		case TOKEN_TYPE_OPEN_BRACE: {
 			parser_eat_token(parser); // eat '{'
 			i32 depth = 1;
 			while (depth > 0 && parser_peek_token(parser).type != TOKEN_TYPE_EOF)
@@ -407,7 +409,8 @@ Statement* parser_parse_for_statement(Parser* parser)
 	if (parser_peek_token(parser).type != TOKEN_TYPE_OPEN_BRACE)
 	{
 		diagnostics_verror_along_span(parser_peek_token(parser).span, parser->lexer->file_to_lex,
-		                              "Expected '{' after for-loop update clause. Note: assignments are not allowed here, use an expression like 'i++'");
+		                              "Expected '{' after for-loop update clause. Note: assignments are not allowed "
+		                              "here, use an expression like 'i++'");
 		return &invalid_statement;
 	}
 
