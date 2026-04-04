@@ -60,6 +60,6 @@ bool ast_optimizer_propagate_cast_expression(AstOptimizer* optimizer, Expression
 bool ast_optimizer_propagate_incdec_expression(AstOptimizer* optimizer, Expression** expr);
 
 void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu);
-void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used);
-void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used);
+void ast_optimizer_dce_mark_expression(Expression* expr, Declaration*** used);
+void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration*** used);
 bool ast_optimizer_dce_is_used(Declaration* decl, Declaration** used);

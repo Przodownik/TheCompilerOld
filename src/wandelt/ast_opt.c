@@ -952,7 +952,7 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 	Declaration** used = vector_create(&heap, 16, sizeof(Declaration*));
 
 	for (u64 i = 0; i < vector_get_length(tu->statements); i++)
-		ast_optimizer_dce_mark_statement(tu->statements[i], used);
+		ast_optimizer_dce_mark_statement(tu->statements[i], &used);
 
 	u64 i = 0;
 	while (i < vector_get_length(tu->statements))
@@ -974,7 +974,7 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 	vector_destroy(used);
 }
 
-void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
+void ast_optimizer_dce_mark_expression(Expression* expr, Declaration*** used)
 {
 	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
 
@@ -982,7 +982,7 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
 		if (expr->identifier.declaration_ref)
-			vector_push(used, expr->identifier.declaration_ref);
+			vector_push(*used, expr->identifier.declaration_ref);
 		break;
 
 	case EXPRESSION_TYPE_UNARY:
@@ -1012,7 +1012,7 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 	}
 }
 
-void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
+void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration*** used)
 {
 	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
@@ -1055,7 +1055,7 @@ void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 
 	case STATEMENT_TYPE_ASSIGNMENT:
 		if (stmt->assign_stmt.target_decl_ref)
-			vector_push(used, stmt->assign_stmt.target_decl_ref);
+			vector_push(*used, stmt->assign_stmt.target_decl_ref);
 
 		ast_optimizer_dce_mark_expression(stmt->assign_stmt.value, used);
 		break;
