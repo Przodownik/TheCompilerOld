@@ -205,6 +205,7 @@ typedef enum StatementType
 	STATEMENT_TYPE_RETURN,
 	STATEMENT_TYPE_BLOCK,
 	STATEMENT_TYPE_IF,
+	STATEMENT_TYPE_FOR,
 	STATEMENT_TYPE_WHILE,
 	STATEMENT_TYPE_ASSIGNMENT,
 	STATEMENT_TYPE_COUNT,
@@ -239,6 +240,15 @@ typedef struct IfStatement
 	struct Statement* else_block;
 } IfStatement;
 
+typedef struct ForStatement
+{
+	Declaration* initializer;
+	Expression* condition;
+	Expression* update;
+	struct Statement* body;
+	bool is_inline;
+} ForStatement;
+
 typedef struct WhileStatement
 {
 	Expression* condition;
@@ -266,6 +276,7 @@ typedef struct Statement
 		ReturnStatement return_stmt;
 		BlockStatement block_stmt;
 		IfStatement if_stmt;
+		ForStatement for_stmt;
 		WhileStatement while_stmt;
 		AssignmentStatement assign_stmt;
 	};

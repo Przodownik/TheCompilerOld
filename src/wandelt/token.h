@@ -20,6 +20,8 @@ typedef enum TokenType
 	TOKEN_TYPE_IF_KEYWORD,        // 'if'
 	TOKEN_TYPE_ELSE_KEYWORD,      // 'else'
 	TOKEN_TYPE_WHILE_KEYWORD,     // 'while'
+	TOKEN_TYPE_FOR_KEYWORD,       // 'for'
+	TOKEN_TYPE_INLINE_KEYWORD,    // 'inline'
 
 	// Built-in types
 	TOKEN_TYPE_BOOL_KEYWORD,   // 'bool'

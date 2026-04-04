@@ -477,6 +477,80 @@ TEST(parse_multiple_statements)
 }
 
 // ---------------------------------------------------------------------------
+// For loop parsing
+// ---------------------------------------------------------------------------
+
+TEST(parse_for_loop_basic)
+{
+	const char* src = "for var int i = 0; i < 10; i++ {\n"
+	                  "    return i;\n"
+	                  "}";
+
+	TranslationUnit tu = parse_source(alloc, src);
+	ASSERT_EQ(vector_get_length(tu.statements), 1);
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_FOR);
+
+	Declaration* init = stmt->for_stmt.initializer;
+	ASSERT_EQ(init->type, DECLARATION_TYPE_VARIABLE);
+	ASSERT_STR_EQ(init->variable.name, "i");
+	ASSERT_EQ(init->variable.type->kind, TYPE_KIND_INT);
+	ASSERT_EQ(init->variable.initializer->constant.integer_value, 0);
+
+	Expression* cond = stmt->for_stmt.condition;
+	ASSERT_EQ(cond->type, EXPRESSION_TYPE_BINARY);
+	ASSERT_EQ(cond->binary.operator, BINARY_OPERATOR_LT);
+
+	Expression* update = stmt->for_stmt.update;
+	ASSERT_EQ(update->type, EXPRESSION_TYPE_INCDEC);
+	ASSERT_TRUE(update->incdec.is_increment);
+	ASSERT_TRUE(update->incdec.is_postfix);
+
+	ASSERT_EQ(stmt->for_stmt.body->type, STATEMENT_TYPE_BLOCK);
+}
+
+TEST(parse_for_loop_decrement)
+{
+	const char* src = "for var int i = 10; i > 0; i-- {\n"
+	                  "    return i;\n"
+	                  "}";
+
+	TranslationUnit tu = parse_source(alloc, src);
+
+	Statement* stmt = tu.statements[0];
+	ASSERT_EQ(stmt->type, STATEMENT_TYPE_FOR);
+
+	Expression* update = stmt->for_stmt.update;
+	ASSERT_EQ(update->type, EXPRESSION_TYPE_INCDEC);
+	ASSERT_FALSE(update->incdec.is_increment);
+	ASSERT_TRUE(update->incdec.is_postfix);
+}
+
+TEST(parse_for_loop_nested)
+{
+	const char* src = "for var int i = 0; i < 5; i++ {\n"
+	                  "    for var int j = 0; j < 5; j++ {\n"
+	                  "        return i;\n"
+	                  "    }\n"
+	                  "}";
+
+	TranslationUnit tu = parse_source(alloc, src);
+	ASSERT_EQ(vector_get_length(tu.statements), 1);
+
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_FOR);
+
+	Statement* body = outer->for_stmt.body;
+	ASSERT_EQ(body->type, STATEMENT_TYPE_BLOCK);
+	ASSERT_EQ(vector_get_length(body->block_stmt.statements), 1);
+
+	Statement* inner = body->block_stmt.statements[0];
+	ASSERT_EQ(inner->type, STATEMENT_TYPE_FOR);
+	ASSERT_STR_EQ(inner->for_stmt.initializer->variable.name, "j");
+}
+
+// ---------------------------------------------------------------------------
 // Other (todo segregate)
 // ---------------------------------------------------------------------------
 
@@ -531,6 +605,11 @@ TestResults run_parser_tests(void)
 
 	print_section("Multiple statements");
 	RUN_TEST(parse_multiple_statements);
+
+	print_section("For loop parsing");
+	RUN_TEST(parse_for_loop_basic);
+	RUN_TEST(parse_for_loop_decrement);
+	RUN_TEST(parse_for_loop_nested);
 
 	print_section("Other");
 

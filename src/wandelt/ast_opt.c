@@ -38,7 +38,7 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 
 bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 8, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -60,6 +60,9 @@ bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_IF:
 		return ast_optimizer_fold_if_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_FOR:
+		return ast_optimizer_fold_for_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_WHILE:
 		return ast_optimizer_fold_while_statement(optimizer, stmt);
@@ -116,6 +119,18 @@ bool ast_optimizer_fold_if_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	if (stmt->if_stmt.else_block)
 		changed |= ast_optimizer_fold_statement(optimizer, stmt->if_stmt.else_block);
+
+	return changed;
+}
+
+bool ast_optimizer_fold_for_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.initializer->variable.initializer);
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.condition);
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.update);
+	changed |= ast_optimizer_fold_statement(optimizer, stmt->for_stmt.body);
 
 	return changed;
 }
@@ -629,7 +644,7 @@ bool ast_optimizer_fold_incdec_expression(AstOptimizer* optimizer, Expression** 
 
 bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 8, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -651,6 +666,9 @@ bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_IF:
 		return ast_optimizer_propagate_if_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_FOR:
+		return ast_optimizer_propagate_for_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_WHILE:
 		return ast_optimizer_propagate_while_statement(optimizer, stmt);
@@ -704,6 +722,18 @@ bool ast_optimizer_propagate_if_statement(AstOptimizer* optimizer, Statement* st
 
 	if (stmt->if_stmt.else_block)
 		changed |= ast_optimizer_propagate_statement(optimizer, stmt->if_stmt.else_block);
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_for_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.initializer->variable.initializer);
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.condition);
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.update);
+	changed |= ast_optimizer_propagate_statement(optimizer, stmt->for_stmt.body);
 
 	return changed;
 }
@@ -904,7 +934,7 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 
 void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 8, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -930,6 +960,12 @@ void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 		ast_optimizer_dce_mark_statement(stmt->if_stmt.then_block, used);
 		if (stmt->if_stmt.else_block)
 			ast_optimizer_dce_mark_statement(stmt->if_stmt.else_block, used);
+		break;
+
+	case STATEMENT_TYPE_FOR:
+		ast_optimizer_dce_mark_expression(stmt->for_stmt.condition, used);
+		ast_optimizer_dce_mark_expression(stmt->for_stmt.update, used);
+		ast_optimizer_dce_mark_statement(stmt->for_stmt.body, used);
 		break;
 
 	case STATEMENT_TYPE_WHILE:

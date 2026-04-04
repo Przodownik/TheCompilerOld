@@ -751,6 +751,87 @@ TEST(e2e_while_compound_condition)
 	                  1);
 }
 
+// ---------------------------------------------------------------------------
+// For loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_for_basic_sum)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 10; i++ {\n"
+	                  "    sum += i;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  45);
+}
+
+TEST(e2e_for_zero_iterations)
+{
+	EXPECT_RETURN_I64("var int x = 42;\n"
+	                  "for var int i = 0; i > 10; i++ {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  42);
+}
+
+TEST(e2e_for_countdown)
+{
+	EXPECT_RETURN_I64("var int result = 1;\n"
+	                  "for var int n = 5; n > 0; n-- {\n"
+	                  "    result *= n;\n"
+	                  "}\n"
+	                  "return result;",
+	                  120);
+}
+
+TEST(e2e_for_nested)
+{
+	EXPECT_RETURN_I64("var int total = 0;\n"
+	                  "for var int i = 0; i < 3; i++ {\n"
+	                  "    for var int j = 0; j < 4; j++ {\n"
+	                  "        total += 1;\n"
+	                  "    }\n"
+	                  "}\n"
+	                  "return total;",
+	                  12);
+}
+
+TEST(e2e_for_with_if)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 10; i++ {\n"
+	                  "    if i == 5 {\n"
+	                  "        sum += 100;\n"
+	                  "    } else {\n"
+	                  "        sum += 1;\n"
+	                  "    }\n"
+	                  "}\n"
+	                  "return sum;",
+	                  109);
+}
+
+TEST(e2e_for_multiply)
+{
+	EXPECT_RETURN_I64("var int x = 1;\n"
+	                  "for var int i = 0; i < 8; i++ {\n"
+	                  "    x *= 2;\n"
+	                  "}\n"
+	                  "return x;",
+	                  256);
+}
+
+TEST(e2e_for_with_inner_var)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 5; i++ {\n"
+	                  "    var int tmp = i * 2;\n"
+	                  "    sum += tmp;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  20);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -858,6 +939,15 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_if_after_if);
 	RUN_TEST(e2e_if_nested);
 	RUN_TEST(e2e_if_compound_assign_both_branches);
+
+	print_section("For loops");
+	RUN_TEST(e2e_for_basic_sum);
+	RUN_TEST(e2e_for_zero_iterations);
+	RUN_TEST(e2e_for_countdown);
+	RUN_TEST(e2e_for_nested);
+	RUN_TEST(e2e_for_with_if);
+	RUN_TEST(e2e_for_multiply);
+	RUN_TEST(e2e_for_with_inner_var);
 
 	print_section("While loops");
 	RUN_TEST(e2e_while_basic_sum);

@@ -483,7 +483,7 @@ Chunk bytecode_compiler_compile(BytecodeCompiler* compiler, Statement** program_
 
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 8, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	bytecode_compiler_set_line_from_span(compiler, stmt->span);
 
@@ -513,6 +513,10 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 		bytecode_compiler_compile_if_statement(compiler, stmt);
 		break;
 
+	case STATEMENT_TYPE_FOR:
+		bytecode_compiler_compile_for_statement(compiler, stmt);
+		break;
+
 	case STATEMENT_TYPE_WHILE:
 		bytecode_compiler_compile_while_statement(compiler, stmt);
 		break;
@@ -530,20 +534,7 @@ void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* 
 
 void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3, "Update this function when adding new declaration types");
-
-	Declaration* decl = stmt->decl_stmt.declaration;
-
-	if (decl->type == DECLARATION_TYPE_VARIABLE)
-	{
-		VariableDeclaration* var_decl = &stmt->decl_stmt.declaration->variable;
-
-		u8 reg = bytecode_compiler_compile_expression(compiler, var_decl->initializer);
-
-		Variable* local = &compiler->variables[compiler->local_count++];
-		local->name     = var_decl->name;
-		local->reg      = reg;
-	}
+	bytecode_compiler_compile_declaration(compiler, stmt->decl_stmt.declaration);
 }
 
 void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt)
@@ -593,6 +584,27 @@ void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statemen
 	}
 }
 
+void bytecode_compiler_compile_for_statement(BytecodeCompiler* compiler, Statement* stmt)
+{
+	bytecode_compiler_compile_declaration(compiler, stmt->for_stmt.initializer);
+
+	const u32 loop_start = (u32)vector_get_length(compiler->current_chunk.instructions);
+	const u8 cond_reg    = bytecode_compiler_compile_expression(compiler, stmt->for_stmt.condition);
+
+	const u32 exit_jump = bytecode_compiler_emit_jump(compiler, OP_CODE_JUMP_IF_FALSE, cond_reg);
+
+	bytecode_compiler_compile_statement(compiler, stmt->for_stmt.body);
+	bytecode_compiler_compile_expression(compiler, stmt->for_stmt.update);
+
+	u32 current     = (u32)vector_get_length(compiler->current_chunk.instructions);
+	u32 back_offset = current - loop_start + 1;
+	ASSERT(back_offset <= 0xFFFF, "Loop too large");
+
+	chunk_emit(&compiler->current_chunk, ENCODE_ABx(OP_CODE_JUMP_BACK, 0, (u16)back_offset));
+
+	bytecode_compiler_patch_jump(compiler, exit_jump);
+}
+
 void bytecode_compiler_compile_while_statement(BytecodeCompiler* compiler, Statement* stmt)
 {
 	const u32 loop_start = (u32)vector_get_length(compiler->current_chunk.instructions);
@@ -628,6 +640,42 @@ void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, 
 		OpCode op             = bytecode_compiler_select_binary_opcode(bin_op, assign->target_type);
 		chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, target_reg, target_reg, value_reg));
 	}
+}
+
+u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration* decl)
+{
+	static_assert(DECLARATION_TYPE_COUNT == 3, "Update this function when adding new declaration types");
+
+	switch (decl->type)
+	{
+	case DECLARATION_TYPE_INVALID:
+		ASSERT(false, "Invalid declaration.");
+		break;
+
+	case DECLARATION_TYPE_NAMESPACE:
+		break; // no op
+
+	case DECLARATION_TYPE_VARIABLE:
+		return bytecode_compiler_compile_variable_declaration(compiler, decl);
+
+	case DECLARATION_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid declaration.");
+		break;
+	}
+
+	return 0;
+}
+
+u8 bytecode_compiler_compile_variable_declaration(BytecodeCompiler* compiler, Declaration* decl)
+{
+	u8 reg = bytecode_compiler_compile_expression(compiler, decl->variable.initializer);
+
+	Variable* local = &compiler->variables[compiler->local_count++];
+	local->name     = decl->variable.name;
+	local->reg      = reg;
+
+	return reg;
 }
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr)

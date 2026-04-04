@@ -119,7 +119,7 @@ bool sema_analyze_pass_unused_variables(Sema* sema, TranslationUnit* tu)
 
 bool sema_analyze_statement(Sema* sema, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 8,
+	static_assert(STATEMENT_TYPE_COUNT == 9,
 	              "sema_analyze_statement needs to be updated to handle new statement types");
 
 	switch (stmt->type)
@@ -141,6 +141,9 @@ bool sema_analyze_statement(Sema* sema, Statement* stmt)
 
 	case STATEMENT_TYPE_IF:
 		return sema_analyze_if_statement(sema, stmt);
+
+	case STATEMENT_TYPE_FOR:
+		return sema_analyze_for_statement(sema, stmt);
 
 	case STATEMENT_TYPE_WHILE:
 		return sema_analyze_while_statement(sema, stmt);
@@ -284,6 +287,60 @@ bool sema_analyze_if_statement(Sema* sema, Statement* stmt)
 	{
 		if (!sema_analyze_block_statement(sema, stmt->if_stmt.else_block))
 			return false;
+	}
+
+	return true;
+}
+
+bool sema_analyze_for_statement(Sema* sema, Statement* stmt)
+{
+	symtab_push_scope(&sema->symbol_table);
+
+	if (!sema_analyze_declaration(sema, stmt->for_stmt.initializer))
+	{
+		symtab_pop_scope(&sema->symbol_table);
+		return false;
+	}
+
+	if (!sema_check_expression(sema, stmt->for_stmt.condition, nullptr))
+	{
+		symtab_pop_scope(&sema->symbol_table);
+		return false;
+	}
+
+	Type* cond_type = stmt->for_stmt.condition->resolved_type;
+	if (!type_is_bool(cond_type))
+	{
+		if (type_is_implicitly_convertible(cond_type, type_get_builtin(TYPE_KIND_BOOL)))
+		{
+			stmt->for_stmt.condition =
+			    sema_insert_cast(sema, stmt->for_stmt.condition, type_get_builtin(TYPE_KIND_BOOL));
+		}
+		else
+		{
+			diagnostics_verror_along_span(stmt->for_stmt.condition->span, sema->source,
+			                              "For loop condition must be boolean, got '%s'",
+			                              type_kind_to_cstr(cond_type->kind));
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+	}
+
+	if (!sema_check_expression(sema, stmt->for_stmt.update, nullptr))
+	{
+		symtab_pop_scope(&sema->symbol_table);
+		return false;
+	}
+
+	if (!sema_analyze_block_statement(sema, stmt->for_stmt.body))
+	{
+		symtab_pop_scope(&sema->symbol_table);
+		return false;
+	}
+
+	if (stmt->for_stmt.is_inline)
+	{
+		// todo
 	}
 
 	return true;

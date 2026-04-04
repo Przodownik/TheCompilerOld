@@ -559,6 +559,70 @@ TEST(sema_error_while_non_bool_condition)
 	ASSERT_STR_CONTAINS(e->message, "Condition in 'while' must be a boolean expression");
 }
 
+// ---------------------------------------------------------------------------
+// For loops
+// ---------------------------------------------------------------------------
+
+TEST(sema_valid_for_basic)
+{
+	SemaTestResult r = run_sema(alloc, "var int sum = 0;\n"
+	                                   "for var int i = 0; i < 10; i++ {\n"
+	                                   "    sum += i;\n"
+	                                   "}\n"
+	                                   "return sum;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_for_with_inner_var)
+{
+	SemaTestResult r = run_sema(alloc, "var int sum = 0;\n"
+	                                   "for var int i = 0; i < 5; i++ {\n"
+	                                   "    var int tmp = i * 2;\n"
+	                                   "    sum += tmp;\n"
+	                                   "}\n"
+	                                   "return sum;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_valid_for_nested)
+{
+	SemaTestResult r = run_sema(alloc, "var int total = 0;\n"
+	                                   "for var int i = 0; i < 3; i++ {\n"
+	                                   "    for var int j = 0; j < 3; j++ {\n"
+	                                   "        total += 1;\n"
+	                                   "    }\n"
+	                                   "}\n"
+	                                   "return total;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
+TEST(sema_error_for_non_bool_condition)
+{
+	SemaTestResult r = run_sema(alloc, "for var int i = 0; i; i++ {\n"
+	                                   "    i += 1;\n"
+	                                   "}\n"
+	                                   "return 0;\n");
+	ASSERT_FALSE(r.sema_ok);
+
+	DiagnosticEntry* e = diagnostics_get_captured(0);
+	ASSERT_EQ(e->type, DIAGNOSTIC_PRINT_TYPE_ERROR);
+	ASSERT_STR_CONTAINS(e->message, "For loop condition must be boolean, got 'int'");
+}
+
+TEST(sema_valid_for_decrement)
+{
+	SemaTestResult r = run_sema(alloc, "var int sum = 0;\n"
+	                                   "for var int i = 10; i > 0; i-- {\n"
+	                                   "    sum += i;\n"
+	                                   "}\n"
+	                                   "return sum;\n");
+	ASSERT_TRUE(r.sema_ok);
+	ASSERT_EQ(r.error_count, 0);
+}
+
 TestResults run_sema_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -615,6 +679,13 @@ TestResults run_sema_tests(void)
 	RUN_TEST(sema_valid_nested_if_with_inner_vars);
 	RUN_TEST(sema_error_duplicate_var_in_block);
 	RUN_TEST(sema_valid_same_name_different_scopes);
+
+	print_section("For loops");
+	RUN_TEST(sema_valid_for_basic);
+	RUN_TEST(sema_valid_for_with_inner_var);
+	RUN_TEST(sema_valid_for_nested);
+	RUN_TEST(sema_error_for_non_bool_condition);
+	RUN_TEST(sema_valid_for_decrement);
 
 	print_section("While loops");
 	RUN_TEST(sema_valid_while_basic);

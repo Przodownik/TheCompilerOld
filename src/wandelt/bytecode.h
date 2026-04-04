@@ -203,8 +203,12 @@ void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, 
 void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_block_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_for_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_while_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt);
+
+u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration* decl);
+u8 bytecode_compiler_compile_variable_declaration(BytecodeCompiler* compiler, Declaration* decl);
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr);
