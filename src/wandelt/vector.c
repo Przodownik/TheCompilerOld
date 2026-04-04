@@ -13,7 +13,7 @@ void* vector_create(Allocator* allocator, u64 initial_capacity, u64 stride)
 	u64 total_size = header_size + memory_block_size;
 	ASSERT(total_size >= header_size, "Integer overflow in total size calculation");
 
-	void* memory = calloc(total_size, sizeof(i8));
+	void* memory = allocator->alloc(allocator->ctx, total_size);
 	ASSERT(memory != nullptr, "Failed to allocate memory for vector");
 
 	VectorHeader* header = memory;
