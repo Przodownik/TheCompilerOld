@@ -580,12 +580,24 @@ Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt)
 			copy->if_stmt.else_block = ast_deep_copy_statement(ctx, stmt->if_stmt.else_block);
 		break;
 
-	case STATEMENT_TYPE_FOR:
-		copy->for_stmt.initializer = ast_deep_copy_declaration(ctx, stmt->for_stmt.initializer);
-		copy->for_stmt.condition   = ast_deep_copy_expression(ctx, stmt->for_stmt.condition);
-		copy->for_stmt.update      = ast_deep_copy_expression(ctx, stmt->for_stmt.update);
-		copy->for_stmt.body        = ast_deep_copy_statement(ctx, stmt->for_stmt.body);
+	case STATEMENT_TYPE_FOR: {
+		Declaration* old_init      = stmt->for_stmt.initializer;
+		copy->for_stmt.initializer = ast_deep_copy_declaration(ctx, old_init);
+
+		// Remap loop variable references in condition/update/body to the new declaration
+		Declaration* saved_remap_old = ctx->remap_old;
+		Declaration* saved_remap_new = ctx->remap_new;
+		ctx->remap_old               = old_init;
+		ctx->remap_new               = copy->for_stmt.initializer;
+
+		copy->for_stmt.condition = ast_deep_copy_expression(ctx, stmt->for_stmt.condition);
+		copy->for_stmt.update    = ast_deep_copy_expression(ctx, stmt->for_stmt.update);
+		copy->for_stmt.body      = ast_deep_copy_statement(ctx, stmt->for_stmt.body);
+
+		ctx->remap_old = saved_remap_old;
+		ctx->remap_new = saved_remap_new;
 		break;
+	}
 
 	case STATEMENT_TYPE_WHILE:
 		copy->while_stmt.condition = ast_deep_copy_expression(ctx, stmt->while_stmt.condition);
@@ -677,6 +689,10 @@ Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr
 			copy->constant.integer_value = (u64)ctx->subst_value;
 			copy->resolved_type          = ctx->subst_type;
 			copy->resolve_status         = RESOLVE_STATUS_RESOLVED;
+		}
+		else if (ctx->remap_old && expr->identifier.declaration_ref == ctx->remap_old)
+		{
+			copy->identifier.declaration_ref = ctx->remap_new;
 		}
 
 		break;

@@ -66,9 +66,35 @@ void ast_optimizer_unroll_inline_for_statements(AstOptimizer* optimizer, Stateme
 	for (u64 i = 0; i < vector_get_length(stmts); i++)
 	{
 		Statement* stmt = stmts[i];
-		if (stmt->type != STATEMENT_TYPE_FOR || !stmt->for_stmt.is_inline)
-			continue;
 
+		static_assert(STATEMENT_TYPE_COUNT == 9,
+		              "ast_optimizer_unroll_inline_for_statements needs to be updated to handle new statement types");
+
+		switch (stmt->type)
+		{
+		case STATEMENT_TYPE_BLOCK:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_IF:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->if_stmt.then_block->block_stmt.statements);
+			if (stmt->if_stmt.else_block)
+				ast_optimizer_unroll_inline_for_statements(optimizer, stmt->if_stmt.else_block->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_WHILE:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->while_stmt.body->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_FOR:
+			if (!stmt->for_stmt.is_inline)
+			{
+				ast_optimizer_unroll_inline_for_statements(optimizer, stmt->for_stmt.body->block_stmt.statements);
+				continue;
+			}
+			break;
+		default:
+			continue;
+		}
+
+		// Unroll inline for
 		LoopBounds bounds = sema_check_loop_bounds(stmt);
 		ASSERT(bounds.is_valid, "Inline for bounds must be valid (sema should have caught this)");
 
@@ -114,6 +140,9 @@ void ast_optimizer_unroll_inline_for_statements(AstOptimizer* optimizer, Stateme
 		}
 
 		stmts[i] = outer_block;
+
+		// handle nested inline fors
+		ast_optimizer_unroll_inline_for_statements(optimizer, outer_block->block_stmt.statements);
 	}
 }
 

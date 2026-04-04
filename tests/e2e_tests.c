@@ -906,6 +906,49 @@ TEST(e2e_inline_for_with_expression)
 	                      14);
 }
 
+TEST(e2e_inline_for_nested)
+{
+	// 2x3 nested: sum of (i*10 + j) for i=0..1, j=0..2
+	// = (0+0)+(0+1)+(0+2)+(10+0)+(10+1)+(10+2) = 0+1+2+10+11+12 = 36
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 2; i++ {\n"
+	                      "    inline for var int j = 0; j < 3; j++ {\n"
+	                      "        sum += i * 10 + j;\n"
+	                      "    }\n"
+	                      "}\n"
+	                      "return sum;",
+	                      36);
+}
+
+TEST(e2e_inline_for_inside_regular_for)
+{
+	// Regular for i=1..3, inline for j=1..3: sum += j each time
+	// 3 outer iters * (1+2+3) = 3 * 6 = 18
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                       "for var int i = 0; i < 3; i++ {\n"
+	                       "    inline for var int j = 1; j <= 3; j++ {\n"
+	                       "        sum += j;\n"
+	                       "    }\n"
+	                       "}\n"
+	                       "return sum;",
+	                       18);
+}
+
+TEST(e2e_inline_for_nested_matches_demo)
+{
+	// Matches the demo/main.wdt pattern
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                      "inline for var int i = 1; i <= 5; i++ {\n"
+	                      "    var int x = i * 10;\n"
+	                      "    inline for var int j = 1; j <= 5; j++ {\n"
+	                      "        var int y = j * 10;\n"
+	                      "        result = x + y;\n"
+	                      "    }\n"
+	                      "}\n"
+	                      "return result;",
+	                      100); // last iteration: x=50, y=50 -> 100
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -1030,6 +1073,9 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_inline_for_countdown);
 	RUN_TEST(e2e_inline_for_nested_in_regular_for);
 	RUN_TEST(e2e_inline_for_with_expression);
+	RUN_TEST(e2e_inline_for_nested);
+	RUN_TEST(e2e_inline_for_inside_regular_for);
+	RUN_TEST(e2e_inline_for_nested_matches_demo);
 
 	print_section("While loops");
 	RUN_TEST(e2e_while_basic_sum);

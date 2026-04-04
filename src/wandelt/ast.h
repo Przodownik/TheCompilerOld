@@ -292,6 +292,8 @@ typedef struct AstCopyContext
 	Declaration* subst_decl;
 	i64 subst_value;
 	Type* subst_type;
+	Declaration* remap_old; // remap declaration_ref pointers (old -> new) without substituting to constant
+	Declaration* remap_new;
 } AstCopyContext;
 
 Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt);
