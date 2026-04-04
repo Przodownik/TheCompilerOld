@@ -41,9 +41,12 @@ int main(int argc, char* argv[])
 	double dt_vm             = 0.0;
 
 	printf("Flags:");
-	if (debug) printf(" -debug");
-	if (optimize) printf(" -o");
-	if (!debug && !optimize) printf(" (none)");
+	if (debug)
+		printf(" -debug");
+	if (optimize)
+		printf(" -o");
+	if (!debug && !optimize)
+		printf(" (none)");
 	printf("\n");
 
 	String demo_filepath = string_from_cstr(&string_arena, DEMO_PATH "main.wdt");
@@ -89,18 +92,15 @@ int main(int argc, char* argv[])
 	}
 
 	// AST Optimization
-	if (optimize)
-	{
-		platform_timer_start(&timer);
-		AstOptimizer optimizer = ast_optimizer_create(&expr_arena);
-		ast_optimizer_run(&optimizer, &tu);
-		dt_ast_opt = platform_timer_elapsed_ms(&timer);
+	platform_timer_start(&timer);
+	AstOptimizer optimizer = ast_optimizer_create(&stmt_arena, &decl_arena, &expr_arena);
+	ast_optimizer_run(&optimizer, &tu, optimize);
+	dt_ast_opt = platform_timer_elapsed_ms(&timer);
 
-		if (debug)
-		{
-			printf("======== After optimization: =======\n");
-			ast_dump_statements(tu.statements);
-		}
+	if (debug)
+	{
+		printf("======== After optimization: =======\n");
+		ast_dump_statements(tu.statements);
 	}
 
 	// Bytecode Generation

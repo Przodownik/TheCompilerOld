@@ -214,6 +214,8 @@ static PipelineResult run_pipeline(Allocator* alloc, const char* source, bool op
 {
 	PipelineResult r = {0};
 
+	diagnostics_reset();
+
 	File file          = make_test_file(alloc, source);
 	Lexer lexer        = lexer_create(&file);
 	Parser parser      = parser_create(alloc, alloc, alloc, &lexer);
@@ -239,8 +241,8 @@ static PipelineResult run_pipeline(Allocator* alloc, const char* source, bool op
 
 	if (optimize)
 	{
-		AstOptimizer opt = ast_optimizer_create(alloc);
-		ast_optimizer_run(&opt, &tu);
+		AstOptimizer opt = ast_optimizer_create(alloc, alloc, alloc);
+		ast_optimizer_run(&opt, &tu, true);
 	}
 
 	BytecodeCompiler compiler = bytecode_compiler_create(alloc, &file);

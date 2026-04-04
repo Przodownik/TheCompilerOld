@@ -320,20 +320,37 @@ const char* declaration_type_to_cstr(DeclarationType type)
 
 const char* statement_type_to_cstr(StatementType type)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update statement_type_to_cstr when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update statement_type_to_cstr when adding new statement types");
 
 	switch (type)
 	{
 	case STATEMENT_TYPE_INVALID:
 		return "InvalidStatement";
+
 	case STATEMENT_TYPE_DECLARATION:
 		return "DeclarationStatement";
+
 	case STATEMENT_TYPE_EXPRESSION:
 		return "ExpressionStatement";
+
 	case STATEMENT_TYPE_RETURN:
 		return "ReturnStatement";
+
+	case STATEMENT_TYPE_BLOCK:
+		return "BlockStatement";
+
+	case STATEMENT_TYPE_IF:
+		return "IfStatement";
+
+	case STATEMENT_TYPE_FOR:
+		return "ForStatement";
+
+	case STATEMENT_TYPE_WHILE:
+		return "WhileStatement";
+
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return "AssignmentStatement";
+
 	default:
 		break;
 	}
@@ -438,7 +455,7 @@ static void dump_declaration(Declaration* decl, int indent)
 
 static void dump_statement(Statement* stmt, int indent)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update dump_statement when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update dump_statement when adding new statement types");
 
 	if (!stmt)
 		return;
@@ -455,6 +472,41 @@ static void dump_statement(Statement* stmt, int indent)
 		break;
 	case STATEMENT_TYPE_RETURN:
 		dump_expression(stmt->return_stmt.expression, indent + 2);
+		break;
+	case STATEMENT_TYPE_BLOCK:
+		printf("%*sStatements:\n", indent + 2, "");
+		for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+		{
+			printf("%*s[%llu] ", indent + 4, "", i);
+			dump_statement(stmt->block_stmt.statements[i], indent + 6);
+		}
+		break;
+	case STATEMENT_TYPE_IF:
+		printf("%*sCondition:\n", indent + 2, "");
+		dump_expression(stmt->if_stmt.condition, indent + 4);
+		printf("%*sThen branch:\n", indent + 2, "");
+		dump_statement(stmt->if_stmt.then_block, indent + 4);
+		if (stmt->if_stmt.else_block)
+		{
+			printf("%*sElse branch:\n", indent + 2, "");
+			dump_statement(stmt->if_stmt.else_block, indent + 4);
+		}
+		break;
+	case STATEMENT_TYPE_FOR:
+		printf("%*sInitializer:\n", indent + 2, "");
+		dump_declaration(stmt->for_stmt.initializer, indent + 4);
+		printf("%*sCondition:\n", indent + 2, "");
+		dump_expression(stmt->for_stmt.condition, indent + 4);
+		printf("%*sUpdate:\n", indent + 2, "");
+		dump_expression(stmt->for_stmt.update, indent + 4);
+		printf("%*sBody:\n", indent + 2, "");
+		dump_statement(stmt->for_stmt.body, indent + 4);
+		break;
+	case STATEMENT_TYPE_WHILE:
+		printf("%*sCondition:\n", indent + 2, "");
+		dump_expression(stmt->while_stmt.condition, indent + 4);
+		printf("%*sBody:\n", indent + 2, "");
+		dump_statement(stmt->while_stmt.body, indent + 4);
 		break;
 	case STATEMENT_TYPE_ASSIGNMENT:
 		printf("%*sAssignment: %s\n", indent + 2, "", assignment_operator_to_cstr(stmt->assign_stmt.operator));
@@ -479,4 +531,185 @@ void ast_dump_statements(Statement** statements)
 	}
 
 	printf("=== End AST Dump ===\n");
+}
+
+Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt)
+{
+	static_assert(STATEMENT_TYPE_COUNT == 9,
+	              "ast_deep_copy_statement needs to be updated to handle new statement types");
+
+	ASSERT(stmt);
+
+	Statement* copy = ctx->stmt_alloc->alloc(ctx->stmt_alloc->ctx, sizeof(Statement));
+	*copy           = *stmt;
+
+	copy->next = nullptr;
+
+	switch (stmt->type)
+	{
+	case STATEMENT_TYPE_INVALID:
+		ASSERT(false, "Invalid statement");
+		break;
+
+	case STATEMENT_TYPE_DECLARATION:
+		copy->decl_stmt.declaration = ast_deep_copy_declaration(ctx, stmt->decl_stmt.declaration);
+		break;
+
+	case STATEMENT_TYPE_EXPRESSION:
+		copy->expr_stmt.expression = ast_deep_copy_expression(ctx, stmt->expr_stmt.expression);
+		break;
+
+	case STATEMENT_TYPE_RETURN:
+		copy->return_stmt.expression = ast_deep_copy_expression(ctx, stmt->return_stmt.expression);
+		break;
+
+	case STATEMENT_TYPE_BLOCK: {
+		u64 len                     = vector_get_length(stmt->block_stmt.statements);
+		copy->block_stmt.statements = vector_create(ctx->stmt_alloc, len > 0 ? len : 1, sizeof(Statement*));
+		for (u64 i = 0; i < len; i++)
+		{
+			Statement* child = ast_deep_copy_statement(ctx, stmt->block_stmt.statements[i]);
+			vector_push(copy->block_stmt.statements, child);
+		}
+		break;
+
+	case STATEMENT_TYPE_IF:
+		copy->if_stmt.condition  = ast_deep_copy_expression(ctx, stmt->if_stmt.condition);
+		copy->if_stmt.then_block = ast_deep_copy_statement(ctx, stmt->if_stmt.then_block);
+		if (stmt->if_stmt.else_block)
+			copy->if_stmt.else_block = ast_deep_copy_statement(ctx, stmt->if_stmt.else_block);
+		break;
+
+	case STATEMENT_TYPE_FOR: {
+		Declaration* old_init      = stmt->for_stmt.initializer;
+		copy->for_stmt.initializer = ast_deep_copy_declaration(ctx, old_init);
+
+		// Remap loop variable references in condition/update/body to the new declaration
+		Declaration* saved_remap_old = ctx->remap_old;
+		Declaration* saved_remap_new = ctx->remap_new;
+		ctx->remap_old               = old_init;
+		ctx->remap_new               = copy->for_stmt.initializer;
+
+		copy->for_stmt.condition = ast_deep_copy_expression(ctx, stmt->for_stmt.condition);
+		copy->for_stmt.update    = ast_deep_copy_expression(ctx, stmt->for_stmt.update);
+		copy->for_stmt.body      = ast_deep_copy_statement(ctx, stmt->for_stmt.body);
+
+		ctx->remap_old = saved_remap_old;
+		ctx->remap_new = saved_remap_new;
+		break;
+	}
+
+	case STATEMENT_TYPE_WHILE:
+		copy->while_stmt.condition = ast_deep_copy_expression(ctx, stmt->while_stmt.condition);
+		copy->while_stmt.body      = ast_deep_copy_statement(ctx, stmt->while_stmt.body);
+		break;
+	}
+
+	case STATEMENT_TYPE_ASSIGNMENT:
+		copy->assign_stmt.value = ast_deep_copy_expression(ctx, stmt->assign_stmt.value);
+		break;
+
+	case STATEMENT_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid statement");
+		break;
+	}
+
+	return copy;
+}
+
+Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* decl)
+{
+	static_assert(DECLARATION_TYPE_COUNT == 3, "Update ast_deep_copy_declaration when adding new declaration types");
+
+	ASSERT(decl);
+
+	Declaration* copy = ctx->decl_alloc->alloc(ctx->decl_alloc->ctx, sizeof(Declaration));
+	*copy             = *decl;
+
+	switch (decl->type)
+	{
+	case DECLARATION_TYPE_INVALID:
+		ASSERT(false, "Invalid declaration");
+		break;
+
+	case DECLARATION_TYPE_NAMESPACE:
+		ASSERT(false, "Cant copy namespace declaration");
+		break;
+
+	case DECLARATION_TYPE_VARIABLE:
+		copy->variable.initializer = ast_deep_copy_expression(ctx, decl->variable.initializer);
+		break;
+
+	case DECLARATION_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid declaration");
+		break;
+	}
+
+	return copy;
+}
+
+Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr)
+{
+	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update ast_deep_copy_expression when adding new expression types");
+
+	ASSERT(expr);
+
+	Expression* copy = ctx->expr_alloc->alloc(ctx->expr_alloc->ctx, sizeof(Expression));
+	*copy            = *expr;
+
+	switch (expr->type)
+	{
+	case EXPRESSION_TYPE_INVALID:
+		ASSERT(false, "Invalid expression");
+		break;
+
+	case EXPRESSION_TYPE_CONSTANT:
+		break;
+
+	case EXPRESSION_TYPE_UNARY:
+		copy->unary.operand = ast_deep_copy_expression(ctx, expr->unary.operand);
+		break;
+
+	case EXPRESSION_TYPE_BINARY:
+		copy->binary.left  = ast_deep_copy_expression(ctx, expr->binary.left);
+		copy->binary.right = ast_deep_copy_expression(ctx, expr->binary.right);
+		break;
+
+	case EXPRESSION_TYPE_GROUP:
+		copy->group.inner = ast_deep_copy_expression(ctx, expr->group.inner);
+		break;
+
+	case EXPRESSION_TYPE_IDENTIFIER:
+		if (ctx->subst_decl && expr->identifier.declaration_ref == ctx->subst_decl)
+		{
+			copy->type                   = EXPRESSION_TYPE_CONSTANT;
+			copy->constant.kind          = CONSTANT_KIND_INTEGER;
+			copy->constant.integer_value = (u64)ctx->subst_value;
+			copy->resolved_type          = ctx->subst_type;
+			copy->resolve_status         = RESOLVE_STATUS_RESOLVED;
+		}
+		else if (ctx->remap_old && expr->identifier.declaration_ref == ctx->remap_old)
+		{
+			copy->identifier.declaration_ref = ctx->remap_new;
+		}
+
+		break;
+
+	case EXPRESSION_TYPE_CAST:
+		copy->cast.expression = ast_deep_copy_expression(ctx, expr->cast.expression);
+		break;
+
+	case EXPRESSION_TYPE_INCDEC:
+		copy->incdec.operand = ast_deep_copy_expression(ctx, expr->incdec.operand);
+		break;
+
+	case EXPRESSION_TYPE_COUNT:
+	default:
+		ASSERT(false, "Invalid expression");
+		break;
+	}
+
+	return copy;
 }

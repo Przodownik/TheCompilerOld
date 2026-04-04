@@ -57,12 +57,17 @@ typedef struct ParseRule
 } ParseRule;
 
 Statement* parser_parse_top_level_statement(Parser* parser);
+Statement* parser_parse_inner_statement(Parser* parser);
 void parser_recover_from_error(Parser* parser);
 
 Statement* parser_parse_statement(Parser* parser);
 Statement* parser_parse_declaration_statement(Parser* parser);
 Statement* parser_parse_expression_statement(Parser* parser);
 Statement* parser_parse_return_statement(Parser* parser);
+Statement* parser_parse_block_statement(Parser* parser);
+Statement* parser_parse_if_statement(Parser* parser);
+Statement* parser_parse_for_statement(Parser* parser);
+Statement* parser_parse_while_statement(Parser* parser);
 Statement* parser_parse_assignment_statement(Parser* parser);
 
 Declaration* parser_parse_declaration(Parser* parser);

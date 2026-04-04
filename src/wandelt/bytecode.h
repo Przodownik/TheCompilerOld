@@ -23,64 +23,68 @@ typedef u32 Instruction;
 
 typedef enum OpCode
 {
-	OP_CODE_LOAD_CONST, // 	ABx     R(A) = K(Bx)
-	OP_CODE_MOVE,       // 	ABC     R(A) = R(B)
+	OP_CODE_LOAD_CONST, // 		ABx     R(A) = K(Bx)
+	OP_CODE_MOVE,       // 		ABC     R(A) = R(B)
 
-	OP_CODE_ADD_I, // 		ABC     R(A).i64 = R(B).i64 + R(C).i64
-	OP_CODE_ADD_U, // 		ABC     R(A).u64 = R(B).u64 + R(C).u64
-	OP_CODE_ADD_F, // 		ABC		R(A).f32 = R(B).f32 + R(C).f32
-	OP_CODE_ADD_D, // 		ABC     R(A).f64 = R(B).f64 + R(C).f64
+	OP_CODE_ADD_I, // 			ABC     R(A).i64 = R(B).i64 + R(C).i64
+	OP_CODE_ADD_U, // 			ABC     R(A).u64 = R(B).u64 + R(C).u64
+	OP_CODE_ADD_F, // 			ABC		R(A).f32 = R(B).f32 + R(C).f32
+	OP_CODE_ADD_D, // 			ABC     R(A).f64 = R(B).f64 + R(C).f64
 
-	OP_CODE_SUB_I, // 		ABC     R(A).i64 = R(B).i64 - R(C).i64
-	OP_CODE_SUB_U, // 		ABC     R(A).u64 = R(B).u64 - R(C).u64
-	OP_CODE_SUB_F, // 		ABC     R(A).f32 = R(B).f32 - R(C).f32
-	OP_CODE_SUB_D, // 		ABC     R(A).f64 = R(B).f64 - R(C).f64
+	OP_CODE_SUB_I, // 			ABC     R(A).i64 = R(B).i64 - R(C).i64
+	OP_CODE_SUB_U, // 			ABC     R(A).u64 = R(B).u64 - R(C).u64
+	OP_CODE_SUB_F, // 			ABC     R(A).f32 = R(B).f32 - R(C).f32
+	OP_CODE_SUB_D, // 			ABC     R(A).f64 = R(B).f64 - R(C).f64
 
-	OP_CODE_MUL_I, // 		ABC     R(A).i64 = R(B).i64 * R(C).i64
-	OP_CODE_MUL_U, // 		ABC     R(A).u64 = R(B).u64 * R(C).u64
-	OP_CODE_MUL_F, // 		ABC     R(A).f32 = R(B).f32 * R(C).f32
-	OP_CODE_MUL_D, // 		ABC     R(A).f64 = R(B).f64 * R(C).f64
+	OP_CODE_MUL_I, // 			ABC     R(A).i64 = R(B).i64 * R(C).i64
+	OP_CODE_MUL_U, // 			ABC     R(A).u64 = R(B).u64 * R(C).u64
+	OP_CODE_MUL_F, // 			ABC     R(A).f32 = R(B).f32 * R(C).f32
+	OP_CODE_MUL_D, // 			ABC     R(A).f64 = R(B).f64 * R(C).f64
 
-	OP_CODE_DIV_I, //  		ABC     R(A).i64 = R(B).i64 / R(C).i64
-	OP_CODE_DIV_U, //  		ABC     R(A).u64 = R(B).u64 / R(C).u64
-	OP_CODE_DIV_F, //  		ABC     R(A).f32 = R(B).f32 / R(C).f32
-	OP_CODE_DIV_D, //  		ABC     R(A).f64 = R(B).f64 / R(C).f64
+	OP_CODE_DIV_I, //  			ABC     R(A).i64 = R(B).i64 / R(C).i64
+	OP_CODE_DIV_U, //  			ABC     R(A).u64 = R(B).u64 / R(C).u64
+	OP_CODE_DIV_F, //  			ABC     R(A).f32 = R(B).f32 / R(C).f32
+	OP_CODE_DIV_D, //  			ABC     R(A).f64 = R(B).f64 / R(C).f64
 
-	OP_CODE_NEG_I, //		AB		R(A).i64 = -R(B).i64
-	OP_CODE_NEG_F, //		AB		R(A).f32 = -R(B).f32
-	OP_CODE_NEG_D, //		AB		R(A).f64 = -R(B).f64
+	OP_CODE_NEG_I, //			AB		R(A).i64 = -R(B).i64
+	OP_CODE_NEG_F, //			AB		R(A).f32 = -R(B).f32
+	OP_CODE_NEG_D, //			AB		R(A).f64 = -R(B).f64
 
-	OP_CODE_EQ_I, //		ABC     R(A).bool = R(B).i64 == R(C).i64
-	OP_CODE_EQ_U, //		ABC     R(A).bool = R(B).u64 == R(C).u64
-	OP_CODE_EQ_F, //		ABC     R(A).bool = R(B).f32 == R(C).f32
-	OP_CODE_EQ_D, //		ABC     R(A).bool = R(B).f64 == R(C).f64
+	OP_CODE_EQ_I, //			ABC     R(A).bool = R(B).i64 == R(C).i64
+	OP_CODE_EQ_U, //			ABC     R(A).bool = R(B).u64 == R(C).u64
+	OP_CODE_EQ_F, //			ABC     R(A).bool = R(B).f32 == R(C).f32
+	OP_CODE_EQ_D, //			ABC     R(A).bool = R(B).f64 == R(C).f64
 
-	OP_CODE_NEQ_I, //		ABC     R(A).bool = R(B).i64 != R(C).i64
-	OP_CODE_NEQ_U, //		ABC     R(A).bool = R(B).u64 != R(C).u64
-	OP_CODE_NEQ_F, //		ABC     R(A).bool = R(B).f32 != R(C).f32
-	OP_CODE_NEQ_D, //		ABC     R(A).bool = R(B).f64 != R(C).f64
+	OP_CODE_NEQ_I, //			ABC     R(A).bool = R(B).i64 != R(C).i64
+	OP_CODE_NEQ_U, //			ABC     R(A).bool = R(B).u64 != R(C).u64
+	OP_CODE_NEQ_F, //			ABC     R(A).bool = R(B).f32 != R(C).f32
+	OP_CODE_NEQ_D, //			ABC     R(A).bool = R(B).f64 != R(C).f64
 
-	OP_CODE_LT_I, //		ABC     R(A).bool = R(B).i64 <  R(C).i64
-	OP_CODE_LT_U, //		ABC     R(A).bool = R(B).u64 <  R(C).u64
-	OP_CODE_LT_F, //		ABC     R(A).bool = R(B).f32 <  R(C).f32
-	OP_CODE_LT_D, //		ABC     R(A).bool = R(B).f64 <  R(C).f64
+	OP_CODE_LT_I, //			ABC     R(A).bool = R(B).i64 <  R(C).i64
+	OP_CODE_LT_U, //			ABC     R(A).bool = R(B).u64 <  R(C).u64
+	OP_CODE_LT_F, //			ABC     R(A).bool = R(B).f32 <  R(C).f32
+	OP_CODE_LT_D, //			ABC     R(A).bool = R(B).f64 <  R(C).f64
 
-	OP_CODE_GT_I, //		ABC     R(A).bool = R(B).i64 >  R(C).i64
-	OP_CODE_GT_U, //		ABC     R(A).bool = R(B).u64 >  R(C).u64
-	OP_CODE_GT_F, //		ABC     R(A).bool = R(B).f32 >  R(C).f32
-	OP_CODE_GT_D, //		ABC     R(A).bool = R(B).f64 >  R(C).f64
+	OP_CODE_GT_I, //			ABC     R(A).bool = R(B).i64 >  R(C).i64
+	OP_CODE_GT_U, //			ABC     R(A).bool = R(B).u64 >  R(C).u64
+	OP_CODE_GT_F, //			ABC     R(A).bool = R(B).f32 >  R(C).f32
+	OP_CODE_GT_D, //			ABC     R(A).bool = R(B).f64 >  R(C).f64
 
-	OP_CODE_LEQ_I, //		ABC     R(A).bool = R(B).i64 <= R(C).i64
-	OP_CODE_LEQ_U, //		ABC     R(A).bool = R(B).u64 <= R(C).u64
-	OP_CODE_LEQ_F, //		ABC     R(A).bool = R(B).f32 <= R(C).f32
-	OP_CODE_LEQ_D, //		ABC     R(A).bool = R(B).f64 <= R(C).f64
+	OP_CODE_LEQ_I, //			ABC     R(A).bool = R(B).i64 <= R(C).i64
+	OP_CODE_LEQ_U, //			ABC     R(A).bool = R(B).u64 <= R(C).u64
+	OP_CODE_LEQ_F, //			ABC     R(A).bool = R(B).f32 <= R(C).f32
+	OP_CODE_LEQ_D, //			ABC     R(A).bool = R(B).f64 <= R(C).f64
 
-	OP_CODE_GEQ_I, //		ABC     R(A).bool = R(B).i64 >= R(C).i64
-	OP_CODE_GEQ_U, //		ABC     R(A).bool = R(B).u64 >= R(C).u64
-	OP_CODE_GEQ_F, //		ABC     R(A).bool = R(B).f32 >= R(C).f32
-	OP_CODE_GEQ_D, //		ABC     R(A).bool = R(B).f64 >= R(C).f64
+	OP_CODE_GEQ_I, //			ABC     R(A).bool = R(B).i64 >= R(C).i64
+	OP_CODE_GEQ_U, //			ABC     R(A).bool = R(B).u64 >= R(C).u64
+	OP_CODE_GEQ_F, //			ABC     R(A).bool = R(B).f32 >= R(C).f32
+	OP_CODE_GEQ_D, //			ABC     R(A).bool = R(B).f64 >= R(C).f64
 
-	OP_CODE_CAST, //        ABC     R(A) = convert(R(B), TypeKind(C))
+	OP_CODE_CAST, //			ABC     R(A) = convert(R(B), TypeKind(C))
+
+	OP_CODE_JUMP,          //	ABx     ip += Bx
+	OP_CODE_JUMP_BACK,     //	ABx     ip -= Bx
+	OP_CODE_JUMP_IF_FALSE, //	ABx     if !R(A) then ip += Bx
 
 	OP_CODE_RETURN, // return R(A)
 	OP_CODE_HALT,   // stop execution
@@ -176,7 +180,7 @@ typedef struct BytecodeCompiler
 	Variable variables[128];
 	u8 local_count;
 	// u8 max_reg;  // high-water mark of registers used
-	// u8 scope_depth;
+	u8 scope_depth;
 } BytecodeCompiler;
 
 BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);
@@ -190,11 +194,21 @@ OpCode bytecode_compiler_select_negate_opcode(Type* type);
 bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to);
 OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type);
 
+u32 bytecode_compiler_emit_jump(BytecodeCompiler* compiler, OpCode op, u8 reg);
+void bytecode_compiler_patch_jump(BytecodeCompiler* compiler, u32 jump_offset);
+
 void bytecode_compiler_compile_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_declaration_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_expression_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_return_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_block_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_if_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_for_statement(BytecodeCompiler* compiler, Statement* stmt);
+void bytecode_compiler_compile_while_statement(BytecodeCompiler* compiler, Statement* stmt);
 void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, Statement* stmt);
+
+u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration* decl);
+u8 bytecode_compiler_compile_variable_declaration(BytecodeCompiler* compiler, Declaration* decl);
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr);

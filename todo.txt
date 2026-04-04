@@ -13,3 +13,10 @@ AST:
     [0] DeclarationStatement: var int x = 5
     [1] AssignmentStatement: target='x', op=ADD, value=3
     [2] ReturnStatement: IdentifierExpression('x')
+
+Optimization passes:
+- Dead Branch Elimination
+- Loop Invariant Code Motion
+- Loop Unrolling
+- Strength Reduction
+- Peephole Optimization

@@ -9,6 +9,13 @@
 		ASSERT_EQ(_r.vm_result, VM_OK);                          \
 		ASSERT_EQ(_r.return_value.i64_val, (i64)(expected_val)); \
 	} while (0)
+#define EXPECT_RETURN_I64_OPT(source, expected_val)              \
+	do                                                           \
+	{                                                            \
+		PipelineResult _r = run_pipeline(alloc, source, true);   \
+		ASSERT_EQ(_r.vm_result, VM_OK);                          \
+		ASSERT_EQ(_r.return_value.i64_val, (i64)(expected_val)); \
+	} while (0)
 #define EXPECT_RETURN_BOOL(source, expected_val)                 \
 	do                                                           \
 	{                                                            \
@@ -506,6 +513,442 @@ TEST(e2e_all_compound_operators)
 	                  4);
 }
 
+// ---------------------------------------------------------------------------
+// If / Else
+// ---------------------------------------------------------------------------
+
+TEST(e2e_if_true_branch)
+{
+	EXPECT_RETURN_I64("var int a = 10;\n"
+	                  "var int b = 10;\n"
+	                  "if a == b {\n"
+	                  "    a += b;\n"
+	                  "} else {\n"
+	                  "    a -= b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  20);
+}
+
+TEST(e2e_if_false_branch)
+{
+	EXPECT_RETURN_I64("var int a = 10;\n"
+	                  "var int b = 20;\n"
+	                  "if a == b {\n"
+	                  "    a += b;\n"
+	                  "} else {\n"
+	                  "    a -= b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  -10);
+}
+
+TEST(e2e_if_no_else)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x == 5 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "return x;",
+	                  15);
+}
+
+TEST(e2e_if_no_else_false)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x == 99 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "return x;",
+	                  5);
+}
+
+TEST(e2e_if_less_than)
+{
+	EXPECT_RETURN_I64("var int x = 3;\n"
+	                  "var int y = 10;\n"
+	                  "if x < y {\n"
+	                  "    return x;\n"
+	                  "} else {\n"
+	                  "    return y;\n"
+	                  "}\n",
+	                  3);
+}
+
+TEST(e2e_if_greater_than)
+{
+	EXPECT_RETURN_I64("var int x = 3;\n"
+	                  "var int y = 10;\n"
+	                  "if x > y {\n"
+	                  "    return x;\n"
+	                  "} else {\n"
+	                  "    return y;\n"
+	                  "}\n",
+	                  10);
+}
+
+TEST(e2e_if_multiple_stmts_in_block)
+{
+	EXPECT_RETURN_I64("var int a = 1;\n"
+	                  "var int b = 2;\n"
+	                  "if a != b {\n"
+	                  "    a += 10;\n"
+	                  "    b += 20;\n"
+	                  "    a += b;\n"
+	                  "}\n"
+	                  "return a;",
+	                  33);
+}
+
+TEST(e2e_if_after_if)
+{
+	EXPECT_RETURN_I64("var int x = 0;\n"
+	                  "if 1 == 1 {\n"
+	                  "    x += 10;\n"
+	                  "}\n"
+	                  "if 2 == 2 {\n"
+	                  "    x += 20;\n"
+	                  "}\n"
+	                  "return x;",
+	                  30);
+}
+
+TEST(e2e_if_nested)
+{
+	EXPECT_RETURN_I64("var int x = 5;\n"
+	                  "if x > 0 {\n"
+	                  "    if x > 3 {\n"
+	                  "        x += 100;\n"
+	                  "    } else {\n"
+	                  "        x += 50;\n"
+	                  "    }\n"
+	                  "} else {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  105);
+}
+
+TEST(e2e_if_compound_assign_both_branches)
+{
+	EXPECT_RETURN_I64("var int r = 100;\n"
+	                  "var int a = 10;\n"
+	                  "var int b = 10;\n"
+	                  "if a == b {\n"
+	                  "    r *= 2;\n"
+	                  "} else {\n"
+	                  "    r /= 2;\n"
+	                  "}\n"
+	                  "return r;",
+	                  200);
+}
+
+// ---------------------------------------------------------------------------
+// While loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_while_basic_sum)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 10 {\n"
+	                  "    sum += i;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  45);
+}
+
+TEST(e2e_while_zero_iterations)
+{
+	EXPECT_RETURN_I64("var int x = 42;\n"
+	                  "while x < 0 {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  42);
+}
+
+TEST(e2e_while_single_iteration)
+{
+	EXPECT_RETURN_I64("var int x = 0;\n"
+	                  "while x == 0 {\n"
+	                  "    x = 99;\n"
+	                  "}\n"
+	                  "return x;",
+	                  99);
+}
+
+TEST(e2e_while_countdown)
+{
+	EXPECT_RETURN_I64("var int n = 5;\n"
+	                  "var int result = 1;\n"
+	                  "while n > 0 {\n"
+	                  "    result *= n;\n"
+	                  "    n -= 1;\n"
+	                  "}\n"
+	                  "return result;",
+	                  120);
+}
+
+TEST(e2e_while_multiply)
+{
+	EXPECT_RETURN_I64("var int x = 1;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 8 {\n"
+	                  "    x *= 2;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return x;",
+	                  256);
+}
+
+TEST(e2e_while_nested)
+{
+	EXPECT_RETURN_I64("var int total = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 3 {\n"
+	                  "    var int j = 0;\n"
+	                  "    while j < 3 {\n"
+	                  "        total += 1;\n"
+	                  "        j += 1;\n"
+	                  "    }\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return total;",
+	                  9);
+}
+
+TEST(e2e_while_with_inner_var)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 5 {\n"
+	                  "    var int tmp = i * 2;\n"
+	                  "    sum += tmp;\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  20);
+}
+
+TEST(e2e_while_with_if)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "var int i = 0;\n"
+	                  "while i < 10 {\n"
+	                  "    if i == 5 {\n"
+	                  "        sum += 100;\n"
+	                  "    } else {\n"
+	                  "        sum += 1;\n"
+	                  "    }\n"
+	                  "    i += 1;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  109);
+}
+
+TEST(e2e_while_compound_condition)
+{
+	EXPECT_RETURN_I64("var int x = 100;\n"
+	                  "while x > 1 {\n"
+	                  "    x /= 2;\n"
+	                  "}\n"
+	                  "return x;",
+	                  1);
+}
+
+// ---------------------------------------------------------------------------
+// For loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_for_basic_sum)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 10; i++ {\n"
+	                  "    sum += i;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  45);
+}
+
+TEST(e2e_for_zero_iterations)
+{
+	EXPECT_RETURN_I64("var int x = 42;\n"
+	                  "for var int i = 0; i > 10; i++ {\n"
+	                  "    x = 0;\n"
+	                  "}\n"
+	                  "return x;",
+	                  42);
+}
+
+TEST(e2e_for_countdown)
+{
+	EXPECT_RETURN_I64("var int result = 1;\n"
+	                  "for var int n = 5; n > 0; n-- {\n"
+	                  "    result *= n;\n"
+	                  "}\n"
+	                  "return result;",
+	                  120);
+}
+
+TEST(e2e_for_nested)
+{
+	EXPECT_RETURN_I64("var int total = 0;\n"
+	                  "for var int i = 0; i < 3; i++ {\n"
+	                  "    for var int j = 0; j < 4; j++ {\n"
+	                  "        total += 1;\n"
+	                  "    }\n"
+	                  "}\n"
+	                  "return total;",
+	                  12);
+}
+
+TEST(e2e_for_with_if)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 10; i++ {\n"
+	                  "    if i == 5 {\n"
+	                  "        sum += 100;\n"
+	                  "    } else {\n"
+	                  "        sum += 1;\n"
+	                  "    }\n"
+	                  "}\n"
+	                  "return sum;",
+	                  109);
+}
+
+TEST(e2e_for_multiply)
+{
+	EXPECT_RETURN_I64("var int x = 1;\n"
+	                  "for var int i = 0; i < 8; i++ {\n"
+	                  "    x *= 2;\n"
+	                  "}\n"
+	                  "return x;",
+	                  256);
+}
+
+TEST(e2e_for_with_inner_var)
+{
+	EXPECT_RETURN_I64("var int sum = 0;\n"
+	                  "for var int i = 0; i < 5; i++ {\n"
+	                  "    var int tmp = i * 2;\n"
+	                  "    sum += tmp;\n"
+	                  "}\n"
+	                  "return sum;",
+	                  20);
+}
+
+// ---------------------------------------------------------------------------
+// Inline for loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_inline_for_basic_sum)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 5; i++ {\n"
+	                      "    sum += i;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      10);
+}
+
+TEST(e2e_inline_for_multiply)
+{
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                      "inline for var int i = 1; i <= 4; i++ {\n"
+	                      "    result += i * 10;\n"
+	                      "}\n"
+	                      "return result;",
+	                      100);
+}
+
+TEST(e2e_inline_for_single_iteration)
+{
+	EXPECT_RETURN_I64_OPT("var int x = 0;\n"
+	                      "inline for var int i = 0; i < 1; i++ {\n"
+	                      "    x += 42;\n"
+	                      "}\n"
+	                      "return x;",
+	                      42);
+}
+
+TEST(e2e_inline_for_countdown)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 3; i > 0; i-- {\n"
+	                      "    sum += i;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      6);
+}
+
+TEST(e2e_inline_for_nested_in_regular_for)
+{
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                       "for var int i = 1; i <= 3; i++ {\n"
+	                       "    inline for var int j = 1; j <= 3; j++ {\n"
+	                       "        result += j;\n"
+	                       "    }\n"
+	                       "}\n"
+	                       "return result;",
+	                       18);
+}
+
+TEST(e2e_inline_for_with_expression)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 4; i++ {\n"
+	                      "    var int val = i * i;\n"
+	                      "    sum += val;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      14);
+}
+
+TEST(e2e_inline_for_nested)
+{
+	// 2x3 nested: sum of (i*10 + j) for i=0..1, j=0..2
+	// = (0+0)+(0+1)+(0+2)+(10+0)+(10+1)+(10+2) = 0+1+2+10+11+12 = 36
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 2; i++ {\n"
+	                      "    inline for var int j = 0; j < 3; j++ {\n"
+	                      "        sum += i * 10 + j;\n"
+	                      "    }\n"
+	                      "}\n"
+	                      "return sum;",
+	                      36);
+}
+
+TEST(e2e_inline_for_inside_regular_for)
+{
+	// Regular for i=1..3, inline for j=1..3: sum += j each time
+	// 3 outer iters * (1+2+3) = 3 * 6 = 18
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                       "for var int i = 0; i < 3; i++ {\n"
+	                       "    inline for var int j = 1; j <= 3; j++ {\n"
+	                       "        sum += j;\n"
+	                       "    }\n"
+	                       "}\n"
+	                       "return sum;",
+	                       18);
+}
+
+TEST(e2e_inline_for_nested_matches_demo)
+{
+	// Matches the demo/main.wdt pattern
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                      "inline for var int i = 1; i <= 5; i++ {\n"
+	                      "    var int x = i * 10;\n"
+	                      "    inline for var int j = 1; j <= 5; j++ {\n"
+	                      "        var int y = j * 10;\n"
+	                      "        result = x + y;\n"
+	                      "    }\n"
+	                      "}\n"
+	                      "return result;",
+	                      100); // last iteration: x=50, y=50 -> 100
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -601,6 +1044,49 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_multiple_reassignments);
 	RUN_TEST(e2e_mixed_assignment_and_incdec);
 	RUN_TEST(e2e_all_compound_operators);
+
+	print_section("If / Else");
+	RUN_TEST(e2e_if_true_branch);
+	RUN_TEST(e2e_if_false_branch);
+	RUN_TEST(e2e_if_no_else);
+	RUN_TEST(e2e_if_no_else_false);
+	RUN_TEST(e2e_if_less_than);
+	RUN_TEST(e2e_if_greater_than);
+	RUN_TEST(e2e_if_multiple_stmts_in_block);
+	RUN_TEST(e2e_if_after_if);
+	RUN_TEST(e2e_if_nested);
+	RUN_TEST(e2e_if_compound_assign_both_branches);
+
+	print_section("For loops");
+	RUN_TEST(e2e_for_basic_sum);
+	RUN_TEST(e2e_for_zero_iterations);
+	RUN_TEST(e2e_for_countdown);
+	RUN_TEST(e2e_for_nested);
+	RUN_TEST(e2e_for_with_if);
+	RUN_TEST(e2e_for_multiply);
+	RUN_TEST(e2e_for_with_inner_var);
+
+	print_section("Inline for loops");
+	RUN_TEST(e2e_inline_for_basic_sum);
+	RUN_TEST(e2e_inline_for_multiply);
+	RUN_TEST(e2e_inline_for_single_iteration);
+	RUN_TEST(e2e_inline_for_countdown);
+	RUN_TEST(e2e_inline_for_nested_in_regular_for);
+	RUN_TEST(e2e_inline_for_with_expression);
+	RUN_TEST(e2e_inline_for_nested);
+	RUN_TEST(e2e_inline_for_inside_regular_for);
+	RUN_TEST(e2e_inline_for_nested_matches_demo);
+
+	print_section("While loops");
+	RUN_TEST(e2e_while_basic_sum);
+	RUN_TEST(e2e_while_zero_iterations);
+	RUN_TEST(e2e_while_single_iteration);
+	RUN_TEST(e2e_while_countdown);
+	RUN_TEST(e2e_while_multiply);
+	RUN_TEST(e2e_while_nested);
+	RUN_TEST(e2e_while_with_inner_var);
+	RUN_TEST(e2e_while_with_if);
+	RUN_TEST(e2e_while_compound_condition);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

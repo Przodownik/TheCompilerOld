@@ -1,3 +1,15 @@
+var int a = 10;
+var int b = 10;
+
+if a == b {
+	a += b;
+} else {
+	a -= b;
+}
+
+return a; // 20
+
+
 // var int a = 100;
 // var float b = 3.14f;
 // var double c = 2.718d;
@@ -47,8 +59,11 @@
 
 // return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;
 
-var int x = 2 + 3;
-return x;
+// var int x = 12;
+// x = 10;
+// x+=10;
+
+// return x;
 
 <*
 

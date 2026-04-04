@@ -203,6 +203,10 @@ typedef enum StatementType
 	STATEMENT_TYPE_DECLARATION,
 	STATEMENT_TYPE_EXPRESSION,
 	STATEMENT_TYPE_RETURN,
+	STATEMENT_TYPE_BLOCK,
+	STATEMENT_TYPE_IF,
+	STATEMENT_TYPE_FOR,
+	STATEMENT_TYPE_WHILE,
 	STATEMENT_TYPE_ASSIGNMENT,
 	STATEMENT_TYPE_COUNT,
 } StatementType;
@@ -224,6 +228,33 @@ typedef struct ReturnStatement
 	Expression* expression;
 } ReturnStatement;
 
+typedef struct BlockStatement
+{
+	struct Statement** statements;
+} BlockStatement;
+
+typedef struct IfStatement
+{
+	Expression* condition;
+	struct Statement* then_block;
+	struct Statement* else_block;
+} IfStatement;
+
+typedef struct ForStatement
+{
+	Declaration* initializer;
+	Expression* condition;
+	Expression* update;
+	struct Statement* body;
+	bool is_inline;
+} ForStatement;
+
+typedef struct WhileStatement
+{
+	Expression* condition;
+	struct Statement* body;
+} WhileStatement;
+
 typedef struct AssignmentStatement
 {
 	AssignmentOperator operator;
@@ -243,8 +274,28 @@ typedef struct Statement
 		DeclarationStatement decl_stmt;
 		ExpressionStatement expr_stmt;
 		ReturnStatement return_stmt;
+		BlockStatement block_stmt;
+		IfStatement if_stmt;
+		ForStatement for_stmt;
+		WhileStatement while_stmt;
 		AssignmentStatement assign_stmt;
 	};
 } Statement;
 
 void ast_dump_statements(Statement** statements);
+
+typedef struct AstCopyContext
+{
+	Allocator* stmt_alloc;
+	Allocator* expr_alloc;
+	Allocator* decl_alloc;
+	Declaration* subst_decl;
+	i64 subst_value;
+	Type* subst_type;
+	Declaration* remap_old; // remap declaration_ref pointers (old -> new) without substituting to constant
+	Declaration* remap_new;
+} AstCopyContext;
+
+Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt);
+Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* decl);
+Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr);

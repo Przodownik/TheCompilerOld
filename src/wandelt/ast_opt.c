@@ -2,18 +2,26 @@
 
 #include "wandelt/ast.h"
 #include "wandelt/defines.h"
+#include "wandelt/sema.h"
 #include "wandelt/type.h"
 #include "wandelt/vector.h"
 
-AstOptimizer ast_optimizer_create(Allocator* expr_alloc)
+AstOptimizer ast_optimizer_create(Allocator* stmt_alloc, Allocator* decl_alloc, Allocator* expr_alloc)
 {
 	return (AstOptimizer){
+	    .stmt_alloc = stmt_alloc,
+	    .decl_alloc = decl_alloc,
 	    .expr_alloc = expr_alloc,
 	};
 }
 
-void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
+void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu, bool optimize)
 {
+	ast_optimizer_unroll_inline_for_statements(optimizer, tu->statements);
+
+	if (!optimize)
+		return;
+
 	bool changed = true;
 
 	while (changed)
@@ -36,9 +44,111 @@ void ast_optimizer_run(AstOptimizer* optimizer, TranslationUnit* tu)
 	ast_optimizer_dce(optimizer, tu);
 }
 
+static bool inline_for_eval_condition(i64 iter, BinaryOperator op, i64 end)
+{
+	switch (op)
+	{
+	case BINARY_OPERATOR_LT:
+		return iter < end;
+	case BINARY_OPERATOR_LEQ:
+		return iter <= end;
+	case BINARY_OPERATOR_GT:
+		return iter > end;
+	case BINARY_OPERATOR_GEQ:
+		return iter >= end;
+	default:
+		return false;
+	}
+}
+
+void ast_optimizer_unroll_inline_for_statements(AstOptimizer* optimizer, Statement** stmts)
+{
+	for (u64 i = 0; i < vector_get_length(stmts); i++)
+	{
+		Statement* stmt = stmts[i];
+
+		static_assert(STATEMENT_TYPE_COUNT == 9,
+		              "ast_optimizer_unroll_inline_for_statements needs to be updated to handle new statement types");
+
+		switch (stmt->type)
+		{
+		case STATEMENT_TYPE_BLOCK:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_IF:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->if_stmt.then_block->block_stmt.statements);
+			if (stmt->if_stmt.else_block)
+				ast_optimizer_unroll_inline_for_statements(optimizer, stmt->if_stmt.else_block->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_WHILE:
+			ast_optimizer_unroll_inline_for_statements(optimizer, stmt->while_stmt.body->block_stmt.statements);
+			continue;
+		case STATEMENT_TYPE_FOR:
+			if (!stmt->for_stmt.is_inline)
+			{
+				ast_optimizer_unroll_inline_for_statements(optimizer, stmt->for_stmt.body->block_stmt.statements);
+				continue;
+			}
+			break;
+		default:
+			continue;
+		}
+
+		// Unroll inline for
+		LoopBounds bounds = sema_check_loop_bounds(stmt);
+		ASSERT(bounds.is_valid, "Inline for bounds must be valid (sema should have caught this)");
+
+		Declaration* loop_var = stmt->for_stmt.initializer;
+		Type* loop_type       = loop_var->variable.type;
+		Statement* body       = stmt->for_stmt.body;
+		u64 body_len          = vector_get_length(body->block_stmt.statements);
+
+		AstCopyContext ctx = {
+		    .stmt_alloc  = optimizer->stmt_alloc,
+		    .expr_alloc  = optimizer->expr_alloc,
+		    .decl_alloc  = optimizer->decl_alloc,
+		    .subst_decl  = loop_var,
+		    .subst_type  = loop_type,
+		    .subst_value = 0,
+		};
+
+		Statement* outer_block = optimizer->stmt_alloc->alloc(optimizer->stmt_alloc->ctx, sizeof(Statement));
+		outer_block->block_stmt.statements = vector_create(optimizer->stmt_alloc, 4, sizeof(Statement*));
+		outer_block->type                  = STATEMENT_TYPE_BLOCK;
+		outer_block->span                  = stmt->span;
+		outer_block->next                  = stmt->next;
+
+		for (i64 iter = bounds.start; inline_for_eval_condition(iter, bounds.op, bounds.end); iter += bounds.step)
+		{
+			Statement* inner_block = optimizer->stmt_alloc->alloc(optimizer->stmt_alloc->ctx, sizeof(Statement));
+			inner_block->block_stmt.statements = vector_create(optimizer->stmt_alloc, 4, sizeof(Statement*));
+			inner_block->type                  = STATEMENT_TYPE_BLOCK;
+			inner_block->span                  = stmt->span;
+			inner_block->next                  = stmt->next;
+
+			ctx.subst_value = iter;
+
+			for (u64 j = 0; j < body_len; j++)
+			{
+				Statement* original = body->block_stmt.statements[j];
+				Statement* copy     = ast_deep_copy_statement(&ctx, original);
+
+				vector_push(inner_block->block_stmt.statements, copy);
+			}
+
+			vector_push(outer_block->block_stmt.statements, inner_block);
+		}
+
+		stmts[i] = outer_block;
+
+		// handle nested inline fors
+		ast_optimizer_unroll_inline_for_statements(optimizer, outer_block->block_stmt.statements);
+	}
+}
+
 bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -54,6 +164,18 @@ bool ast_optimizer_fold_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_RETURN:
 		return ast_optimizer_fold_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_BLOCK:
+		return ast_optimizer_fold_block_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_IF:
+		return ast_optimizer_fold_if_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_FOR:
+		return ast_optimizer_fold_for_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_WHILE:
+		return ast_optimizer_fold_while_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return ast_optimizer_fold_assignment_statement(optimizer, stmt);
@@ -86,6 +208,51 @@ bool ast_optimizer_fold_expression_statement(AstOptimizer* optimizer, Statement*
 bool ast_optimizer_fold_return_statement(AstOptimizer* optimizer, Statement* stmt)
 {
 	return ast_optimizer_fold_expression(optimizer, &stmt->return_stmt.expression);
+}
+
+bool ast_optimizer_fold_block_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+		changed |= ast_optimizer_fold_statement(optimizer, stmt->block_stmt.statements[i]);
+
+	return changed;
+}
+
+bool ast_optimizer_fold_if_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->if_stmt.condition);
+	changed |= ast_optimizer_fold_statement(optimizer, stmt->if_stmt.then_block);
+
+	if (stmt->if_stmt.else_block)
+		changed |= ast_optimizer_fold_statement(optimizer, stmt->if_stmt.else_block);
+
+	return changed;
+}
+
+bool ast_optimizer_fold_for_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.initializer->variable.initializer);
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.condition);
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->for_stmt.update);
+	changed |= ast_optimizer_fold_statement(optimizer, stmt->for_stmt.body);
+
+	return changed;
+}
+
+bool ast_optimizer_fold_while_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_fold_expression(optimizer, &stmt->while_stmt.condition);
+	changed |= ast_optimizer_fold_statement(optimizer, stmt->while_stmt.body);
+
+	return changed;
 }
 
 bool ast_optimizer_fold_assignment_statement(AstOptimizer* optimizer, Statement* stmt)
@@ -587,7 +754,7 @@ bool ast_optimizer_fold_incdec_expression(AstOptimizer* optimizer, Expression** 
 
 bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -603,6 +770,18 @@ bool ast_optimizer_propagate_statement(AstOptimizer* optimizer, Statement* stmt)
 
 	case STATEMENT_TYPE_RETURN:
 		return ast_optimizer_propagate_return_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_BLOCK:
+		return ast_optimizer_propagate_block_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_IF:
+		return ast_optimizer_propagate_if_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_FOR:
+		return ast_optimizer_propagate_for_statement(optimizer, stmt);
+
+	case STATEMENT_TYPE_WHILE:
+		return ast_optimizer_propagate_while_statement(optimizer, stmt);
 
 	case STATEMENT_TYPE_ASSIGNMENT:
 		return ast_optimizer_propagate_assignment_statement(optimizer, stmt);
@@ -632,6 +811,51 @@ bool ast_optimizer_propagate_expression_statement(AstOptimizer* optimizer, State
 bool ast_optimizer_propagate_return_statement(AstOptimizer* optimizer, Statement* stmt)
 {
 	return ast_optimizer_propagate_expression(optimizer, &stmt->return_stmt.expression);
+}
+
+bool ast_optimizer_propagate_block_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+		changed |= ast_optimizer_propagate_statement(optimizer, stmt->block_stmt.statements[i]);
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_if_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->if_stmt.condition);
+	changed |= ast_optimizer_propagate_statement(optimizer, stmt->if_stmt.then_block);
+
+	if (stmt->if_stmt.else_block)
+		changed |= ast_optimizer_propagate_statement(optimizer, stmt->if_stmt.else_block);
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_for_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.initializer->variable.initializer);
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.condition);
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->for_stmt.update);
+	changed |= ast_optimizer_propagate_statement(optimizer, stmt->for_stmt.body);
+
+	return changed;
+}
+
+bool ast_optimizer_propagate_while_statement(AstOptimizer* optimizer, Statement* stmt)
+{
+	bool changed = false;
+
+	changed |= ast_optimizer_propagate_expression(optimizer, &stmt->while_stmt.condition);
+	changed |= ast_optimizer_propagate_statement(optimizer, stmt->while_stmt.body);
+
+	return changed;
 }
 
 bool ast_optimizer_propagate_assignment_statement(AstOptimizer* optimizer, Statement* stmt)
@@ -758,7 +982,7 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 	Declaration** used = vector_create(&heap, 16, sizeof(Declaration*));
 
 	for (u64 i = 0; i < vector_get_length(tu->statements); i++)
-		ast_optimizer_dce_mark_statement(tu->statements[i], used);
+		ast_optimizer_dce_mark_statement(tu->statements[i], &used);
 
 	u64 i = 0;
 	while (i < vector_get_length(tu->statements))
@@ -780,7 +1004,7 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 	vector_destroy(used);
 }
 
-void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
+void ast_optimizer_dce_mark_expression(Expression* expr, Declaration*** used)
 {
 	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
 
@@ -788,7 +1012,7 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 	{
 	case EXPRESSION_TYPE_IDENTIFIER:
 		if (expr->identifier.declaration_ref)
-			vector_push(used, expr->identifier.declaration_ref);
+			vector_push(*used, expr->identifier.declaration_ref);
 		break;
 
 	case EXPRESSION_TYPE_UNARY:
@@ -818,9 +1042,9 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration** used)
 	}
 }
 
-void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
+void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration*** used)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5, "Update this function when adding new statement types");
+	static_assert(STATEMENT_TYPE_COUNT == 9, "Update this function when adding new statement types");
 
 	switch (stmt->type)
 	{
@@ -836,9 +1060,32 @@ void ast_optimizer_dce_mark_statement(Statement* stmt, Declaration** used)
 		// Don't mark declarations' own initializers — only non-decl uses count
 		break;
 
+	case STATEMENT_TYPE_BLOCK:
+		for (u64 i = 0; i < vector_get_length(stmt->block_stmt.statements); i++)
+			ast_optimizer_dce_mark_statement(stmt->block_stmt.statements[i], used);
+		break;
+
+	case STATEMENT_TYPE_IF:
+		ast_optimizer_dce_mark_expression(stmt->if_stmt.condition, used);
+		ast_optimizer_dce_mark_statement(stmt->if_stmt.then_block, used);
+		if (stmt->if_stmt.else_block)
+			ast_optimizer_dce_mark_statement(stmt->if_stmt.else_block, used);
+		break;
+
+	case STATEMENT_TYPE_FOR:
+		ast_optimizer_dce_mark_expression(stmt->for_stmt.condition, used);
+		ast_optimizer_dce_mark_expression(stmt->for_stmt.update, used);
+		ast_optimizer_dce_mark_statement(stmt->for_stmt.body, used);
+		break;
+
+	case STATEMENT_TYPE_WHILE:
+		ast_optimizer_dce_mark_expression(stmt->while_stmt.condition, used);
+		ast_optimizer_dce_mark_statement(stmt->while_stmt.body, used);
+		break;
+
 	case STATEMENT_TYPE_ASSIGNMENT:
 		if (stmt->assign_stmt.target_decl_ref)
-			vector_push(used, stmt->assign_stmt.target_decl_ref);
+			vector_push(*used, stmt->assign_stmt.target_decl_ref);
 
 		ast_optimizer_dce_mark_expression(stmt->assign_stmt.value, used);
 		break;

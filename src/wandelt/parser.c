@@ -75,7 +75,7 @@ void parser_eat_token(Parser* parser)
 
 Statement* parser_parse_top_level_statement(Parser* parser)
 {
-	static_assert(STATEMENT_TYPE_COUNT == 5,
+	static_assert(STATEMENT_TYPE_COUNT == 9,
 	              "parser_parse_top_level_statement needs to be updated to handle new statement types");
 
 	Token tok = parser_peek_token(parser);
@@ -91,6 +91,19 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return parser_parse_declaration_statement(parser);
 
+	case TOKEN_TYPE_IF_KEYWORD:
+		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return parser_parse_while_statement(parser);
+
+	case TOKEN_TYPE_OPEN_BRACE:
+		return parser_parse_block_statement(parser);
+
+	case TOKEN_TYPE_PLUS_PLUS:
+	case TOKEN_TYPE_MINUS_MINUS:
+		return parser_parse_expression_statement(parser);
+
 	case TOKEN_TYPE_IDENTIFIER: {
 		// if next token is an assignment operator, parse as assignment
 		Token next = lexer_peek_token_at_offset(parser->lexer, 1);
@@ -101,9 +114,25 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 		return parser_parse_expression_statement(parser);
 	}
 
-	case TOKEN_TYPE_PLUS_PLUS:
-	case TOKEN_TYPE_MINUS_MINUS:
-		return parser_parse_expression_statement(parser);
+	case TOKEN_TYPE_INLINE_KEYWORD: {
+		parser_eat_token(parser); // eat 'inline'
+
+		if (parser_peek_token(parser).type != TOKEN_TYPE_FOR_KEYWORD)
+		{
+			diagnostics_verror_along_span(parser_peek_token(parser).span, parser->lexer->file_to_lex,
+			                              "Expected 'for' after 'inline'");
+			return &invalid_statement;
+		}
+
+		Statement* for_stmt = parser_parse_for_statement(parser);
+		if (for_stmt->type != STATEMENT_TYPE_INVALID)
+			for_stmt->for_stmt.is_inline = true;
+
+		return for_stmt;
+	}
+
+	case TOKEN_TYPE_FOR_KEYWORD:
+		return parser_parse_for_statement(parser);
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex,
@@ -113,6 +142,69 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 	};
 
 	return &invalid_statement;
+}
+
+Statement* parser_parse_inner_statement(Parser* parser)
+{
+	static_assert(STATEMENT_TYPE_COUNT == 9,
+	              "parser_parse_inner_statement needs to be updated to handle new statement types");
+
+	Token tok = parser_peek_token(parser);
+
+	switch (tok.type)
+	{
+	case TOKEN_TYPE_VAR_KEYWORD:
+		return parser_parse_declaration_statement(parser);
+
+	case TOKEN_TYPE_RETURN_KEYWORD:
+		return parser_parse_return_statement(parser);
+
+	case TOKEN_TYPE_IF_KEYWORD:
+		return parser_parse_if_statement(parser);
+
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return parser_parse_while_statement(parser);
+
+	case TOKEN_TYPE_OPEN_BRACE:
+		return parser_parse_block_statement(parser);
+
+	case TOKEN_TYPE_PLUS_PLUS:
+	case TOKEN_TYPE_MINUS_MINUS:
+		return parser_parse_expression_statement(parser);
+
+	case TOKEN_TYPE_IDENTIFIER: {
+		// if next token is an assignment operator, parse as assignment
+		Token next = lexer_peek_token_at_offset(parser->lexer, 1);
+		if (is_assignment_token(next.type))
+			return parser_parse_assignment_statement(parser);
+
+		// Otherwise expression statement
+		return parser_parse_expression_statement(parser);
+	}
+
+	case TOKEN_TYPE_INLINE_KEYWORD: {
+		parser_eat_token(parser); // eat 'inline'
+
+		if (parser_peek_token(parser).type != TOKEN_TYPE_FOR_KEYWORD)
+		{
+			diagnostics_verror_along_span(parser_peek_token(parser).span, parser->lexer->file_to_lex,
+			                              "Expected 'for' after 'inline'");
+			return &invalid_statement;
+		}
+
+		Statement* for_stmt = parser_parse_for_statement(parser);
+		if (for_stmt->type != STATEMENT_TYPE_INVALID)
+			for_stmt->for_stmt.is_inline = true;
+
+		return for_stmt;
+	}
+
+	case TOKEN_TYPE_FOR_KEYWORD:
+		return parser_parse_for_statement(parser);
+
+	default:
+		return parser_parse_expression_statement(parser);
+	}
 }
 
 void parser_recover_from_error(Parser* parser)
@@ -130,6 +222,21 @@ void parser_recover_from_error(Parser* parser)
 		case TOKEN_TYPE_RETURN_KEYWORD:
 		case TOKEN_TYPE_NAMESPACE_KEYWORD:
 			return;
+
+		// Skip over entire block and resume
+		case TOKEN_TYPE_OPEN_BRACE: {
+			parser_eat_token(parser); // eat '{'
+			i32 depth = 1;
+			while (depth > 0 && parser_peek_token(parser).type != TOKEN_TYPE_EOF)
+			{
+				if (parser_peek_token(parser).type == TOKEN_TYPE_OPEN_BRACE)
+					depth++;
+				else if (parser_peek_token(parser).type == TOKEN_TYPE_CLOSE_BRACE)
+					depth--;
+				parser_eat_token(parser);
+			}
+			return;
+		}
 
 		// Synchronize and skip past closing braces
 		case TOKEN_TYPE_CLOSE_BRACE:
@@ -200,6 +307,142 @@ Statement* parser_parse_return_statement(Parser* parser)
 		return &invalid_statement;
 
 	stmt->span = span_extend(returnToken.span, semicolonToken.span);
+
+	return stmt;
+}
+
+Statement* parser_parse_block_statement(Parser* parser)
+{
+	const Token openBrace = parser_peek_token(parser);
+	if (openBrace.type != TOKEN_TYPE_OPEN_BRACE)
+	{
+		diagnostics_verror_along_span(openBrace.span, parser->lexer->file_to_lex,
+		                              "Expected '{' to start a block statement, but found '%.*s'",
+		                              FMT_STR_ARG(get_token_lexeme(parser, openBrace)));
+		return &invalid_statement;
+	}
+
+	parser_eat_token(parser); // eat '{'
+
+	Statement* stmt             = new_statement(parser);
+	stmt->type                  = STATEMENT_TYPE_BLOCK;
+	stmt->block_stmt.statements = vector_create(parser->stmt_allocator, 4, sizeof(Statement*));
+
+	while (parser_peek_token(parser).type != TOKEN_TYPE_CLOSE_BRACE)
+	{
+		Statement* inner = parser_parse_inner_statement(parser);
+		if (inner->type == STATEMENT_TYPE_INVALID)
+			return &invalid_statement;
+
+		vector_push(stmt->block_stmt.statements, inner);
+	}
+
+	const Token closeBrace = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_CLOSE_BRACE))
+		return &invalid_statement;
+
+	stmt->span = span_extend(openBrace.span, closeBrace.span);
+
+	return stmt;
+}
+
+Statement* parser_parse_if_statement(Parser* parser)
+{
+	const Token ifToken = parser_peek_token(parser);
+	ASSERT(ifToken.type == TOKEN_TYPE_IF_KEYWORD, "Expected 'if' keyword, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, ifToken)));
+
+	parser_eat_token(parser); // eat 'if'
+
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_IF;
+
+	stmt->if_stmt.condition = parser_parse_expression(parser);
+	if (stmt->if_stmt.condition->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->if_stmt.then_block = parser_parse_block_statement(parser);
+	if (stmt->if_stmt.then_block->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	if (parser_peek_token(parser).type == TOKEN_TYPE_ELSE_KEYWORD)
+	{
+		parser_eat_token(parser); // eat 'else'
+
+		stmt->if_stmt.else_block = parser_parse_block_statement(parser);
+		if (stmt->if_stmt.else_block->type == STATEMENT_TYPE_INVALID)
+			return &invalid_statement;
+	}
+
+	Span end_span = stmt->if_stmt.else_block ? stmt->if_stmt.else_block->span : stmt->if_stmt.then_block->span;
+	stmt->span    = span_extend(ifToken.span, end_span);
+
+	return stmt;
+}
+
+Statement* parser_parse_for_statement(Parser* parser)
+{
+	const Token forToken = parser_peek_token(parser);
+	ASSERT(forToken.type == TOKEN_TYPE_FOR_KEYWORD, "Expected 'for' keyword, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, forToken)));
+
+	parser_eat_token(parser); // eat 'for'
+
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_FOR;
+
+	stmt->for_stmt.initializer = parser_parse_variable_declaration(parser);
+	if (stmt->for_stmt.initializer->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->for_stmt.condition = parser_parse_expression(parser);
+	if (stmt->for_stmt.condition->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	if (!parser_parse_token(parser, TOKEN_TYPE_SEMICOLON))
+		return &invalid_statement;
+
+	stmt->for_stmt.update = parser_parse_expression(parser);
+	if (stmt->for_stmt.update->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	if (parser_peek_token(parser).type != TOKEN_TYPE_OPEN_BRACE)
+	{
+		diagnostics_verror_along_span(parser_peek_token(parser).span, parser->lexer->file_to_lex,
+		                              "Expected '{' after for-loop update clause. Note: assignments are not allowed "
+		                              "here, use an expression like 'i++'");
+		return &invalid_statement;
+	}
+
+	stmt->for_stmt.body = parser_parse_block_statement(parser);
+	if (stmt->for_stmt.body->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->span = span_extend(forToken.span, stmt->for_stmt.body->span);
+
+	return stmt;
+}
+
+Statement* parser_parse_while_statement(Parser* parser)
+{
+	const Token whileToken = parser_peek_token(parser);
+	ASSERT(whileToken.type == TOKEN_TYPE_WHILE_KEYWORD, "Expected 'while' keyword, but found '%.*s'",
+	       FMT_STR_ARG(get_token_lexeme(parser, whileToken)));
+
+	parser_eat_token(parser); // eat 'while'
+
+	Statement* stmt = new_statement(parser);
+	stmt->type      = STATEMENT_TYPE_WHILE;
+
+	stmt->while_stmt.condition = parser_parse_expression(parser);
+	if (stmt->while_stmt.condition->type == EXPRESSION_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->while_stmt.body = parser_parse_block_statement(parser);
+	if (stmt->while_stmt.body->type == STATEMENT_TYPE_INVALID)
+		return &invalid_statement;
+
+	stmt->span = span_extend(whileToken.span, stmt->while_stmt.body->span);
 
 	return stmt;
 }
@@ -709,4 +952,4 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
                                   PRECEDENCE_POSTFIX},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 47, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 52, "Update parse_rules when adding new token types");

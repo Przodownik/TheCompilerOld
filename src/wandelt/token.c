@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 47, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 52, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -19,6 +19,16 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_VAR_KEYWORD";
 	case TOKEN_TYPE_AS_KEYWORD:
 		return "TOKEN_TYPE_AS_KEYWORD";
+	case TOKEN_TYPE_IF_KEYWORD:
+		return "TOKEN_TYPE_IF_KEYWORD";
+	case TOKEN_TYPE_ELSE_KEYWORD:
+		return "TOKEN_TYPE_ELSE_KEYWORD";
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return "TOKEN_TYPE_WHILE_KEYWORD";
+	case TOKEN_TYPE_FOR_KEYWORD:
+		return "TOKEN_TYPE_FOR_KEYWORD";
+	case TOKEN_TYPE_INLINE_KEYWORD:
+		return "TOKEN_TYPE_INLINE_KEYWORD";
 
 	case TOKEN_TYPE_BOOL_KEYWORD:
 		return "TOKEN_TYPE_BOOL_KEYWORD";
@@ -115,7 +125,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 47, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 52, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -132,6 +142,16 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "var";
 	case TOKEN_TYPE_AS_KEYWORD:
 		return "as";
+	case TOKEN_TYPE_IF_KEYWORD:
+		return "if";
+	case TOKEN_TYPE_ELSE_KEYWORD:
+		return "else";
+	case TOKEN_TYPE_WHILE_KEYWORD:
+		return "while";
+	case TOKEN_TYPE_FOR_KEYWORD:
+		return "for";
+	case TOKEN_TYPE_INLINE_KEYWORD:
+		return "inline";
 
 	case TOKEN_TYPE_BOOL_KEYWORD:
 		return "bool";
