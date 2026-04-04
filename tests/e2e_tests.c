@@ -9,6 +9,13 @@
 		ASSERT_EQ(_r.vm_result, VM_OK);                          \
 		ASSERT_EQ(_r.return_value.i64_val, (i64)(expected_val)); \
 	} while (0)
+#define EXPECT_RETURN_I64_OPT(source, expected_val)              \
+	do                                                           \
+	{                                                            \
+		PipelineResult _r = run_pipeline(alloc, source, true);   \
+		ASSERT_EQ(_r.vm_result, VM_OK);                          \
+		ASSERT_EQ(_r.return_value.i64_val, (i64)(expected_val)); \
+	} while (0)
 #define EXPECT_RETURN_BOOL(source, expected_val)                 \
 	do                                                           \
 	{                                                            \
@@ -832,6 +839,73 @@ TEST(e2e_for_with_inner_var)
 	                  20);
 }
 
+// ---------------------------------------------------------------------------
+// Inline for loops
+// ---------------------------------------------------------------------------
+
+TEST(e2e_inline_for_basic_sum)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 5; i++ {\n"
+	                      "    sum += i;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      10);
+}
+
+TEST(e2e_inline_for_multiply)
+{
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                      "inline for var int i = 1; i <= 4; i++ {\n"
+	                      "    result += i * 10;\n"
+	                      "}\n"
+	                      "return result;",
+	                      100);
+}
+
+TEST(e2e_inline_for_single_iteration)
+{
+	EXPECT_RETURN_I64_OPT("var int x = 0;\n"
+	                      "inline for var int i = 0; i < 1; i++ {\n"
+	                      "    x += 42;\n"
+	                      "}\n"
+	                      "return x;",
+	                      42);
+}
+
+TEST(e2e_inline_for_countdown)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 3; i > 0; i-- {\n"
+	                      "    sum += i;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      6);
+}
+
+TEST(e2e_inline_for_nested_in_regular_for)
+{
+	EXPECT_RETURN_I64_OPT("var int result = 0;\n"
+	                       "for var int i = 1; i <= 3; i++ {\n"
+	                       "    inline for var int j = 1; j <= 3; j++ {\n"
+	                       "        result += j;\n"
+	                       "    }\n"
+	                       "}\n"
+	                       "return result;",
+	                       18);
+}
+
+TEST(e2e_inline_for_with_expression)
+{
+	EXPECT_RETURN_I64_OPT("var int sum = 0;\n"
+	                      "inline for var int i = 0; i < 4; i++ {\n"
+	                      "    var int val = i * i;\n"
+	                      "    sum += val;\n"
+	                      "}\n"
+	                      "return sum;",
+	                      14);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -948,6 +1022,14 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_for_with_if);
 	RUN_TEST(e2e_for_multiply);
 	RUN_TEST(e2e_for_with_inner_var);
+
+	print_section("Inline for loops");
+	RUN_TEST(e2e_inline_for_basic_sum);
+	RUN_TEST(e2e_inline_for_multiply);
+	RUN_TEST(e2e_inline_for_single_iteration);
+	RUN_TEST(e2e_inline_for_countdown);
+	RUN_TEST(e2e_inline_for_nested_in_regular_for);
+	RUN_TEST(e2e_inline_for_with_expression);
 
 	print_section("While loops");
 	RUN_TEST(e2e_while_basic_sum);

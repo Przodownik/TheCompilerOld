@@ -17,6 +17,21 @@ static TranslationUnit parse_sema_optimize(Allocator* alloc, const char* src)
 	return tu;
 }
 
+static TranslationUnit parse_sema_unroll_only(Allocator* alloc, const char* src)
+{
+	File file          = make_test_file(alloc, src);
+	Lexer lexer        = lexer_create(&file);
+	Parser parser      = parser_create(alloc, alloc, alloc, &lexer);
+	TranslationUnit tu = parser_parse(&parser);
+	Sema sema          = sema_create(alloc, alloc, &file);
+
+	sema_analyze(&sema, &tu);
+	AstOptimizer opt = ast_optimizer_create(alloc, alloc, alloc);
+	ast_optimizer_run(&opt, &tu, false);
+
+	return tu;
+}
+
 // ---------------------------------------------------------------------------
 // Constant folding
 // ---------------------------------------------------------------------------
@@ -683,6 +698,154 @@ TEST(differential_chained_cast_propagation)
 	ASSERT_EQ(no_opt.return_value.i64_val, with_opt.return_value.i64_val);
 }
 
+// ---------------------------------------------------------------------------
+// Inline for unrolling
+// ---------------------------------------------------------------------------
+
+TEST(inline_for_replaces_with_block)
+{
+	TranslationUnit tu = parse_sema_unroll_only(alloc,
+	    "inline for var int i = 0; i < 3; i++ {\n"
+	    "    var int x = i;\n"
+	    "}\n");
+
+	// The inline for should be replaced with a single outer block
+	ASSERT_EQ(vector_get_length(tu.statements), 1);
+
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_BLOCK);
+
+	// 3 iterations: i=0,1,2
+	ASSERT_EQ(vector_get_length(outer->block_stmt.statements), 3);
+
+	// Each iteration should be a block
+	for (u64 k = 0; k < 3; k++)
+	{
+		Statement* inner = outer->block_stmt.statements[k];
+		ASSERT_EQ(inner->type, STATEMENT_TYPE_BLOCK);
+	}
+}
+
+TEST(inline_for_substitutes_loop_var)
+{
+	TranslationUnit tu = parse_sema_optimize(alloc,
+	    "inline for var int i = 0; i < 3; i++ {\n"
+	    "    var int x = i * 10;\n"
+	    "}\n");
+
+	// After optimization (fold+propagate+DCE), the inline for body
+	// should have constants substituted for 'i'. The outer block remains.
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_BLOCK);
+	ASSERT_EQ(vector_get_length(outer->block_stmt.statements), 3);
+
+	// Each inner block has a declaration with a folded constant
+	for (u64 k = 0; k < 3; k++)
+	{
+		Statement* inner = outer->block_stmt.statements[k];
+		ASSERT_EQ(inner->type, STATEMENT_TYPE_BLOCK);
+
+		Statement* decl_stmt = inner->block_stmt.statements[0];
+		ASSERT_EQ(decl_stmt->type, STATEMENT_TYPE_DECLARATION);
+
+		Expression* init = decl_stmt->decl_stmt.declaration->variable.initializer;
+		ASSERT_EQ(init->type, EXPRESSION_TYPE_CONSTANT);
+		ASSERT_EQ(init->constant.kind, CONSTANT_KIND_INTEGER);
+		ASSERT_EQ((i64)init->constant.integer_value, (i64)(k * 10));
+	}
+}
+
+TEST(inline_for_single_iteration)
+{
+	TranslationUnit tu = parse_sema_unroll_only(alloc,
+	    "inline for var int i = 0; i < 1; i++ {\n"
+	    "    var int x = i;\n"
+	    "}\n");
+
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_BLOCK);
+	ASSERT_EQ(vector_get_length(outer->block_stmt.statements), 1);
+}
+
+TEST(inline_for_countdown)
+{
+	TranslationUnit tu = parse_sema_unroll_only(alloc,
+	    "inline for var int i = 3; i > 0; i-- {\n"
+	    "    var int x = i;\n"
+	    "}\n");
+
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_BLOCK);
+
+	// 3 iterations: i=3,2,1
+	ASSERT_EQ(vector_get_length(outer->block_stmt.statements), 3);
+}
+
+TEST(inline_for_multiple_body_stmts)
+{
+	TranslationUnit tu = parse_sema_unroll_only(alloc,
+	    "inline for var int i = 0; i < 2; i++ {\n"
+	    "    var int a = i;\n"
+	    "    var int b = i;\n"
+	    "}\n");
+
+	Statement* outer = tu.statements[0];
+	ASSERT_EQ(outer->type, STATEMENT_TYPE_BLOCK);
+	ASSERT_EQ(vector_get_length(outer->block_stmt.statements), 2);
+
+	// Each inner block should have 2 statements
+	for (u64 k = 0; k < 2; k++)
+	{
+		Statement* inner = outer->block_stmt.statements[k];
+		ASSERT_EQ(inner->type, STATEMENT_TYPE_BLOCK);
+		ASSERT_EQ(vector_get_length(inner->block_stmt.statements), 2);
+	}
+}
+
+TEST(inline_for_preserves_non_inline_stmts)
+{
+	TranslationUnit tu = parse_sema_unroll_only(alloc,
+	    "var int y = 42;\n"
+	    "inline for var int i = 0; i < 2; i++ {\n"
+	    "    var int x = i;\n"
+	    "}\n"
+	    "return y;\n");
+
+	// 3 top-level statements: var decl, unrolled block, return
+	ASSERT_EQ(vector_get_length(tu.statements), 3);
+
+	ASSERT_EQ(tu.statements[0]->type, STATEMENT_TYPE_DECLARATION);
+	ASSERT_EQ(tu.statements[1]->type, STATEMENT_TYPE_BLOCK);
+	ASSERT_EQ(tu.statements[2]->type, STATEMENT_TYPE_RETURN);
+}
+
+TEST(differential_inline_for_sum)
+{
+	// Compare: manually unrolled vs inline for
+	const char* manual = "var int sum = 0;\n"
+	                     "var int x0 = 0 * 10;\n"
+	                     "sum += x0;\n"
+	                     "var int x1 = 1 * 10;\n"
+	                     "sum += x1;\n"
+	                     "var int x2 = 2 * 10;\n"
+	                     "sum += x2;\n"
+	                     "return sum;\n";
+
+	const char* with_inline = "var int sum = 0;\n"
+	                          "inline for var int i = 0; i < 3; i++ {\n"
+	                          "    var int x = i * 10;\n"
+	                          "    sum += x;\n"
+	                          "}\n"
+	                          "return sum;\n";
+
+	PipelineResult manual_r = run_pipeline(alloc, manual, true);
+	PipelineResult inline_r = run_pipeline(alloc, with_inline, true);
+
+	ASSERT_EQ(manual_r.vm_result, VM_OK);
+	ASSERT_EQ(inline_r.vm_result, VM_OK);
+	ASSERT_EQ(manual_r.return_value.i64_val, inline_r.return_value.i64_val);
+}
+
 TestResults run_ast_optimizer_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -737,6 +900,14 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(propagate_chain);
 	RUN_TEST(dce_removes_unused_after_propagation);
 
+	print_section("Inline for unrolling");
+	RUN_TEST(inline_for_replaces_with_block);
+	RUN_TEST(inline_for_substitutes_loop_var);
+	RUN_TEST(inline_for_single_iteration);
+	RUN_TEST(inline_for_countdown);
+	RUN_TEST(inline_for_multiple_body_stmts);
+	RUN_TEST(inline_for_preserves_non_inline_stmts);
+
 	print_section("Differential testing");
 	RUN_TEST(differential_simple_arithmetic);
 	RUN_TEST(differential_variable_propagation);
@@ -748,6 +919,7 @@ TestResults run_ast_optimizer_tests(void)
 	RUN_TEST(differential_binary_grouped_operands);
 	RUN_TEST(differential_cast_grouped_expression);
 	RUN_TEST(differential_chained_cast_propagation);
+	RUN_TEST(differential_inline_for_sum);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);
