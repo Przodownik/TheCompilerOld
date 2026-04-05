@@ -761,14 +761,13 @@ Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr
 
 	case EXPRESSION_TYPE_CALL:
 		copy->call.arguments =
-		    vector_create(ctx->expr_alloc, vector_get_length(expr->call.arguments), sizeof(Expression*));
+		    vector_create(ctx->expr_alloc, vector_get_length(expr->call.arguments), sizeof(CallArgument*));
 
 		for (u64 i = 0; i < vector_get_length(expr->call.arguments); i++)
 		{
-			CallArgument arg     = expr->call.arguments[i];
-			Expression* arg_expr = nullptr;
+			CallArgument arg = expr->call.arguments[i];
 			if (arg.value)
-				arg_expr = ast_deep_copy_expression(ctx, arg.value);
+				arg.value = ast_deep_copy_expression(ctx, arg.value);
 
 			vector_push(copy->call.arguments, arg);
 		}

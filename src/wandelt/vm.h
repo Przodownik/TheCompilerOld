@@ -35,7 +35,7 @@ typedef struct VM
 	u8 function_count;
 
 	CallFrame call_stack[VM_MAX_CALL_DEPTH];
-	u8 frame_count;
+	u16 frame_count;
 	u16 reg_base;
 } VM;
 

@@ -107,8 +107,7 @@ static_assert(sizeof(f64) == 8, "f64 is not 8 bytes");
 		}                                                                                         \
 	} while (0)
 
-
 #define ASSERT_PICK(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, NAME, ...) NAME
 #define ASSERT(...)                                                                                              \
 	ASSERT_PICK(__VA_ARGS__, ASSERT_MSG, ASSERT_MSG, ASSERT_MSG, ASSERT_MSG, ASSERT_MSG, ASSERT_MSG, ASSERT_MSG, \
-	            ASSERT_MSG, ASSERT_MSG, ASSERT_NO_MSG)(__VA_ARGS__)
+	            ASSERT_MSG, ASSERT_MSG, ASSERT_NO_MSG, dummy)(__VA_ARGS__)

@@ -174,7 +174,7 @@ static void print_section(const char* name)
 		double _diff = _a - _b;                                                 \
 		if (_diff < 0)                                                          \
 			_diff = -_diff;                                                     \
-		if (_diff > (epsilon))                                                  \
+		if (_diff > (double)(epsilon))                                          \
 		{                                                                       \
 			printf(ANSI_COLOR_RED "FAIL" ANSI_COLOR_RESET "\n"                  \
 			                      "    %s:%d: expected %f, got %f (diff=%f)\n", \

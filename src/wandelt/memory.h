@@ -33,5 +33,5 @@ typedef struct ArenaAllocator
 	u64 allocations;           // Number of allocations made
 } ArenaAllocator;
 
-Allocator allocator_get_heap_allocator();                                     // kinda global
+Allocator allocator_get_heap_allocator(void);                                     // kinda global
 Allocator allocator_get_arena_allocator(Allocator* base_allocator, u64 size); // creates new per call

@@ -132,6 +132,7 @@ void _lexer_skip_whitespace(Lexer* lexer)
 
 				continue;
 			}
+			return;
 		default:
 			return;
 		};

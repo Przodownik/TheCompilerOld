@@ -137,38 +137,6 @@ const char* op_code_to_cstr(OpCode op)
 	ASSERT(false, "Invalid OpCode");
 }
 
-ValueKind value_kind_forom_type_kind(TypeKind tk)
-{
-	switch (tk)
-	{
-	case TYPE_KIND_BOOL:
-		return VALUE_KIND_BOOL;
-	case TYPE_KIND_CHAR:
-		return VALUE_KIND_I8;
-	case TYPE_KIND_UCHAR:
-		return VALUE_KIND_U8;
-	case TYPE_KIND_SHORT:
-		return VALUE_KIND_I16;
-	case TYPE_KIND_USHORT:
-		return VALUE_KIND_U16;
-	case TYPE_KIND_INT:
-		return VALUE_KIND_I32;
-	case TYPE_KIND_UINT:
-		return VALUE_KIND_U32;
-	case TYPE_KIND_LONG:
-		return VALUE_KIND_I64;
-	case TYPE_KIND_ULONG:
-		return VALUE_KIND_U64;
-	case TYPE_KIND_FLOAT:
-		return VALUE_KIND_F32;
-	case TYPE_KIND_DOUBLE:
-		return VALUE_KIND_F64;
-	default:
-		ASSERT(false, "Invalid TypeKind");
-		return VALUE_KIND_I64;
-	}
-}
-
 const char* value_kind_to_cstr(ValueKind kind)
 {
 	switch (kind)
@@ -447,7 +415,7 @@ OpCode bytecode_compiler_select_binary_opcode(BinaryOperator bin_op, Type* type)
 	    [BINARY_OPERATOR_LT] = OP_CODE_LT_I,   [BINARY_OPERATOR_GT] = OP_CODE_GT_I,
 	    [BINARY_OPERATOR_LEQ] = OP_CODE_LEQ_I, [BINARY_OPERATOR_GEQ] = OP_CODE_GEQ_I,
 	};
-	ASSERT(bin_op < sizeof(bases) / sizeof(bases[0]), "Invalid BinaryOperator");
+	ASSERT((u64)bin_op < sizeof(bases) / sizeof(bases[0]), "Invalid BinaryOperator");
 
 	return (OpCode)(bases[bin_op] + family);
 }

@@ -49,7 +49,7 @@ static Allocator g_heap_allocator = {
     .ctx     = nullptr,
 };
 
-Allocator allocator_get_heap_allocator()
+Allocator allocator_get_heap_allocator(void)
 {
 	return g_heap_allocator;
 }

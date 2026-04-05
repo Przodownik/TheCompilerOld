@@ -393,7 +393,7 @@ Statement* parser_parse_for_statement(Parser* parser)
 	stmt->type      = STATEMENT_TYPE_FOR;
 
 	stmt->for_stmt.initializer = parser_parse_variable_declaration(parser);
-	if (stmt->for_stmt.initializer->type == STATEMENT_TYPE_INVALID)
+	if (stmt->for_stmt.initializer->type == DECLARATION_TYPE_INVALID)
 		return &invalid_statement;
 
 	stmt->for_stmt.condition = parser_parse_expression(parser);
