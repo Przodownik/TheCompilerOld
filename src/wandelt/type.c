@@ -3,43 +3,56 @@
 
 const char* type_kind_to_cstr(TypeKind kind)
 {
-	static_assert(TYPE_KIND_COUNT == 12, "update type_kind_to_cstr to handle new type kinds");
+	static_assert(TYPE_KIND_COUNT == 13, "update type_kind_to_cstr to handle new type kinds");
 
 	switch (kind)
 	{
 	case TYPE_KIND_INVALID:
-		return "invalid";
+		ASSERT(false, "invalid type kind");
+		break;
+
 	case TYPE_KIND_BOOL:
 		return "bool";
+
 	case TYPE_KIND_CHAR:
 		return "char";
+
 	case TYPE_KIND_UCHAR:
 		return "uchar";
+
 	case TYPE_KIND_SHORT:
 		return "short";
+
 	case TYPE_KIND_USHORT:
 		return "ushort";
+
 	case TYPE_KIND_INT:
 		return "int";
+
 	case TYPE_KIND_UINT:
 		return "uint";
+
 	case TYPE_KIND_LONG:
 		return "long";
+
 	case TYPE_KIND_ULONG:
 		return "ulong";
+
 	case TYPE_KIND_FLOAT:
 		return "float";
+
 	case TYPE_KIND_DOUBLE:
 		return "double";
 
+	case TYPE_KIND_COUNT:
 	default:
+		ASSERT(false, "invalid type kind");
 		break;
 	}
-
-	ASSERT(false, "invalid type kind");
 }
 
 static Type builtin_types[] = {
+    [TYPE_KIND_VOID]   = {.kind = TYPE_KIND_VOID, .size_in_bits = 0, .alignment_in_bits = 0},
     [TYPE_KIND_BOOL]   = {.kind = TYPE_KIND_BOOL, .size_in_bits = 8, .alignment_in_bits = 8},
     [TYPE_KIND_CHAR]   = {.kind = TYPE_KIND_CHAR, .size_in_bits = 8, .alignment_in_bits = 8},
     [TYPE_KIND_UCHAR]  = {.kind = TYPE_KIND_UCHAR, .size_in_bits = 8, .alignment_in_bits = 8},
@@ -59,36 +72,41 @@ Type* type_get_builtin(TypeKind kind)
 	return &builtin_types[kind];
 }
 
-bool type_is_arithmetic(const Type* t)
+bool type_is_arithmetic(const Type* type)
 {
-	return type_is_integer(t) || type_is_floating(t);
+	return type_is_integer(type) || type_is_floating(type);
 }
 
-bool type_is_integer(const Type* t)
+bool type_is_integer(const Type* type)
 {
-	return t->kind >= TYPE_KIND_CHAR && t->kind <= TYPE_KIND_ULONG;
+	return type->kind >= TYPE_KIND_CHAR && type->kind <= TYPE_KIND_ULONG;
 }
 
-bool type_is_floating(const Type* t)
+bool type_is_floating(const Type* type)
 {
-	return t->kind == TYPE_KIND_FLOAT || t->kind == TYPE_KIND_DOUBLE;
+	return type->kind == TYPE_KIND_FLOAT || type->kind == TYPE_KIND_DOUBLE;
 }
 
-bool type_is_signed(const Type* t)
+bool type_is_signed(const Type* type)
 {
-	return t->kind == TYPE_KIND_CHAR || t->kind == TYPE_KIND_SHORT || t->kind == TYPE_KIND_INT ||
-	       t->kind == TYPE_KIND_LONG;
+	return type->kind == TYPE_KIND_CHAR || type->kind == TYPE_KIND_SHORT || type->kind == TYPE_KIND_INT ||
+	       type->kind == TYPE_KIND_LONG;
 }
 
-bool type_is_unsigned(const Type* t)
+bool type_is_unsigned(const Type* type)
 {
-	return t->kind == TYPE_KIND_BOOL || t->kind == TYPE_KIND_UCHAR || t->kind == TYPE_KIND_USHORT ||
-	       t->kind == TYPE_KIND_UINT || t->kind == TYPE_KIND_ULONG;
+	return type->kind == TYPE_KIND_BOOL || type->kind == TYPE_KIND_UCHAR || type->kind == TYPE_KIND_USHORT ||
+	       type->kind == TYPE_KIND_UINT || type->kind == TYPE_KIND_ULONG;
 }
 
 bool type_is_bool(const Type* type)
 {
 	return type->kind == TYPE_KIND_BOOL;
+}
+
+bool type_is_void(const Type* type)
+{
+	return type->kind == TYPE_KIND_VOID;
 }
 
 bool type_is_implicitly_convertible(Type* from, Type* to)

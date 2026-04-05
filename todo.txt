@@ -20,3 +20,6 @@ Optimization passes:
 - Loop Unrolling
 - Strength Reduction
 - Peephole Optimization
+
+Default Value Constant Folding
+Tail Call Optimization

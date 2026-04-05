@@ -236,6 +236,8 @@ Token _lexer_lex_identifier_or_keyword(Lexer* lexer)
 	case 'v':
 		if (ident.len == 3 && strncmp(ident.data, "var", 3) == 0)
 			return _lexer_create_new_token(lexer, TOKEN_TYPE_VAR_KEYWORD);
+		if (ident.len == 4 && strncmp(ident.data, "void", 4) == 0)
+			return _lexer_create_new_token(lexer, TOKEN_TYPE_VOID_KEYWORD);
 		break;
 	}
 
@@ -297,7 +299,7 @@ Token _lexer_lex_token(Lexer* lexer)
 
 Token _lexer_lex_token_internal(Lexer* lexer)
 {
-	static_assert(TOKEN_TYPE_COUNT == 52, "Update _lexer_lex_token_internal when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 54, "Update _lexer_lex_token_internal when adding new token types");
 
 	_lexer_skip_whitespace(lexer);
 
@@ -404,6 +406,9 @@ Token _lexer_lex_token_internal(Lexer* lexer)
 		{
 			token = _lexer_create_new_token(lexer, TOKEN_TYPE_DOT);
 		}
+		break;
+	case ',':
+		token = _lexer_create_new_token(lexer, TOKEN_TYPE_COMMA);
 		break;
 	case '>':
 		if (lexer_get_current_char(lexer) == '=')

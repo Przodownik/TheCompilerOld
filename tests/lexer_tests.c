@@ -36,7 +36,7 @@ static StringView token_lexeme(const char* src, Token token)
 	return (StringView){.data = src + token.span.begin, .len = tok_length};
 }
 
-static_assert(TOKEN_TYPE_COUNT == 52, "Update lexer tests when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 54, "Update lexer tests when adding new token types");
 
 // ---------------------------------------------------------------------------
 // Empty / whitespace-only inputs
@@ -191,6 +191,16 @@ TEST(dot)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_DOT);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ".");
+}
+
+TEST(comma)
+{
+	const char* src = ",";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_COMMA);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), ",");
 }
 
 TEST(greater)
@@ -482,6 +492,16 @@ TEST(inline_keyword)
 	ASSERT_EQ(tl.count, 2);
 	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_INLINE_KEYWORD);
 	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "inline");
+}
+
+TEST(void_keyword)
+{
+	const char* src = "void";
+	TokenList tl    = lex_source(alloc, src);
+
+	ASSERT_EQ(tl.count, 2);
+	ASSERT_EQ(tl.tokens[0].type, TOKEN_TYPE_VOID_KEYWORD);
+	ASSERT_STR_EQ(token_lexeme(src, tl.tokens[0]), "void");
 }
 
 TEST(bool_keyword)
@@ -1012,6 +1032,7 @@ TestResults run_lexer_tests(void)
 	RUN_TEST(slash);
 	RUN_TEST(equals);
 	RUN_TEST(dot);
+	RUN_TEST(comma);
 	RUN_TEST(greater);
 	RUN_TEST(less);
 
@@ -1047,6 +1068,7 @@ TestResults run_lexer_tests(void)
 	RUN_TEST(for_keyword);
 	RUN_TEST(inline_keyword);
 
+	RUN_TEST(void_keyword);
 	RUN_TEST(bool_keyword);
 	RUN_TEST(char_keyword);
 	RUN_TEST(uchar_keyword);

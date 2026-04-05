@@ -7,12 +7,6 @@
 
 #define DISASM_LINE_WIDTH 68
 
-static void print_separator(FILE* out, char ch)
-{
-	for (int i = 0; i < DISASM_LINE_WIDTH; i++) fputc(ch, out);
-	fputc('\n', out);
-}
-
 // Extract a source line (1-based) from a File into buf. Trims leading whitespace.
 static void get_source_line(const File* source, u32 line, char* buf, u64 buf_size)
 {
@@ -23,7 +17,6 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 	const char* content = source->content.data;
 	u64 len             = source->content.len;
 
-	// Find start of the requested line
 	u32 current_line = 1;
 	u64 pos          = 0;
 	while (pos < len && current_line < line)
@@ -33,10 +26,8 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 		pos++;
 	}
 
-	// Skip leading whitespace
 	while (pos < len && (content[pos] == ' ' || content[pos] == '\t')) pos++;
 
-	// Copy until end of line
 	u64 start = pos;
 	while (pos < len && content[pos] != '\n' && content[pos] != '\r') pos++;
 
@@ -47,9 +38,53 @@ static void get_source_line(const File* source, u32 line, char* buf, u64 buf_siz
 	buf[line_len] = '\0';
 }
 
-static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_size, char* comment, u64 cm_size)
+static void format_value(Value v, char* buf, u64 buf_size)
 {
-	static_assert(OP_CODE_COUNT == 51, "format_instruction needs to be updated for new opcodes");
+	switch (v.kind)
+	{
+	case VALUE_KIND_BOOL:
+		snprintf(buf, buf_size, "%s", v.i64_val ? "true" : "false");
+		break;
+	case VALUE_KIND_I8:
+		snprintf(buf, buf_size, "%d", (int)(i8)v.i64_val);
+		break;
+	case VALUE_KIND_U8:
+		snprintf(buf, buf_size, "%u", (unsigned)(u8)v.u64_val);
+		break;
+	case VALUE_KIND_I16:
+		snprintf(buf, buf_size, "%d", (int)(i16)v.i64_val);
+		break;
+	case VALUE_KIND_U16:
+		snprintf(buf, buf_size, "%u", (unsigned)(u16)v.u64_val);
+		break;
+	case VALUE_KIND_I32:
+		snprintf(buf, buf_size, "%d", (int)v.i64_val);
+		break;
+	case VALUE_KIND_U32:
+		snprintf(buf, buf_size, "%u", (unsigned)v.u64_val);
+		break;
+	case VALUE_KIND_I64:
+		snprintf(buf, buf_size, "%lld", v.i64_val);
+		break;
+	case VALUE_KIND_U64:
+		snprintf(buf, buf_size, "%llu", v.u64_val);
+		break;
+	case VALUE_KIND_F32:
+		snprintf(buf, buf_size, "%f", (double)v.f32_val);
+		break;
+	case VALUE_KIND_F64:
+		snprintf(buf, buf_size, "%f", v.f64_val);
+		break;
+	default:
+		snprintf(buf, buf_size, "???");
+		break;
+	}
+}
+
+static void format_instruction(Chunk* chunk, u32 offset, CompiledFunction* functions, u8 function_count,
+                                char* operands, u64 op_size, char* comment, u64 cm_size)
+{
+	static_assert(OP_CODE_COUNT == 52, "format_instruction needs to be updated for new opcodes");
 
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
@@ -66,46 +101,7 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 		if (bx < (u16)vector_get_length(chunk->constants))
 		{
 			char val_buf[32];
-			Value v = chunk->constants[bx];
-			switch (v.kind)
-			{
-			case VALUE_KIND_BOOL:
-				snprintf(val_buf, sizeof(val_buf), "%s", v.i64_val ? "true" : "false");
-				break;
-			case VALUE_KIND_I8:
-				snprintf(val_buf, sizeof(val_buf), "%d", (int)(i8)v.i64_val);
-				break;
-			case VALUE_KIND_U8:
-				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)(u8)v.u64_val);
-				break;
-			case VALUE_KIND_I16:
-				snprintf(val_buf, sizeof(val_buf), "%d", (int)(i16)v.i64_val);
-				break;
-			case VALUE_KIND_U16:
-				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)(u16)v.u64_val);
-				break;
-			case VALUE_KIND_I32:
-				snprintf(val_buf, sizeof(val_buf), "%d", (int)v.i64_val);
-				break;
-			case VALUE_KIND_U32:
-				snprintf(val_buf, sizeof(val_buf), "%u", (unsigned)v.u64_val);
-				break;
-			case VALUE_KIND_I64:
-				snprintf(val_buf, sizeof(val_buf), "%lld", v.i64_val);
-				break;
-			case VALUE_KIND_U64:
-				snprintf(val_buf, sizeof(val_buf), "%llu", v.u64_val);
-				break;
-			case VALUE_KIND_F32:
-				snprintf(val_buf, sizeof(val_buf), "%f", (double)v.f32_val);
-				break;
-			case VALUE_KIND_F64:
-				snprintf(val_buf, sizeof(val_buf), "%f", v.f64_val);
-				break;
-			default:
-				snprintf(val_buf, sizeof(val_buf), "???");
-				break;
-			}
+			format_value(chunk->constants[bx], val_buf, sizeof(val_buf));
 			snprintf(comment, cm_size, "R%u = %s", a, val_buf);
 		}
 		break;
@@ -221,29 +217,45 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 
 	case OP_CODE_JUMP: {
 		u32 bx     = DECODE_Bx(inst);
-		u32 target = offset + 1 + bx + 1; // +1 for IP advance, +1 for 1-based display
+		u32 target = offset + 1 + bx;
 		snprintf(operands, op_size, "%u", bx);
-		snprintf(comment, cm_size, "jump to %04u", target);
+		snprintf(comment, cm_size, "-> %04u", target);
 		break;
 	}
 
 	case OP_CODE_JUMP_BACK: {
 		u32 bx     = DECODE_Bx(inst);
-		u32 target = offset + 1 - bx + 1; // +1 for IP advance, +1 for 1-based display
+		u32 target = offset + 1 - bx;
 		snprintf(operands, op_size, "%u", bx);
-		snprintf(comment, cm_size, "jump back to %04u", target);
+		snprintf(comment, cm_size, "-> %04u", target);
 		break;
 	}
 
 	case OP_CODE_JUMP_IF_FALSE: {
 		u8 a       = DECODE_A(inst);
 		u32 bx     = DECODE_Bx(inst);
-		u32 target = offset + 1 + bx + 1; // +1 for IP advance, +1 for 1-based display
+		u32 target = offset + 1 + bx;
 		snprintf(operands, op_size, "R%u, %u", a, bx);
-		snprintf(comment, cm_size, "if R%u == false jump to %04u", a, target);
+		snprintf(comment, cm_size, "if !R%u -> %04u", a, target);
 		break;
 	}
 
+	case OP_CODE_CALL: {
+		u8 a = DECODE_A(inst);
+		u8 b = DECODE_B(inst);
+		u8 c = DECODE_C(inst);
+		snprintf(operands, op_size, "R%u, R%u, %u", a, b, c);
+		if (functions && c < function_count)
+		{
+			CompiledFunction* fn = &functions[c];
+			snprintf(comment, cm_size, "R%u = %.*s(args from R%u)", a, (int)fn->name.len, fn->name.data, b);
+		}
+		else
+		{
+			snprintf(comment, cm_size, "R%u = call F%u(args from R%u)", a, c, b);
+		}
+		break;
+	}
 	case OP_CODE_RETURN: {
 		u8 a = DECODE_A(inst);
 		snprintf(operands, op_size, "R%u", a);
@@ -259,158 +271,157 @@ static void format_instruction(Chunk* chunk, u32 offset, char* operands, u64 op_
 	}
 }
 
-static void disassemble_instruction_stream(Chunk* chunk, u32 offset, FILE* out)
+static void emit_instruction_line(Chunk* chunk, u32 offset, u32 display_offset, CompiledFunction* functions,
+                                  u8 function_count, FILE* out)
 {
 	Instruction inst = chunk->instructions[offset];
 	OpCode op        = (OpCode)DECODE_OP(inst);
 
 	char operands[64];
 	char comment[64];
-	format_instruction(chunk, offset, operands, sizeof(operands), comment, sizeof(comment));
+	format_instruction(chunk, offset, functions, function_count, operands, sizeof(operands), comment, sizeof(comment));
 
 	if (comment[0])
-		fprintf(out, "    %04u  %08X  %-14s%-16s; %s\n", offset + 1, inst, op_code_to_cstr(op), operands, comment);
+		fprintf(out, "%04u  %-14s%-18s; %s\n", display_offset, op_code_to_cstr(op), operands, comment);
 	else
-		fprintf(out, "    %04u  %08X  %-14s%s\n", offset + 1, inst, op_code_to_cstr(op), operands);
+		fprintf(out, "%04u  %-14s%s\n", display_offset, op_code_to_cstr(op), operands);
 }
 
-static void disassemble_chunk_stream(Chunk* chunk, const char* name, const File* source, FILE* out)
+static void emit_source_comment(const File* source, u32 line, u32* last_line, FILE* out)
 {
-	u32 num_constants    = (u32)vector_get_length(chunk->constants);
-	u32 num_instructions = (u32)vector_get_length(chunk->instructions);
+	if (!source || line == 0 || line == *last_line)
+		return;
 
-	// Header
-	fprintf(out, "=== %s ", name);
-	int name_len = (int)strlen(name);
-	for (int i = 0; i < DISASM_LINE_WIDTH - 5 - name_len; i++) fputc('=', out);
-	fputc('\n', out);
-
-	fprintf(out, "  Constants    : %u\n", num_constants);
-	fprintf(out, "  Instructions : %u\n", num_instructions);
-
-	// Constants
-	print_separator(out, '-');
-	fprintf(out, "  Constant Pool:\n");
-
-	if (num_constants == 0)
+	char src_line[256];
+	get_source_line(source, line, src_line, sizeof(src_line));
+	if (src_line[0])
 	{
-		fprintf(out, "    (empty)\n");
-	}
-	else
-	{
-		for (u32 i = 0; i < num_constants; i++)
-		{
-			Value v = chunk->constants[i];
-			fprintf(out, "    K%-4u= ", i + 1);
-			value_print(v, out);
-			fprintf(out, " (%s)\n", value_kind_to_cstr(v.kind));
-		}
-	}
-
-	// Instructions
-	print_separator(out, '-');
-	fprintf(out, "  Code:\n");
-
-	u32 last_line = 0;
-	for (u32 i = 0; i < num_instructions; i++)
-	{
-		// Show source line when it changes
-		u32 line = (chunk->lines && i < (u32)vector_get_length(chunk->lines)) ? chunk->lines[i] : 0;
-		if (source && line > 0 && line != last_line)
-		{
-			char src_line[256];
-			get_source_line(source, line, src_line, sizeof(src_line));
-			if (src_line[0])
-			{
-				if (last_line > 0)
-					fprintf(out, "\n");
-				fprintf(out, "    -- L%u: %s\n", line, src_line);
-			}
-			last_line = line;
-		}
-
-		disassemble_instruction_stream(chunk, i, out);
-	}
-
-	// Footer
-	print_separator(out, '=');
-	fputc('\n', out);
-}
-
-static void disassemble_chunk_readable(Chunk* chunk, const char* name, const File* source, FILE* out)
-{
-	u32 num_constants    = (u32)vector_get_length(chunk->constants);
-	u32 num_instructions = (u32)vector_get_length(chunk->instructions);
-
-	// Header
-	fprintf(out, "=== %s ===\n\n", name);
-
-	// Constants as typed directives
-	if (num_constants > 0)
-	{
-		fprintf(out, "\n");
-		for (u32 i = 0; i < num_constants; i++)
-		{
-			Value v = chunk->constants[i];
-			fprintf(out, ".const %-6s K%u = ", value_kind_to_cstr(v.kind), i + 1);
-			value_print(v, out);
+		if (*last_line > 0)
 			fprintf(out, "\n");
+		fprintf(out, "; %s\n", src_line);
+	}
+	*last_line = line;
+}
+
+static void disassemble_program_stream(Chunk* main_chunk, CompiledFunction* functions, u8 function_count,
+                                       const char* name, const File* source, FILE* out)
+{
+	(void)name;
+
+	// Function table
+	if (function_count > 0)
+	{
+		fprintf(out, "; === Function table ===\n");
+		for (u8 i = 0; i < function_count; i++)
+		{
+			CompiledFunction* fn   = &functions[i];
+			u32 num_instructions   = (u32)vector_get_length(fn->chunk.instructions);
+			fprintf(out, "; F%u: \"%.*s\" (params=%u, instructions=%u)\n", i, (int)fn->name.len, fn->name.data,
+			        fn->param_count, num_instructions);
 		}
+		fprintf(out, "\n");
 	}
 
-	// Instructions — same format as console output
+	// Constant pool — merge main + all function constants for display
+	fprintf(out, "; === Constants ===\n");
+	u32 main_num_constants = (u32)vector_get_length(main_chunk->constants);
+	if (main_num_constants == 0 && function_count == 0)
+	{
+		fprintf(out, "; (empty)\n");
+	}
+	else
+	{
+		if (main_num_constants > 0)
+		{
+			fprintf(out, "; main:\n");
+			for (u32 i = 0; i < main_num_constants; i++)
+			{
+				char val_buf[32];
+				Value v = main_chunk->constants[i];
+				format_value(v, val_buf, sizeof(val_buf));
+				fprintf(out, ";   K%u = %s (%s)\n", i, val_buf, value_kind_to_cstr(v.kind));
+			}
+		}
+		for (u8 fi = 0; fi < function_count; fi++)
+		{
+			u32 fn_consts = (u32)vector_get_length(functions[fi].chunk.constants);
+			if (fn_consts > 0)
+			{
+				fprintf(out, "; %.*s:\n", (int)functions[fi].name.len, functions[fi].name.data);
+				for (u32 i = 0; i < fn_consts; i++)
+				{
+					char val_buf[32];
+					Value v = functions[fi].chunk.constants[i];
+					format_value(v, val_buf, sizeof(val_buf));
+					fprintf(out, ";   K%u = %s (%s)\n", i, val_buf, value_kind_to_cstr(v.kind));
+				}
+			}
+		}
+	}
 	fprintf(out, "\n");
 
-	u32 last_line = 0;
-	for (u32 i = 0; i < num_instructions; i++)
+	// Code
+	fprintf(out, "; === Code ===\n");
+
+	u32 display_offset = 0;
+
+	// Emit function bodies first
+	for (u8 fi = 0; fi < function_count; fi++)
 	{
-		// Source line mapping
-		u32 line = (chunk->lines && i < (u32)vector_get_length(chunk->lines)) ? chunk->lines[i] : 0;
-		if (source && line > 0 && line != last_line)
+		CompiledFunction* fn   = &functions[fi];
+		u32 fn_instructions    = (u32)vector_get_length(fn->chunk.instructions);
+
+		// Function header
+		fprintf(out, "\n; --- function \"%.*s\" (", (int)fn->name.len, fn->name.data);
+		for (u8 p = 0; p < fn->param_count; p++)
 		{
-			char src_line[256];
-			get_source_line(source, line, src_line, sizeof(src_line));
-			if (src_line[0])
-			{
-				if (last_line > 0)
-					fprintf(out, "\n");
-				fprintf(out, "; -- L%u: %s\n", line, src_line);
-			}
-			last_line = line;
+			if (p > 0)
+				fprintf(out, ", ");
+			fprintf(out, "R%u", p);
 		}
+		fprintf(out, ") ---\n");
 
-		Instruction inst = chunk->instructions[i];
-		OpCode op        = (OpCode)DECODE_OP(inst);
-
-		char operands[64];
-		char comment[64];
-		format_instruction(chunk, i, operands, sizeof(operands), comment, sizeof(comment));
-
-		if (comment[0])
-			fprintf(out, "%04u  %08X  %-14s%-16s; %s\n", i + 1, inst, op_code_to_cstr(op), operands, comment);
-		else
-			fprintf(out, "%04u  %08X  %-14s%s\n", i + 1, inst, op_code_to_cstr(op), operands);
+		u32 last_line = 0;
+		for (u32 i = 0; i < fn_instructions; i++)
+		{
+			u32 line = (fn->chunk.lines && i < (u32)vector_get_length(fn->chunk.lines)) ? fn->chunk.lines[i] : 0;
+			emit_source_comment(source, line, &last_line, out);
+			emit_instruction_line(&fn->chunk, i, display_offset, functions, function_count, out);
+			display_offset++;
+		}
 	}
+
+	// Main code
+	u32 main_instructions = (u32)vector_get_length(main_chunk->instructions);
+	fprintf(out, "\n; --- main ---\n");
+
+	u32 last_line = 0;
+	for (u32 i = 0; i < main_instructions; i++)
+	{
+		u32 line = (main_chunk->lines && i < (u32)vector_get_length(main_chunk->lines)) ? main_chunk->lines[i] : 0;
+		emit_source_comment(source, line, &last_line, out);
+		emit_instruction_line(main_chunk, i, display_offset, functions, function_count, out);
+		display_offset++;
+	}
+
+	fprintf(out, "\n");
 }
 
-void disassemble_chunk(Chunk* chunk, const char* name, const File* source)
+void disassemble_program(Chunk* main_chunk, CompiledFunction* functions, u8 function_count, const char* name,
+                         const File* source)
 {
-	disassemble_chunk_stream(chunk, name, source, stdout);
+	disassemble_program_stream(main_chunk, functions, function_count, name, source, stdout);
 }
 
-void disassemble_instruction(Chunk* chunk, u32 offset)
-{
-	disassemble_instruction_stream(chunk, offset, stdout);
-}
-
-bool disassemble_chunk_to_file(Chunk* chunk, const char* name, const File* source, const char* filepath)
+bool disassemble_program_to_file(Chunk* main_chunk, CompiledFunction* functions, u8 function_count, const char* name,
+                                 const File* source, const char* filepath)
 {
 	FILE* f     = nullptr;
 	errno_t err = fopen_s(&f, filepath, "w");
 	ASSERT(err == 0, "Failed to open file for writing: %s", filepath);
 	if (!f)
 		return false;
-	disassemble_chunk_readable(chunk, name, source, f);
+	disassemble_program_stream(main_chunk, functions, function_count, name, source, f);
 	fclose(f);
 	return true;
 }

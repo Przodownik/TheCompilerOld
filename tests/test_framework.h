@@ -249,7 +249,7 @@ static PipelineResult run_pipeline(Allocator* alloc, const char* source, bool op
 	Chunk chunk               = bytecode_compiler_compile(&compiler, tu.statements);
 	r.chunk                   = chunk;
 
-	VM vm          = vm_create(&chunk);
+	VM vm          = vm_create(&chunk, compiler.functions, compiler.function_count);
 	r.vm_result    = vm_execute(&vm);
 	r.return_value = vm.return_value;
 

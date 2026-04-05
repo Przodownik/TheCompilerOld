@@ -24,6 +24,7 @@ typedef enum TokenType
 	TOKEN_TYPE_INLINE_KEYWORD,    // 'inline'
 
 	// Built-in types
+	TOKEN_TYPE_VOID_KEYWORD,   // 'bool'
 	TOKEN_TYPE_BOOL_KEYWORD,   // 'bool'
 	TOKEN_TYPE_CHAR_KEYWORD,   // 'char'
 	TOKEN_TYPE_UCHAR_KEYWORD,  // 'uchar'
@@ -50,6 +51,7 @@ typedef enum TokenType
 	TOKEN_TYPE_SLASH,       //  /
 	TOKEN_TYPE_EQUALS,      //  =
 	TOKEN_TYPE_DOT,         //  .
+	TOKEN_TYPE_COMMA,       //  ,
 	TOKEN_TYPE_GREATER,     //  >
 	TOKEN_TYPE_LESS,        //  <
 

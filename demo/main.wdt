@@ -1,140 +1,43 @@
-var int a = 10;
-var int b = 10;
+namespace demo;
 
-if a == b {
-	a += b;
-} else {
-	a -= b;
-}
-
-return a; // 20
-
-
-// var int a = 100;
-// var float b = 3.14f;
-// var double c = 2.718d;
-// var char d = 5;
-// var uint e = 42;
-
-// // int arithmetic
-// var int r1 = a + 50;           // 150
-// var int r2 = a * 2;            // 200
-// var int r3 = a / 3;            // 33
-
-// // float arithmetic
-// var float r4 = b + 1.86f;     // 5.0
-// var float r5 = b * 2.0f;      // 6.28
-// var float r6 = b / 2.0f;      // 1.57
-
-// // double arithmetic
-// var double r7 = c + 1.282d;   // 4.0
-// var double r8 = c * 3.0d;     // 8.154
-
-// // uint arithmetic
-// var uint r9 = e + 8;          // 50
-// var uint r10 = e * 2;         // 84
-
-// // cross-type with explicit cast
-// var float r11 = a as float + b;          // 103.14
-// var int r12 = b as int + a;              // 103
-// var double r13 = b as double + c;        // 5.858
-// var float r14 = d as float + b;          // 8.14
-// var double r15 = a as double + c;        // 102.718
-
-// // implicit promotion: int literal in float context
-// var float r16 = b + 10;       // 13.14
-// var float r17 = 20 + b;       // 23.14
-// var double r18 = c + 100;     // 102.718
-
-// // chained operations with mixed casts
-// var float r19 = (a as float + b) * 2.0f;               // 206.28
-// var double r20 = (a as double + c) * b as double;     // 322.536...
-
-// // subtraction across types
-// var float r21 = a as float - b;    // 96.86
-// var int r22 = a - d as int;        // 95
-
-// // nested casts
-// var double r23 = d as int as double;  // 5.0
-
-// return r1 as double + r4 as double + r7 + r11 as double + r13 + r16 as double + r18 + r20 + r21 as double + r23 as double >= 808.250f;
-
-// var int x = 12;
-// x = 10;
-// x+=10;
-
-// return x;
+// alias i32 = int;
+// alias f32 = float;
 
 <*
-
-Prepare a gigantic implementation reports with code samples about adding following language constructs:
-First report:
-	1) If statement:
-	if x > y {
-		
-	}
-	
-	2) While loop
-	while x > y {
-		x--;
-	}
-	
-	3) For loop
-	for ulong x = 0; x < 100; x++ {
-		
-	}
-	
-4) Discuss and show possible optimization passes
-5) Discuss and show possible inlining for "for" loop like":
-
-	inline for ulong x = 0; x < 10; x++ {
-		
-	}
-	
-Second report:
-Functions:
-fn int test(int x = 12, int y)
+fn int add(int x = 10, int y = 20)
 {
-	return x + y;
+    return x + y;
 }
 
-test(, 12); // keep 1 param as default
-test(y = 12); // named params
-test() // if both are defaulted
-test(12) // if params after non-defaulted are defaulted, can skip the ,
+var int a = add();          // uses both defaults: add(10, 20) = 30
+var int b = add(5);         // positional: add(5, 20) = 25
+var int c = add(, 100);     // skip first: add(10, 100) = 110
+var int d = add(, 50);    // named: add(10, 50) = 60
 
-Third report:
-user types
-1)
-struct Vector2
-{
-	float x; // can be defaulted like float x = 12; then when initializing we can Vector2 vec = {.y = 12}; if both defaulted Vector2 vec = {};
-	float y;
-}
-
-2) member functions?
-fn void Vector2.scale(self, float scale = 12)
-{
-	self.x *= scale;
-	self.y *= scale;
-}
-
-Vector2 vec = {.x = 12, .y = 12};
-vec.scale(15);
-
-Fourth report:
-compiletime execution
-
-int calc(int x) {
-	...
-}
-
-var int x = #run calc(100); // executed at cmptime
-
-or like 
-
-#run {
-	... 
-}
-
+return a + b + c + d;       // 30 + 25 + 110 + 60 = 225
 *>
+
+fn int fibonacci(int n)
+{
+    if (n <= 1)
+    {
+        return n;
+    }
+
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+fn int fibonacci2(int n)
+{
+    var int a = 0;
+    var int b = 1;
+    for var int i = 0; i < n; i++
+    {
+        var int temp = b;
+        b = a + b;
+        a = temp;
+    }
+    return a;
+}
+
+return fibonacci2(5);

@@ -262,7 +262,7 @@ bool ast_optimizer_fold_assignment_statement(AstOptimizer* optimizer, Statement*
 
 bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update this function when adding new expression types");
 
 	const Expression* expression = *expr;
 
@@ -292,6 +292,18 @@ bool ast_optimizer_fold_expression(AstOptimizer* optimizer, Expression** expr)
 
 	case EXPRESSION_TYPE_INCDEC:
 		return ast_optimizer_fold_incdec_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_CALL: {
+		bool changed = false;
+		for (u64 i = 0; i < vector_get_length((*expr)->call.arguments); i++)
+		{
+			CallArgument arg = (*expr)->call.arguments[i];
+			if (arg.value)
+				changed |= ast_optimizer_fold_incdec_expression(optimizer, &arg.value);
+		}
+
+		return changed;
+	}
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -865,7 +877,7 @@ bool ast_optimizer_propagate_assignment_statement(AstOptimizer* optimizer, State
 
 bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update this function when adding new expression types");
 
 	const Expression* expression = *expr;
 
@@ -895,6 +907,18 @@ bool ast_optimizer_propagate_expression(AstOptimizer* optimizer, Expression** ex
 
 	case EXPRESSION_TYPE_INCDEC:
 		return ast_optimizer_propagate_incdec_expression(optimizer, expr);
+
+	case EXPRESSION_TYPE_CALL: {
+		bool changed = false;
+		for (u64 i = 0; i < vector_get_length((*expr)->call.arguments); i++)
+		{
+			CallArgument arg = (*expr)->call.arguments[i];
+			if (arg.value)
+				changed |= ast_optimizer_propagate_incdec_expression(optimizer, &arg.value);
+		}
+
+		return changed;
+	}
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -1006,7 +1030,7 @@ void ast_optimizer_dce(AstOptimizer* optimizer, TranslationUnit* tu)
 
 void ast_optimizer_dce_mark_expression(Expression* expr, Declaration*** used)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update this function when adding new expression types");
 
 	switch (expr->type)
 	{
@@ -1034,6 +1058,16 @@ void ast_optimizer_dce_mark_expression(Expression* expr, Declaration*** used)
 
 	case EXPRESSION_TYPE_INCDEC:
 		ast_optimizer_dce_mark_expression(expr->incdec.operand, used);
+		break;
+
+	case EXPRESSION_TYPE_CALL:
+		for (u64 i = 0; i < vector_get_length(expr->call.arguments); i++)
+		{
+			CallArgument arg = expr->call.arguments[i];
+			if (arg.value)
+				ast_optimizer_dce_mark_expression(arg.value, used);
+		}
+
 		break;
 
 	case EXPRESSION_TYPE_CONSTANT:

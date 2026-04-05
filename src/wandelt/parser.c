@@ -89,6 +89,7 @@ Statement* parser_parse_top_level_statement(Parser* parser)
 		return parser_parse_return_statement(parser);
 
 	case TOKEN_TYPE_VAR_KEYWORD:
+	case TOKEN_TYPE_FUNCTION_KEYWORD:
 		return parser_parse_declaration_statement(parser);
 
 	case TOKEN_TYPE_IF_KEYWORD:
@@ -478,7 +479,7 @@ Statement* parser_parse_assignment_statement(Parser* parser)
 
 Declaration* parser_parse_declaration(Parser* parser)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3,
+	static_assert(DECLARATION_TYPE_COUNT == 4,
 	              "parser_parse_declaration needs to be updated to handle new declaration types");
 
 	Token tok = parser_peek_token(parser);
@@ -490,6 +491,9 @@ Declaration* parser_parse_declaration(Parser* parser)
 
 	case TOKEN_TYPE_VAR_KEYWORD:
 		return parser_parse_variable_declaration(parser);
+
+	case TOKEN_TYPE_FUNCTION_KEYWORD:
+		return parser_parse_function_declaration(parser);
 
 	default:
 		diagnostics_verror_along_span(tok.span, parser->lexer->file_to_lex, "Expected a declaration, but found '%.*s'",
@@ -550,6 +554,77 @@ Declaration* parser_parse_variable_declaration(Parser* parser)
 		return &invalid_declaration;
 
 	decl->span = span_extend(varToken.span, semicolonToken.span);
+
+	return decl;
+}
+
+static bool parser_parse_function_parameter(Parser* parser, Declaration* func_decl)
+{
+	FunctionParameter param = {0};
+
+	if (!parser_parse_type(parser, &param.type))
+		return false;
+
+	if (!parser_parse_identifier(parser, &param.name))
+		return false;
+
+	if (parser_peek_token(parser).type == TOKEN_TYPE_EQUALS)
+	{
+		parser_eat_token(parser); // eat '='
+
+		param.default_value = parser_parse_expression(parser);
+		if (param.default_value->type == EXPRESSION_TYPE_INVALID)
+			return false;
+	}
+
+	vector_push(func_decl->fn.parameters, param);
+
+	return true;
+}
+
+Declaration* parser_parse_function_declaration(Parser* parser)
+{
+	const Token fnToken = parser_peek_token(parser);
+	ASSERT(fnToken.type == TOKEN_TYPE_FUNCTION_KEYWORD);
+
+	parser_eat_token(parser); // eat 'fn'
+
+	Declaration* decl = new_declaration(parser);
+	decl->type        = DECLARATION_TYPE_FUNCTION;
+
+	if (!parser_parse_type(parser, &decl->fn.return_type))
+		return &invalid_declaration;
+
+	if (!parser_parse_identifier(parser, &decl->fn.name))
+		return &invalid_declaration;
+
+	if (!parser_parse_token(parser, TOKEN_TYPE_OPEN_PAREN))
+		return &invalid_declaration;
+
+	decl->fn.parameters = vector_create(parser->decl_allocator, 4, sizeof(FunctionParameter));
+
+	if (parser_peek_token(parser).type != TOKEN_TYPE_CLOSE_PAREN)
+	{
+		if (!parser_parse_function_parameter(parser, decl))
+			return &invalid_declaration;
+
+		while (parser_peek_token(parser).type == TOKEN_TYPE_COMMA)
+		{
+			parser_eat_token(parser); // eat ','
+
+			if (!parser_parse_function_parameter(parser, decl))
+				return &invalid_declaration;
+		}
+	}
+
+	if (!parser_parse_token(parser, TOKEN_TYPE_CLOSE_PAREN))
+		return &invalid_declaration;
+
+	decl->fn.body = parser_parse_block_statement(parser);
+	if (decl->fn.body->type == STATEMENT_TYPE_INVALID)
+		return &invalid_declaration;
+
+	decl->span = span_extend(fnToken.span, decl->fn.body->span);
 
 	return decl;
 }
@@ -830,6 +905,79 @@ Expression* parser_parse_postfix_incdec_expression(Parser* parser, Expression* l
 	return expr;
 }
 
+static bool parser_parse_single_call_argument(Parser* parser, Expression* call_expr)
+{
+	CallArgument arg = {0};
+
+	Token tok = parser_peek_token(parser);
+
+	// eg. test(, 12)
+	if (tok.type == TOKEN_TYPE_COMMA)
+	{
+		vector_push(call_expr->call.arguments, arg);
+		return true;
+	}
+
+	arg.value = parser_parse_expression(parser);
+	if (arg.value->type == EXPRESSION_TYPE_INVALID)
+		return false;
+
+	vector_push(call_expr->call.arguments, arg);
+
+	return true;
+}
+
+static bool parser_parse_call_arguments(Parser* parser, Expression* call_expr)
+{
+	if (!parser_parse_single_call_argument(parser, call_expr))
+		return false;
+
+	while (parser_peek_token(parser).type == TOKEN_TYPE_COMMA)
+	{
+		parser_eat_token(parser); // eat ','
+
+		if (!parser_parse_single_call_argument(parser, call_expr))
+			return false;
+	}
+
+	return true;
+}
+
+Expression* parser_parse_call_expression(Parser* parser, Expression* left)
+{
+	const Token openParenToken = parser_peek_token(parser);
+	ASSERT(openParenToken.type == TOKEN_TYPE_OPEN_PAREN);
+
+	if (left->type != EXPRESSION_TYPE_IDENTIFIER)
+	{
+		diagnostics_verror_along_span(left->span, parser->lexer->file_to_lex,
+		                              "Only identifier expressions can be called");
+		return &invalid_expression;
+	}
+
+	parser_eat_token(parser); // eat '('
+
+	Expression* expr = new_expression(parser);
+	expr->type       = EXPRESSION_TYPE_CALL;
+
+	expr->call.function_name = left->identifier.name;
+	expr->call.arguments     = vector_create(parser->expr_allocator, 4, sizeof(CallArgument));
+
+	if (parser_peek_token(parser).type != TOKEN_TYPE_CLOSE_PAREN)
+	{
+		if (!parser_parse_call_arguments(parser, expr))
+			return &invalid_expression;
+	}
+
+	const Token closeParenToken = parser_peek_token(parser);
+	if (!parser_parse_token(parser, TOKEN_TYPE_CLOSE_PAREN))
+		return &invalid_expression;
+
+	expr->span = span_extend(left->span, closeParenToken.span);
+
+	return expr;
+}
+
 bool parser_parse_token(Parser* parser, TokenType expected_type)
 {
 	Token tok = parser_peek_token(parser);
@@ -871,12 +1019,15 @@ bool parser_parse_identifier(Parser* parser, StringView* out_identifier)
 
 bool parser_parse_type(Parser* parser, Type** out_type)
 {
-	static_assert(TYPE_KIND_COUNT == 12, "parser_parse_type needs to be updated to handle new types");
+	static_assert(TYPE_KIND_COUNT == 13, "parser_parse_type needs to be updated to handle new types");
 
 	Token tok = parser_peek_token(parser);
 
 	switch (tok.type)
 	{
+	case TOKEN_TYPE_VOID_KEYWORD:
+		*out_type = type_get_builtin(TYPE_KIND_VOID);
+		break;
 	case TOKEN_TYPE_BOOL_KEYWORD:
 		*out_type = type_get_builtin(TYPE_KIND_BOOL);
 		break;
@@ -929,7 +1080,7 @@ bool is_assignment_token(TokenType type)
 
 static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
     [TOKEN_TYPE_AS_KEYWORD]    = {nullptr, parser_parse_cast_expression, PRECEDENCE_CAST},
-    [TOKEN_TYPE_OPEN_PAREN]    = {parser_parse_group_expression, nullptr, PRECEDENCE_NONE},
+    [TOKEN_TYPE_OPEN_PAREN]    = {parser_parse_group_expression, parser_parse_call_expression, PRECEDENCE_POSTFIX},
     [TOKEN_TYPE_PLUS]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_MINUS]         = {parser_parse_unary_expression, parser_parse_binary_expression, PRECEDENCE_ADDITIVE},
     [TOKEN_TYPE_STAR]          = {nullptr, parser_parse_binary_expression, PRECEDENCE_MULTIPLY},
@@ -952,4 +1103,4 @@ static ParseRule parse_rules[TOKEN_TYPE_COUNT] = {
                                   PRECEDENCE_POSTFIX},
 };
 
-static_assert(TOKEN_TYPE_COUNT == 52, "Update parse_rules when adding new token types");
+static_assert(TOKEN_TYPE_COUNT == 54, "Update parse_rules when adding new token types");

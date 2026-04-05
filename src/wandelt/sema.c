@@ -58,7 +58,7 @@ bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 {
 	(void)sema;
 
-	static_assert(DECLARATION_TYPE_COUNT == 3,
+	static_assert(DECLARATION_TYPE_COUNT == 4,
 	              "Update sema_pass_register_declarations when adding new declaration types");
 
 	for (u64 i = 0; i < vector_get_length(tu->statements); i++)
@@ -73,6 +73,19 @@ bool sema_analyze_pass_declarations(Sema* sema, TranslationUnit* tu)
 		{
 		case DECLARATION_TYPE_VARIABLE:
 			break; // variables register themselves when encountered during analysis
+
+		case DECLARATION_TYPE_FUNCTION: {
+			Symbol* sym = symtab_insert(&sema->symbol_table, decl->fn.name, SYMBOL_KIND_FUNCTION, nullptr, decl);
+			if (sym == nullptr)
+			{
+				diagnostics_verror_along_span(decl->span, sema->source,
+				                              "Function '%.*s' was already declared in this namespace",
+				                              FMT_STR_ARG(decl->fn.name));
+				return false;
+			}
+
+			break;
+		}
 
 		case DECLARATION_TYPE_NAMESPACE:
 			break;
@@ -296,7 +309,7 @@ bool sema_analyze_if_statement(Sema* sema, Statement* stmt)
 
 static bool sema_is_compile_time_constant_expr(Expression* expr, Declaration* loop_var)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8,
+	static_assert(EXPRESSION_TYPE_COUNT == 9,
 	              "Update sema_is_compile_time_constant_expr when adding new expression types");
 
 	switch (expr->type)
@@ -332,6 +345,9 @@ static bool sema_is_compile_time_constant_expr(Expression* expr, Declaration* lo
 		// i++ / i-- allowed if operand is the loop variable
 		return expr->incdec.operand->type == EXPRESSION_TYPE_IDENTIFIER && loop_var &&
 		       expr->incdec.operand->identifier.declaration_ref == loop_var;
+
+	case EXPRESSION_TYPE_CALL:
+		return false;
 
 	default:
 		return false;
@@ -500,11 +516,17 @@ bool sema_analyze_declaration_internal(Sema* sema, Declaration* decl)
 {
 	switch (decl->type)
 	{
-	case DECLARATION_TYPE_VARIABLE:
-		return sema_analyze_variable_declaration(sema, decl);
 	case DECLARATION_TYPE_NAMESPACE:
 		return true;
+
+	case DECLARATION_TYPE_VARIABLE:
+		return sema_analyze_variable_declaration(sema, decl);
+
+	case DECLARATION_TYPE_FUNCTION:
+		return sema_analyze_function_declaration(sema, decl);
+
 	case DECLARATION_TYPE_INVALID:
+
 	case DECLARATION_TYPE_COUNT:
 		break;
 	}
@@ -547,6 +569,75 @@ bool sema_analyze_variable_declaration(Sema* sema, Declaration* decl)
 	return true;
 }
 
+bool sema_analyze_function_declaration(Sema* sema, Declaration* decl)
+{
+	symtab_push_scope(&sema->symbol_table);
+
+	FunctionDeclaration* func = &decl->fn;
+
+	for (u64 i = 0; i < vector_get_length(func->parameters); i++)
+	{
+		FunctionParameter* param = &func->parameters[i];
+		if (param->default_value)
+		{
+			if (!sema_check_expression(sema, param->default_value, param->type))
+			{
+				symtab_pop_scope(&sema->symbol_table);
+				return false;
+			}
+
+			Type* default_type = param->default_value->resolved_type;
+			if (default_type != param->type)
+			{
+				if (type_is_implicitly_convertible(default_type, param->type))
+				{
+					param->default_value = sema_insert_cast(sema, param->default_value, param->type);
+				}
+				else
+				{
+					diagnostics_verror_along_span(param->default_value->span, sema->source,
+					                              "Default value type '%s' is not compatible with parameter type '%s'",
+					                              type_kind_to_cstr(default_type->kind),
+					                              type_kind_to_cstr(param->type->kind));
+					symtab_pop_scope(&sema->symbol_table);
+					return false;
+				}
+			}
+		}
+
+		// probably should be in parser
+		Declaration* param_decl          = sema->decl_allocator->alloc(sema->decl_allocator->ctx, sizeof(Declaration));
+		param_decl->type                 = DECLARATION_TYPE_VARIABLE;
+		param_decl->variable.name        = param->name;
+		param_decl->variable.type        = param->type;
+		param_decl->variable.initializer = nullptr;
+		param_decl->resolve_status       = RESOLVE_STATUS_RESOLVED;
+		param_decl->span                 = decl->span;
+
+		Symbol* param_sym =
+		    symtab_insert(&sema->symbol_table, param->name, SYMBOL_KIND_VARIABLE, param->type, param_decl);
+		if (param_sym == nullptr)
+		{
+			diagnostics_verror_along_span(param_decl->span, sema->source,
+			                              "Parameter with name '%.*s' already declared in this function",
+			                              FMT_STR_ARG(param->name));
+			symtab_pop_scope(&sema->symbol_table);
+			return false;
+		}
+	}
+
+	bool ok = true;
+	for (size_t i = 0; i < vector_get_length(func->body->block_stmt.statements); i++)
+	{
+		if (!sema_analyze_statement(sema, func->body->block_stmt.statements[i]))
+			ok = false;
+	}
+
+	symtab_pop_scope(&sema->symbol_table);
+
+	return ok;
+}
+
 bool sema_analyze_expression_statement(Sema* sema, Statement* stmt)
 {
 	return sema_check_expression(sema, stmt->expr_stmt.expression, nullptr);
@@ -580,7 +671,7 @@ bool sema_check_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hint)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update sema_check_expression_internal when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update sema_check_expression_internal when adding new expression types");
 
 	switch (expr->type)
 	{
@@ -595,17 +686,18 @@ bool sema_check_expression_internal(Sema* sema, Expression* expr, Type* type_hin
 
 	case EXPRESSION_TYPE_GROUP:
 		return sema_check_group_expression(sema, expr, type_hint);
-		break;
 
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return sema_check_identifier_expression(sema, expr, type_hint);
-		break;
 
 	case EXPRESSION_TYPE_CAST:
 		return sema_check_cast_expression(sema, expr, type_hint);
 
 	case EXPRESSION_TYPE_INCDEC:
 		return sema_check_incdec_expression(sema, expr, type_hint);
+
+	case EXPRESSION_TYPE_CALL:
+		return sema_check_call_expression(sema, expr);
 
 	case EXPRESSION_TYPE_INVALID:
 	case EXPRESSION_TYPE_COUNT:
@@ -886,12 +978,129 @@ bool sema_check_incdec_expression(Sema* sema, Expression* expr, Type* type_hint)
 
 	// Mark variable as "assigned"
 	Symbol* sym = symtab_lookup(&sema->symbol_table, expr->incdec.operand->identifier.name, true);
-	ASSERT(sym != nullptr); // for safety, should be handled by check_identifier_expression
+	if (sym->kind != SYMBOL_KIND_VARIABLE)
+	{
+		diagnostics_verror_along_span(expr->incdec.operand->span, sema->source,
+		                              "Cannot apply %s to this expression'%s'",
+		                              expr->incdec.is_increment ? "increment" : "decrement");
+		return false;
+	}
 
-	if (sym->declaration_ref->type == DECLARATION_TYPE_VARIABLE)
-		sym->declaration_ref->variable.is_ever_assigned = true;
+	sym->declaration_ref->variable.is_ever_assigned = true;
 
 	expr->resolved_type = operand_type;
+
+	return true;
+}
+
+bool sema_check_call_expression(Sema* sema, Expression* expr)
+{
+	CallExpression* call = &expr->call;
+
+	Symbol* func_sym = symtab_lookup(&sema->symbol_table, call->function_name, true);
+	if (!func_sym)
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "Undeclared function '%.*s'",
+		                              FMT_STR_ARG(call->function_name));
+		return false;
+	}
+
+	if (func_sym->kind != SYMBOL_KIND_FUNCTION)
+	{
+		diagnostics_verror_along_span(expr->span, sema->source, "'%.*s' is not a function",
+		                              FMT_STR_ARG(call->function_name));
+		return false;
+	}
+
+	call->declaration_ref = func_sym->declaration_ref;
+
+	FunctionDeclaration* func_decl = &func_sym->declaration_ref->fn;
+
+	u32 positional_index = 0;
+	u64 arg_count        = vector_get_length(call->arguments);
+	u64 param_count      = vector_get_length(func_decl->parameters);
+
+	CallArgument* resolved_args = vector_create(sema->expr_allocator, param_count, sizeof(CallArgument));
+
+	for (u64 i = 0; i < arg_count; i++)
+	{
+		CallArgument* arg = &call->arguments[i];
+
+		if (arg->value == nullptr)
+		{
+			if (positional_index >= param_count)
+			{
+				diagnostics_verror_along_span(expr->span, sema->source,
+				                              "Too many arguments to function '%.*s' (expected %u but got %u)",
+				                              FMT_STR_ARG(call->function_name), param_count, positional_index + 1);
+				return false;
+			}
+
+			positional_index++;
+
+			continue;
+		}
+
+		if (positional_index >= param_count)
+		{
+			diagnostics_verror_along_span(expr->span, sema->source,
+			                              "Too many arguments to function '%.*s' (expected %u but got %u)",
+			                              FMT_STR_ARG(call->function_name), param_count, positional_index + 1);
+			return false;
+		}
+
+		resolved_args[i].value = arg->value;
+
+		positional_index++;
+	}
+
+	for (u64 i = 0; i < param_count; i++)
+	{
+		CallArgument* arg = &resolved_args[i];
+		if (arg->value == nullptr)
+		{
+			if (func_decl->parameters[i].default_value)
+			{
+				arg->value = func_decl->parameters[i].default_value;
+			}
+			else
+			{
+				diagnostics_verror_along_span(
+				    expr->span, sema->source,
+				    "Missing argument for parameter '%.*s' in call to '%.*s' (no default value)",
+				    FMT_STR_ARG(func_decl->parameters[i].name), FMT_STR_ARG(call->function_name));
+				return false;
+			}
+		}
+	}
+
+	for (u64 i = 0; i < param_count; i++)
+	{
+		if (!sema_check_expression(sema, resolved_args[i].value, func_decl->parameters[i].type))
+			return false;
+
+		Type* arg_type   = resolved_args[i].value->resolved_type;
+		Type* param_type = func_decl->parameters[i].type;
+
+		if (arg_type != param_type)
+		{
+			if (type_is_implicitly_convertible(arg_type, param_type))
+			{
+				resolved_args[i].value = sema_insert_cast(sema, resolved_args[i].value, param_type);
+			}
+			else
+			{
+				diagnostics_verror_along_span(resolved_args[i].value->span, sema->source,
+				                              "Cannot convert argument type '%s' to parameter type '%s' for '%.*s'",
+				                              type_kind_to_cstr(arg_type->kind), type_kind_to_cstr(param_type->kind),
+				                              FMT_STR_ARG(func_decl->parameters[i].name));
+				return false;
+			}
+		}
+	}
+
+	call->arguments     = resolved_args;
+	expr->resolved_type = func_decl->return_type;
 
 	return true;
 }

@@ -949,6 +949,96 @@ TEST(e2e_inline_for_nested_matches_demo)
 	                      100); // last iteration: x=50, y=50 -> 100
 }
 
+// ---------------------------------------------------------------------------
+// Function calls
+// ---------------------------------------------------------------------------
+
+TEST(e2e_fn_simple_call)
+{
+	EXPECT_RETURN_I64("fn int add(int x, int y) { return x + y; }\n"
+	                  "return add(2, 3);",
+	                  5);
+}
+
+TEST(e2e_fn_single_param)
+{
+	EXPECT_RETURN_I64("fn int double_it(int x) { return x * 2; }\n"
+	                  "return double_it(7);",
+	                  14);
+}
+
+TEST(e2e_fn_default_args_both)
+{
+	EXPECT_RETURN_I64("fn int add(int x = 10, int y = 20) { return x + y; }\n"
+	                  "return add();",
+	                  30);
+}
+
+TEST(e2e_fn_default_args_partial)
+{
+	EXPECT_RETURN_I64("fn int add(int x = 10, int y = 20) { return x + y; }\n"
+	                  "return add(5);",
+	                  25);
+}
+
+TEST(e2e_fn_default_args_skip_first)
+{
+	EXPECT_RETURN_I64("fn int add(int x = 10, int y = 20) { return x + y; }\n"
+	                  "return add(, 100);",
+	                  110);
+}
+
+TEST(e2e_fn_default_args_combined)
+{
+	EXPECT_RETURN_I64("fn int add(int x = 10, int y = 20) { return x + y; }\n"
+	                  "var int a = add();\n"
+	                  "var int b = add(5);\n"
+	                  "var int c = add(, 100);\n"
+	                  "var int d = add(, 50);\n"
+	                  "return a + b + c + d;",
+	                  225);
+}
+
+TEST(e2e_fn_multiple_calls)
+{
+	EXPECT_RETURN_I64("fn int square(int x) { return x * x; }\n"
+	                  "return square(3) + square(4);",
+	                  25);
+}
+
+TEST(e2e_fn_call_as_argument)
+{
+	EXPECT_RETURN_I64("fn int inc(int x) { return x + 1; }\n"
+	                  "fn int double_it(int x) { return x * 2; }\n"
+	                  "return double_it(inc(4));",
+	                  10);
+}
+
+TEST(e2e_fn_recursive_fibonacci)
+{
+	EXPECT_RETURN_I64("fn int fib(int n) {\n"
+	                  "    if (n <= 1) { return n; }\n"
+	                  "    return fib(n - 1) + fib(n - 2);\n"
+	                  "}\n"
+	                  "return fib(10);",
+	                  55);
+}
+
+TEST(e2e_fn_call_in_var)
+{
+	EXPECT_RETURN_I64("fn int add(int x, int y) { return x + y; }\n"
+	                  "var int r = add(10, 20);\n"
+	                  "return r;",
+	                  30);
+}
+
+TEST(e2e_fn_call_in_expression)
+{
+	EXPECT_RETURN_I64("fn int add(int x, int y) { return x + y; }\n"
+	                  "return add(1, 2) * 3 + add(4, 5);",
+	                  18);
+}
+
 TestResults run_e2e_tests(void)
 {
 	Allocator heap  = allocator_get_heap_allocator();
@@ -1087,6 +1177,19 @@ TestResults run_e2e_tests(void)
 	RUN_TEST(e2e_while_with_inner_var);
 	RUN_TEST(e2e_while_with_if);
 	RUN_TEST(e2e_while_compound_condition);
+
+	print_section("Function calls");
+	RUN_TEST(e2e_fn_simple_call);
+	RUN_TEST(e2e_fn_single_param);
+	RUN_TEST(e2e_fn_default_args_both);
+	RUN_TEST(e2e_fn_default_args_partial);
+	RUN_TEST(e2e_fn_default_args_skip_first);
+	RUN_TEST(e2e_fn_default_args_combined);
+	RUN_TEST(e2e_fn_multiple_calls);
+	RUN_TEST(e2e_fn_call_as_argument);
+	RUN_TEST(e2e_fn_recursive_fibonacci);
+	RUN_TEST(e2e_fn_call_in_var);
+	RUN_TEST(e2e_fn_call_in_expression);
 
 	double total_ms = platform_timer_elapsed_ms(&total_timer);
 	arena.release(arena.ctx);

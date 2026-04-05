@@ -1,17 +1,19 @@
 #include "vm.h"
 
-VM vm_create(Chunk* chunk)
+VM vm_create(Chunk* chunk, CompiledFunction* functions, u8 function_count)
 {
 	VM vm;
 	memset(&vm, 0, sizeof(VM));
-	vm.chunk = chunk;
-	vm.ip    = chunk->instructions;
+	vm.chunk          = chunk;
+	vm.ip             = chunk->instructions;
+	vm.functions      = functions;
+	vm.function_count = function_count;
 	return vm;
 }
 
 VmResult vm_execute(VM* vm)
 {
-	static_assert(OP_CODE_COUNT == 51, "vm_execute needs to be updated for new opcodes");
+	static_assert(OP_CODE_COUNT == 52, "vm_execute needs to be updated for new opcodes");
 
 	Value* R = vm->registers;
 	Value* K = vm->chunk->constants;
@@ -290,10 +292,62 @@ VmResult vm_execute(VM* vm)
 			break;
 		}
 
+		case OP_CODE_CALL: {
+			u8 dest      = DECODE_A(inst);
+			u8 first_arg = DECODE_B(inst);
+			u8 func_idx  = DECODE_C(inst);
+
+			ASSERT(func_idx < vm->function_count, "Invalid function index");
+			CompiledFunction* fn = &vm->functions[func_idx];
+
+			// Push call frame
+			ASSERT(vm->frame_count < VM_MAX_CALL_DEPTH, "Call stack overflow");
+			CallFrame* frame = &vm->call_stack[vm->frame_count++];
+			frame->chunk     = vm->chunk;
+			frame->return_ip = vm->ip;
+			frame->reg_base  = vm->reg_base;
+			frame->dest_reg  = vm->reg_base + dest;
+
+			// New register window starts after caller's args
+			u16 new_base = vm->reg_base + first_arg;
+			ASSERT(new_base + 256 <= VM_MAX_REGISTERS || fn->param_count <= (VM_MAX_REGISTERS - new_base),
+			       "Register file overflow");
+
+			// Arguments are already in R[first_arg..first_arg+param_count) from caller's perspective,
+			// which maps to R[0..param_count) in the callee's window since new_base = reg_base + first_arg
+
+			// Switch to function
+			vm->reg_base = new_base;
+			vm->chunk    = &fn->chunk;
+			vm->ip       = fn->chunk.instructions;
+			R            = vm->registers + vm->reg_base;
+			K            = vm->chunk->constants;
+			break;
+		}
+
 		case OP_CODE_RETURN: {
-			u8 a             = DECODE_A(inst);
-			vm->return_value = R[a];
-			return VM_OK;
+			u8 a         = DECODE_A(inst);
+			Value retval = R[a];
+
+			if (vm->frame_count == 0)
+			{
+				vm->return_value = retval;
+				return VM_OK;
+			}
+
+			// Pop call frame
+			CallFrame* frame = &vm->call_stack[--vm->frame_count];
+			vm->chunk    = frame->chunk;
+			vm->ip       = frame->return_ip;
+			vm->reg_base = frame->reg_base;
+
+			// Write return value into caller's dest register
+			vm->registers[frame->dest_reg] = retval;
+
+			// Re-base R and K
+			R = vm->registers + vm->reg_base;
+			K = vm->chunk->constants;
+			break;
 		}
 
 		case OP_CODE_HALT: {

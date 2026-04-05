@@ -22,31 +22,43 @@ const char* resolve_status_to_cstr(ResolveStatus status)
 
 const char* expression_type_to_cstr(ExpressionType type)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update expression_type_to_cstr when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update expression_type_to_cstr when adding new expression types");
 
 	switch (type)
 	{
 	case EXPRESSION_TYPE_INVALID:
-		return "InvalidExpression";
+		ASSERT(false, "InvalidExpression");
+		break;
+
 	case EXPRESSION_TYPE_CONSTANT:
 		return "ConstantExpression";
+
 	case EXPRESSION_TYPE_UNARY:
 		return "UnaryExpression";
+
 	case EXPRESSION_TYPE_BINARY:
 		return "BinaryExpression";
+
 	case EXPRESSION_TYPE_GROUP:
 		return "GroupExpression";
+
 	case EXPRESSION_TYPE_IDENTIFIER:
 		return "IdentifierExpression";
+
 	case EXPRESSION_TYPE_CAST:
 		return "CastExpression";
+
 	case EXPRESSION_TYPE_INCDEC:
 		return "IncDecExpression";
+
+	case EXPRESSION_TYPE_CALL:
+		return "CallExpression";
+
+	case EXPRESSION_TYPE_COUNT:
 	default:
+		ASSERT(false, "InvalidExpression");
 		break;
 	}
-
-	ASSERT(false, "Unknown expression type");
 }
 
 const char* constant_kind_to_cstr(ConstantKind kind)
@@ -301,16 +313,22 @@ BinaryOperator assignment_operator_to_binary_operator(AssignmentOperator op)
 
 const char* declaration_type_to_cstr(DeclarationType type)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3, "Update declaration_type_to_cstr when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 4, "Update declaration_type_to_cstr when adding new declaration types");
 
 	switch (type)
 	{
 	case DECLARATION_TYPE_INVALID:
 		return "InvalidDeclaration";
+
 	case DECLARATION_TYPE_NAMESPACE:
 		return "NamespaceDeclaration";
+
 	case DECLARATION_TYPE_VARIABLE:
 		return "VariableDeclaration";
+
+	case DECLARATION_TYPE_FUNCTION:
+		return "FunctionDeclaration";
+
 	default:
 		break;
 	}
@@ -360,7 +378,7 @@ const char* statement_type_to_cstr(StatementType type)
 
 static void dump_expression(Expression* expr, int indent)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update dump_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update dump_expression when adding new expression types");
 
 	if (!expr)
 		return;
@@ -423,6 +441,17 @@ static void dump_expression(Expression* expr, int indent)
 		printf("%*sOperand:\n", indent + 2, "");
 		dump_expression(expr->incdec.operand, indent + 4);
 	}
+	else if (expr->type == EXPRESSION_TYPE_CALL)
+	{
+		printf("%*sCallee:\n", indent + 2, "");
+		printf("%*sFunction name: %.*s\n", indent + 4, "", FMT_STR_ARG(expr->call.function_name));
+		printf("%*sArguments:\n", indent + 2, "");
+		for (u64 i = 0; i < vector_get_length(expr->call.arguments); i++)
+		{
+			printf("%*s[%llu] Argument:\n", indent + 4, "", i);
+			dump_expression(expr->call.arguments[i].value, indent + 6);
+		}
+	}
 	else
 	{
 		ASSERT(false);
@@ -431,7 +460,7 @@ static void dump_expression(Expression* expr, int indent)
 
 static void dump_declaration(Declaration* decl, int indent)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3, "Update dump_declaration when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 4, "Update dump_declaration when adding new declaration types");
 
 	if (!decl)
 		return;
@@ -446,6 +475,27 @@ static void dump_declaration(Declaration* decl, int indent)
 		printf("%*sType: %s\n", indent + 2, "", type_kind_to_cstr(decl->variable.type->kind));
 		printf("%*sInitializer:\n", indent + 2, "");
 		dump_expression(decl->variable.initializer, indent + 4);
+	}
+	else if (decl->type == DECLARATION_TYPE_FUNCTION)
+	{
+		printf("%*sName: %.*s\n", indent + 2, "", FMT_STR_ARG(decl->fn.name));
+		printf("%*sReturn type: %s\n", indent + 2, "", type_kind_to_cstr(decl->fn.return_type->kind));
+		printf("%*sParameters:\n", indent + 2, "");
+		for (u64 i = 0; i < vector_get_length(decl->fn.parameters); i++)
+		{
+			FunctionParameter* param = &decl->fn.parameters[i];
+			printf("%*s[%llu] %.*s: %s", indent + 4, "", i, FMT_STR_ARG(param->name),
+			       type_kind_to_cstr(param->type->kind));
+			if (param->default_value)
+			{
+				printf(" =\n");
+				dump_expression(param->default_value, indent + 6);
+			}
+			else
+			{
+				printf("\n");
+			}
+		}
 	}
 	else
 	{
@@ -620,7 +670,7 @@ Statement* ast_deep_copy_statement(AstCopyContext* ctx, const Statement* stmt)
 
 Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* decl)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3, "Update ast_deep_copy_declaration when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 4, "Update ast_deep_copy_declaration when adding new declaration types");
 
 	ASSERT(decl);
 
@@ -635,6 +685,10 @@ Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* d
 
 	case DECLARATION_TYPE_NAMESPACE:
 		ASSERT(false, "Cant copy namespace declaration");
+		break;
+
+	case DECLARATION_TYPE_FUNCTION:
+		ASSERT(false, "Cant copy function declaration");
 		break;
 
 	case DECLARATION_TYPE_VARIABLE:
@@ -652,7 +706,7 @@ Declaration* ast_deep_copy_declaration(AstCopyContext* ctx, const Declaration* d
 
 Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update ast_deep_copy_expression when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update ast_deep_copy_expression when adding new expression types");
 
 	ASSERT(expr);
 
@@ -703,6 +757,22 @@ Expression* ast_deep_copy_expression(AstCopyContext* ctx, const Expression* expr
 
 	case EXPRESSION_TYPE_INCDEC:
 		copy->incdec.operand = ast_deep_copy_expression(ctx, expr->incdec.operand);
+		break;
+
+	case EXPRESSION_TYPE_CALL:
+		copy->call.arguments =
+		    vector_create(ctx->expr_alloc, vector_get_length(expr->call.arguments), sizeof(Expression*));
+
+		for (u64 i = 0; i < vector_get_length(expr->call.arguments); i++)
+		{
+			CallArgument arg     = expr->call.arguments[i];
+			Expression* arg_expr = nullptr;
+			if (arg.value)
+				arg_expr = ast_deep_copy_expression(ctx, arg.value);
+
+			vector_push(copy->call.arguments, arg);
+		}
+
 		break;
 
 	case EXPRESSION_TYPE_COUNT:

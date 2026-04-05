@@ -6,7 +6,7 @@
 
 const char* op_code_to_cstr(OpCode op)
 {
-	static_assert(OP_CODE_COUNT == 51, "Update this function when adding new opcodes");
+	static_assert(OP_CODE_COUNT == 52, "Update this function when adding new opcodes");
 
 	switch (op)
 	{
@@ -121,6 +121,9 @@ const char* op_code_to_cstr(OpCode op)
 		return "JUMP_BACK";
 	case OP_CODE_JUMP_IF_FALSE:
 		return "JUMP_NE";
+
+	case OP_CODE_CALL:
+		return "CALL";
 
 	case OP_CODE_RETURN:
 		return "RETURN";
@@ -374,7 +377,7 @@ void bytecode_compiler_set_line_from_span(BytecodeCompiler* c, Span span)
 
 OpCode bytecode_compiler_select_negate_opcode(Type* type)
 {
-	static_assert(TYPE_KIND_COUNT == 12, "Update this function when adding new TypeKinds");
+	static_assert(TYPE_KIND_COUNT == 13, "Update this function when adding new TypeKinds");
 
 	if (type->kind == TYPE_KIND_DOUBLE)
 		return OP_CODE_NEG_D;
@@ -387,7 +390,7 @@ OpCode bytecode_compiler_select_negate_opcode(Type* type)
 
 bool bytecode_compiler_cast_needs_instruction(TypeKind from, TypeKind to)
 {
-	static_assert(TYPE_KIND_COUNT == 12, "Update this function when adding new TypeKinds");
+	static_assert(TYPE_KIND_COUNT == 13, "Update this function when adding new TypeKinds");
 
 	if (from == to)
 		return false;
@@ -644,7 +647,7 @@ void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, 
 
 u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration* decl)
 {
-	static_assert(DECLARATION_TYPE_COUNT == 3, "Update this function when adding new declaration types");
+	static_assert(DECLARATION_TYPE_COUNT == 4, "Update this function when adding new declaration types");
 
 	switch (decl->type)
 	{
@@ -657,6 +660,9 @@ u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration
 
 	case DECLARATION_TYPE_VARIABLE:
 		return bytecode_compiler_compile_variable_declaration(compiler, decl);
+
+	case DECLARATION_TYPE_FUNCTION:
+		return bytecode_compiler_compile_function_declaration(compiler, decl);
 
 	case DECLARATION_TYPE_COUNT:
 	default:
@@ -678,9 +684,53 @@ u8 bytecode_compiler_compile_variable_declaration(BytecodeCompiler* compiler, De
 	return reg;
 }
 
+u8 bytecode_compiler_compile_function_declaration(BytecodeCompiler* compiler, Declaration* decl)
+{
+	// Save compiler state
+	Chunk saved_chunk = compiler->current_chunk;
+	u8 saved_reg      = compiler->next_free_reg_idx;
+	u8 saved_locals   = compiler->local_count;
+	u8 saved_scope    = compiler->scope_depth;
+
+	// Fresh state for function body
+	compiler->current_chunk     = chunk_create(compiler->alloc);
+	compiler->next_free_reg_idx = 0;
+	compiler->local_count       = 0;
+	compiler->scope_depth       = 0;
+
+	// Parameters become locals in registers 0..N-1
+	u64 param_count = vector_get_length(decl->fn.parameters);
+	for (u64 i = 0; i < param_count; i++)
+	{
+		u8 reg          = bytecode_compiler_allocate_register(compiler);
+		Variable* local = &compiler->variables[compiler->local_count++];
+		local->name     = decl->fn.parameters[i].name;
+		local->reg      = reg;
+	}
+
+	// Register function before compiling body so recursive calls can resolve
+	ASSERT(compiler->function_count < 64, "Exceeded maximum function count");
+	u8 fn_idx            = compiler->function_count++;
+	CompiledFunction* fn = &compiler->functions[fn_idx];
+	fn->name             = decl->fn.name;
+	fn->param_count      = (u8)param_count;
+
+	bytecode_compiler_compile_statement(compiler, decl->fn.body);
+
+	fn->chunk = compiler->current_chunk;
+
+	// Restore compiler state
+	compiler->current_chunk     = saved_chunk;
+	compiler->next_free_reg_idx = saved_reg;
+	compiler->local_count       = saved_locals;
+	compiler->scope_depth       = saved_scope;
+
+	return 0;
+}
+
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr)
 {
-	static_assert(EXPRESSION_TYPE_COUNT == 8, "Update this function when adding new expression types");
+	static_assert(EXPRESSION_TYPE_COUNT == 9, "Update this function when adding new expression types");
 
 	bytecode_compiler_set_line_from_span(compiler, expr->span);
 
@@ -710,6 +760,9 @@ u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* 
 
 	case EXPRESSION_TYPE_INCDEC:
 		return bytecode_compiler_compile_incdec_expression(compiler, expr);
+
+	case EXPRESSION_TYPE_CALL:
+		return bytecode_compiler_compile_call_expression(compiler, expr);
 
 	case EXPRESSION_TYPE_COUNT:
 	default:
@@ -839,4 +892,44 @@ u8 bytecode_compiler_compile_incdec_expression(BytecodeCompiler* compiler, Expre
 		chunk_emit(&compiler->current_chunk, ENCODE_ABC(op, var_reg, var_reg, one_reg));
 		return var_reg;
 	}
+}
+
+u8 bytecode_compiler_compile_call_expression(BytecodeCompiler* compiler, Expression* expr)
+{
+	CallExpression* call = &expr->call;
+
+	// Find function index, todo make it better
+	u8 func_idx = 0;
+	bool found  = false;
+	for (u8 i = 0; i < compiler->function_count; i++)
+	{
+		if (string_view_equals(compiler->functions[i].name, call->function_name))
+		{
+			func_idx = i;
+			found    = true;
+			break;
+		}
+	}
+	ASSERT(found, "Undefined function in bytecode compiler");
+
+	// Compile arguments into consecutive registers
+	FunctionDeclaration* fn_decl = &call->declaration_ref->fn;
+	u64 param_count              = vector_get_length(fn_decl->parameters);
+	u8 first_arg                 = compiler->next_free_reg_idx;
+
+	for (u64 i = 0; i < param_count; i++) bytecode_compiler_allocate_register(compiler);
+
+	for (u64 i = 0; i < param_count; i++)
+	{
+		u8 result = bytecode_compiler_compile_expression(compiler, call->arguments[i].value);
+		if (result != first_arg + i)
+			chunk_emit(&compiler->current_chunk, ENCODE_ABC(OP_CODE_MOVE, first_arg + (u8)i, result, 0));
+	}
+
+	// Destination register for return value
+	u8 dest = bytecode_compiler_allocate_register(compiler);
+
+	chunk_emit(&compiler->current_chunk, ENCODE_ABC(OP_CODE_CALL, dest, first_arg, func_idx));
+
+	return dest;
 }

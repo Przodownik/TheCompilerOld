@@ -112,11 +112,12 @@ int main(int argc, char* argv[])
 	dt_bytecode               = platform_timer_elapsed_ms(&timer);
 
 	if (debug)
-		disassemble_chunk(&chunk, "main", &demo_file);
-	disassemble_chunk_to_file(&chunk, "main", &demo_file, DEMO_PATH "main.wdtbc");
+		disassemble_program(&chunk, compiler.functions, compiler.function_count, "main", &demo_file);
+	disassemble_program_to_file(&chunk, compiler.functions, compiler.function_count, "main", &demo_file,
+	                            DEMO_PATH "main.wdtbc");
 
 	// VM Execution
-	VM vm           = vm_create(&chunk);
+	VM vm           = vm_create(&chunk, compiler.functions, compiler.function_count);
 	VmResult result = VM_ERROR;
 
 	platform_timer_start(&timer);

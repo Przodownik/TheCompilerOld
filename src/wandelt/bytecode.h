@@ -86,6 +86,8 @@ typedef enum OpCode
 	OP_CODE_JUMP_BACK,     //	ABx     ip -= Bx
 	OP_CODE_JUMP_IF_FALSE, //	ABx     if !R(A) then ip += Bx
 
+	OP_CODE_CALL, //		ABC    Call function C, args starting at R(B), result in R(A)
+
 	OP_CODE_RETURN, // return R(A)
 	OP_CODE_HALT,   // stop execution
 	OP_CODE_COUNT,
@@ -171,6 +173,13 @@ typedef struct Variable
 	u8 reg;
 } Variable;
 
+typedef struct CompiledFunction
+{
+	StringView name;
+	Chunk chunk;
+	u8 param_count;
+} CompiledFunction;
+
 typedef struct BytecodeCompiler
 {
 	Allocator* alloc;
@@ -179,8 +188,9 @@ typedef struct BytecodeCompiler
 	u8 next_free_reg_idx;
 	Variable variables[128];
 	u8 local_count;
-	// u8 max_reg;  // high-water mark of registers used
 	u8 scope_depth;
+	CompiledFunction functions[64];
+	u8 function_count;
 } BytecodeCompiler;
 
 BytecodeCompiler bytecode_compiler_create(Allocator* alloc, const File* source);
@@ -209,6 +219,7 @@ void bytecode_compiler_compile_assignment_statement(BytecodeCompiler* compiler, 
 
 u8 bytecode_compiler_compile_declaration(BytecodeCompiler* compiler, Declaration* decl);
 u8 bytecode_compiler_compile_variable_declaration(BytecodeCompiler* compiler, Declaration* decl);
+u8 bytecode_compiler_compile_function_declaration(BytecodeCompiler* compiler, Declaration* decl);
 
 u8 bytecode_compiler_compile_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_constant_expression(BytecodeCompiler* compiler, Expression* expr);
@@ -218,3 +229,4 @@ u8 bytecode_compiler_compile_group_expression(BytecodeCompiler* compiler, Expres
 u8 bytecode_compiler_compile_identifier_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_cast_expression(BytecodeCompiler* compiler, Expression* expr);
 u8 bytecode_compiler_compile_incdec_expression(BytecodeCompiler* compiler, Expression* expr);
+u8 bytecode_compiler_compile_call_expression(BytecodeCompiler* compiler, Expression* expr);

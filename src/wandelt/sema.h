@@ -46,6 +46,7 @@ bool sema_analyze_declaration_statement(Sema* sema, Statement* stmt);
 bool sema_analyze_declaration(Sema* sema, Declaration* decl);
 bool sema_analyze_declaration_internal(Sema* sema, Declaration* decl);
 bool sema_analyze_variable_declaration(Sema* sema, Declaration* decl);
+bool sema_analyze_function_declaration(Sema* sema, Declaration* decl);
 
 bool sema_analyze_expression_statement(Sema* sema, Statement* stmt);
 bool sema_check_expression(Sema* sema, Expression* expr, Type* type_hint);
@@ -57,6 +58,7 @@ bool sema_check_group_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_identifier_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_cast_expression(Sema* sema, Expression* expr, Type* type_hint);
 bool sema_check_incdec_expression(Sema* sema, Expression* expr, Type* type_hint);
+bool sema_check_call_expression(Sema* sema, Expression* expr);
 
 void sema_promote_constant(Expression* expr, Type* target);
 Expression* sema_insert_cast(Sema* sema, Expression* inner, Type* target);

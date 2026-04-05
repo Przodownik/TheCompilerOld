@@ -10,6 +10,7 @@
 typedef enum TypeKind
 {
 	TYPE_KIND_INVALID = 0,
+	TYPE_KIND_VOID,
 	TYPE_KIND_BOOL,   // boolean type, 8-bit
 	TYPE_KIND_CHAR,   // signed 8-bit
 	TYPE_KIND_UCHAR,  // unsigned 8-bit
@@ -35,12 +36,13 @@ typedef struct Type
 
 Type* type_get_builtin(TypeKind kind);
 
-bool type_is_arithmetic(const Type* t);
-bool type_is_integer(const Type* t);
-bool type_is_floating(const Type* t);
-bool type_is_signed(const Type* t);
-bool type_is_unsigned(const Type* t);
+bool type_is_arithmetic(const Type* type);
+bool type_is_integer(const Type* type);
+bool type_is_floating(const Type* type);
+bool type_is_signed(const Type* type);
+bool type_is_unsigned(const Type* type);
 bool type_is_bool(const Type* type);
+bool type_is_void(const Type* type);
 
 bool type_is_implicitly_convertible(Type* from, Type* to);
 bool type_is_explicitly_castable(const Type* from, const Type* to);

@@ -29,6 +29,7 @@ typedef enum ExpressionType
 	EXPRESSION_TYPE_IDENTIFIER,
 	EXPRESSION_TYPE_CAST,
 	EXPRESSION_TYPE_INCDEC,
+	EXPRESSION_TYPE_CALL,
 	EXPRESSION_TYPE_COUNT,
 } ExpressionType;
 
@@ -143,6 +144,18 @@ typedef struct IncDecExpression
 	bool is_postfix;
 } IncDecExpression;
 
+typedef struct CallArgument
+{
+	struct Expression* value; // might be nullptr if default value is expected
+} CallArgument;
+
+typedef struct CallExpression
+{
+	StringView function_name;
+	struct Declaration* declaration_ref;
+	CallArgument* arguments;
+} CallExpression;
+
 typedef struct Expression
 {
 	ExpressionType type;
@@ -159,6 +172,7 @@ typedef struct Expression
 		IdentifierExpression identifier;
 		CastExpression cast;
 		IncDecExpression incdec;
+		CallExpression call;
 	};
 } Expression;
 
@@ -167,6 +181,7 @@ typedef enum DeclarationType
 	DECLARATION_TYPE_INVALID = 0,
 	DECLARATION_TYPE_NAMESPACE,
 	DECLARATION_TYPE_VARIABLE,
+	DECLARATION_TYPE_FUNCTION,
 	DECLARATION_TYPE_COUNT,
 } DeclarationType;
 
@@ -185,6 +200,21 @@ typedef struct VariableDeclaration
 	bool is_ever_assigned;
 } VariableDeclaration;
 
+typedef struct FunctionParameter
+{
+	StringView name;
+	Type* type;
+	Expression* default_value; // might be null if no default provided
+} FunctionParameter;
+
+typedef struct FunctionDeclaration
+{
+	StringView name;
+	Type* return_type;
+	FunctionParameter* parameters;
+	struct Statement* body;
+} FunctionDeclaration;
+
 typedef struct Declaration
 {
 	DeclarationType type;
@@ -194,6 +224,7 @@ typedef struct Declaration
 	union {
 		NamespaceDeclaration namespace;
 		VariableDeclaration variable;
+		FunctionDeclaration fn;
 	};
 } Declaration;
 

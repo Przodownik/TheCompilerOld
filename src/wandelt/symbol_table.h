@@ -11,9 +11,11 @@
 
 #define SYMTAB_BUCKETS 128
 
+// todo add _INVALID and _COUNT
 typedef enum SymbolKind
 {
 	SYMBOL_KIND_VARIABLE,
+	SYMBOL_KIND_FUNCTION,
 } SymbolKind;
 
 typedef struct Symbol

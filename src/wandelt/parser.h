@@ -42,7 +42,7 @@ typedef enum Precedence
 	PRECEDENCE_MULTIPLY,   // * /
 	PRECEDENCE_UNARY,      // prefix -, prefix ++/--
 	PRECEDENCE_CAST,       // as
-	PRECEDENCE_POSTFIX,    // postfix ++/--
+	PRECEDENCE_POSTFIX,    // postfix ++/-- call()
 	PRECEDENCE_PRIMARY,    // literals, identifiers
 } Precedence;
 
@@ -73,6 +73,7 @@ Statement* parser_parse_assignment_statement(Parser* parser);
 Declaration* parser_parse_declaration(Parser* parser);
 Declaration* parser_parse_namespace_declaration(Parser* parser);
 Declaration* parser_parse_variable_declaration(Parser* parser);
+Declaration* parser_parse_function_declaration(Parser* parser);
 
 Expression* parser_parse_expression(Parser* parser);
 Expression* parser_parse_expression_with_precedence(Parser* parser, Precedence min_precedence);
@@ -88,6 +89,7 @@ Expression* parser_parse_identifier_expression(Parser* parser);
 Expression* parser_parse_cast_expression(Parser* parser, Expression* left);
 Expression* parser_parse_prefix_incdec_expression(Parser* parser);
 Expression* parser_parse_postfix_incdec_expression(Parser* parser, Expression* left);
+Expression* parser_parse_call_expression(Parser* parser, Expression* left);
 
 bool parser_parse_token(Parser* parser, TokenType expected_type);
 bool parser_parse_identifier(Parser* parser, StringView* out_identifier);

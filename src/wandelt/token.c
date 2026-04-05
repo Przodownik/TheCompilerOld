@@ -2,7 +2,7 @@
 
 const char* token_type_to_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 52, "Update token_type_to_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 54, "Update token_type_to_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -30,6 +30,8 @@ const char* token_type_to_cstr(TokenType type)
 	case TOKEN_TYPE_INLINE_KEYWORD:
 		return "TOKEN_TYPE_INLINE_KEYWORD";
 
+	case TOKEN_TYPE_VOID_KEYWORD:
+		return "TOKEN_TYPE_VOID_KEYWORD";
 	case TOKEN_TYPE_BOOL_KEYWORD:
 		return "TOKEN_TYPE_BOOL_KEYWORD";
 	case TOKEN_TYPE_CHAR_KEYWORD:
@@ -79,6 +81,8 @@ const char* token_type_to_cstr(TokenType type)
 		return "TOKEN_TYPE_EQUALS";
 	case TOKEN_TYPE_DOT:
 		return "TOKEN_TYPE_DOT";
+	case TOKEN_TYPE_COMMA:
+		return "TOKEN_TYPE_COMMA";
 	case TOKEN_TYPE_GREATER:
 		return "TOKEN_TYPE_GREATER";
 	case TOKEN_TYPE_LESS:
@@ -125,7 +129,7 @@ const char* token_type_to_cstr(TokenType type)
 
 const char* token_type_to_lexeme_cstr(TokenType type)
 {
-	static_assert(TOKEN_TYPE_COUNT == 52, "Update token_type_to_lexeme_cstr when adding new token types");
+	static_assert(TOKEN_TYPE_COUNT == 54, "Update token_type_to_lexeme_cstr when adding new token types");
 
 	switch (type)
 	{
@@ -153,6 +157,8 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 	case TOKEN_TYPE_INLINE_KEYWORD:
 		return "inline";
 
+	case TOKEN_TYPE_VOID_KEYWORD:
+		return "void";
 	case TOKEN_TYPE_BOOL_KEYWORD:
 		return "bool";
 	case TOKEN_TYPE_CHAR_KEYWORD:
@@ -202,6 +208,8 @@ const char* token_type_to_lexeme_cstr(TokenType type)
 		return "=";
 	case TOKEN_TYPE_DOT:
 		return ".";
+	case TOKEN_TYPE_COMMA:
+		return ",";
 	case TOKEN_TYPE_GREATER:
 		return ">";
 	case TOKEN_TYPE_LESS:
