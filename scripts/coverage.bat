@@ -2,11 +2,11 @@
 setlocal
 
 set ROOT=%~dp0..
-set BUILD_DIR=%ROOT%\build-cov
+set BUILD_DIR=%ROOT%\build\build-cov
 set BIN=%ROOT%\bin\Wandelt.Tests.exe
-set PROFRAW=%ROOT%\coverage.profraw
-set PROFDATA=%ROOT%\coverage.profdata
-set REPORT_DIR=%ROOT%\coverage-report
+set PROFRAW=%BUILD_DIR%\coverage.profraw
+set PROFDATA=%BUILD_DIR%\coverage.profdata
+set REPORT_DIR=%BUILD_DIR%\coverage-report
 
 echo [1/5] Configuring CMake with coverage flags...
 cmake -B "%BUILD_DIR%" -S "%ROOT%" -G "Ninja" ^
